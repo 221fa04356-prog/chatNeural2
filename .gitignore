@@ -1,0 +1,5 @@
+
+# Security
+server/.env
+# Dependencies
+node_modules/

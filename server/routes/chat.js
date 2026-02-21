@@ -1,0 +1,1014 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const Message = require('../models/Message');
+const User = require('../models/User'); // Import User model
+const Groq = require('groq-sdk');
+const pdfParse = require('pdf-parse'); // Renamed to avoid confusion
+const mammoth = require('mammoth');
+const fs = require('fs');
+const axios = require('axios'); // For link preview
+
+const badWords = ['hell', 'damn', 'badword', 'idiot', 'stupid', 'hate', 'kill', 'abuse']; // Add more as needed
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'neural_secret_77';
+
+// --- Link Preview Helper ---
+const fetchLinkPreview = async (url) => {
+    try {
+        // Special handling for YouTube
+        const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+        if (isYouTube) {
+            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+            const res = await axios.get(oembedUrl, { timeout: 5000 });
+            return {
+                title: res.data.title,
+                description: res.data.author_name,
+                image: res.data.thumbnail_url,
+                url: url,
+                domain: 'youtube.com'
+            };
+        }
+
+        // Generic Metadata Extraction
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            timeout: 5000
+        });
+        const html = response.data;
+
+        const getMetaTag = (html, property) => {
+            const regex = new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']*)["']`, 'i');
+            let match = html.match(regex);
+            if (!match) {
+                const regexName = new RegExp(`<meta[^>]*name=["']${property}["'][^>]*content=["']([^"']*)["']`, 'i');
+                match = html.match(regexName);
+            }
+            return match ? match[1] : null;
+        };
+
+        const title = getMetaTag(html, 'og:title') || getMetaTag(html, 'twitter:title') || (html.match(/<title>(.*?)<\/title>/i) || [])[1];
+        const description = getMetaTag(html, 'og:description') || getMetaTag(html, 'twitter:description') || getMetaTag(html, 'description');
+        const image = getMetaTag(html, 'og:image') || getMetaTag(html, 'twitter:image');
+        const domain = new URL(url).hostname;
+
+        return { title, description, image, url, domain };
+    } catch (err) {
+        console.error('Link preview error:', err.message);
+        return null;
+    }
+};
+
+const checkUnethicalWithAI = async (text) => {
+    if (!text) return { isUnethical: false };
+    try {
+        const completion = await groq.chat.completions.create({
+            messages: [
+                { role: "system", content: "Analyze this message for unethical content (hate speech, harassment, explicit violence, self-harm, sexual content). Return ONLY a JSON object: { \"isUnethical\": boolean, \"reason\": \"short reason\" }." },
+                { role: "user", content: text }
+            ],
+            model: "llama-3.3-70b-versatile",
+        });
+        const content = completion.choices[0]?.message?.content;
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return { isUnethical: false };
+    } catch (e) {
+        console.error("AI Moderation Error:", e);
+        return { isUnethical: false };
+    }
+};
+
+// Middleware to verify JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        console.log('[AUTH DEBUG] No token found');
+        return res.status(401).json({ error: 'Access denied' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            console.log('[AUTH DEBUG] Token verification failed:', err.message);
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+        console.log('[AUTH DEBUG] Token verified for user:', user.id);
+        req.user = user;
+        next();
+    });
+};
+
+// Configure Multer
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = [
+            'image/jpeg', 'image/png', // Images
+            'application/pdf',         // PDF
+            'application/msword',      // .doc
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
+        ];
+        const ext = path.extname(file.originalname).toLowerCase();
+        const allowedExts = ['.jpg', '.jpeg', '.png', '.doc', '.docx', '.pdf'];
+
+        if (allowedTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only JPG, PNG, PDF, and Word files are allowed.'));
+        }
+    }
+});
+
+// Get Chat History (AI Chat) - Kept open (No Auth) as per previous state, but AI Widget sends token anyway.
+router.get('/history/:userId', async (req, res) => {
+    try {
+        const messages = await Message.find({
+            user_id: req.params.userId,
+            receiver_id: null // Only AI messages
+        })
+            .sort({ created_at: 1 })
+            .populate('reply_to', 'content type file_path user_id sender_id');
+        res.json(messages);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET Current User Profile - Secured with Auth
+router.get('/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('name email mobile designation about role isOnline lastSeen');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get All Users (for Contacts) - Secured with Auth
+router.get('/users', authenticateToken, async (req, res) => {
+    try {
+        const currentUserId = req.user.id;
+        const users = await User.find({ status: 'approved' }).select('name email mobile _id role about isOnline lastSeen');
+
+        if (!currentUserId) {
+            return res.json(users);
+        }
+
+        // 0. Get current user's favorites once
+        const currentUserObj = await User.findById(currentUserId).select('favorites');
+        const userFavorites = currentUserObj?.favorites || [];
+
+        const enhancedUsers = await Promise.all(users.map(async (u) => {
+            if (u._id.toString() === currentUserId) return null;
+
+            // 1. Get Last Message
+            const lastMsg = await Message.findOne({
+                $or: [
+                    { user_id: currentUserId, receiver_id: u._id },
+                    { user_id: u._id, receiver_id: currentUserId }
+                ],
+                deleted_for: { $ne: currentUserId }
+            }).sort({ created_at: -1 }).select('content created_at type sender_id is_deleted_by_admin is_deleted_by_user').lean();
+
+            // 2. Get Unread Count
+            const unreadCount = await Message.countDocuments({
+                user_id: u._id,
+                receiver_id: currentUserId,
+                is_read: false,
+                deleted_for: { $ne: currentUserId }
+            });
+
+            // 3. Get Media, Docs, and Links counts
+            const baseQuery = {
+                $or: [
+                    { user_id: currentUserId, receiver_id: u._id },
+                    { user_id: u._id, receiver_id: currentUserId }
+                ],
+                deleted_for: { $ne: currentUserId }
+            };
+
+            const [mediaCount, docCount, linkCount] = await Promise.all([
+                Message.countDocuments({ ...baseQuery, type: { $in: ['image', 'video'] } }),
+                Message.countDocuments({ ...baseQuery, type: 'file' }),
+                Message.countDocuments({ ...baseQuery, 'link_preview.url': { $exists: true, $ne: null } })
+            ]);
+
+            return {
+                ...u.toObject(),
+                lastMessage: lastMsg,
+                unreadCount,
+                mediaCount,
+                docCount,
+                linkCount,
+                isFavorite: userFavorites.some(favId => String(favId) === String(u._id))
+            };
+        }));
+
+        const result = enhancedUsers.filter(u => u !== null);
+        result.sort((a, b) => {
+            const timeA = a.lastMessage?.created_at ? new Date(a.lastMessage.created_at).getTime() : 0;
+            const timeB = b.lastMessage?.created_at ? new Date(b.lastMessage.created_at).getTime() : 0;
+            return (timeB || 0) - (timeA || 0);
+        });
+
+        res.json(result);
+    } catch (err) {
+        console.error('[BACKEND ERROR] /users failed:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET Link Preview (for typing preview)
+router.get('/link-preview', authenticateToken, async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'URL required' });
+    const preview = await fetchLinkPreview(url);
+    res.json(preview || {});
+});
+
+// POST Grammar Check
+router.post('/grammar-check', authenticateToken, async (req, res) => {
+    const { text } = req.body;
+    if (!text || text.length < 5) {
+        return res.json({ basic: text, fluent: text, formal: text });
+    }
+
+    try {
+        const completion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a precise grammar assistant. Analyze the user's message and provide three improved versions: 'basic' (strictly fix typos/grammar), 'fluent' (clean and natural), and 'formal' (professional). CRITICAL: Do NOT add new information, do NOT complete sentences, and do NOT add words that weren't in the original message unless strictly necessary for correct grammar. Only correct the exact words provided. Return ONLY a JSON object: { \"basic\": \"...\", \"fluent\": \"...\", \"formal\": \"...\" }."
+                },
+                { role: "user", content: text }
+            ],
+            model: "llama-3.3-70b-versatile",
+        });
+
+        const content = completion.choices[0]?.message?.content;
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            res.json(JSON.parse(jsonMatch[0]));
+        } else {
+            res.status(500).json({ error: "Invalid AI response" });
+        }
+    } catch (e) {
+        console.error("AI Grammar Check Error:", e);
+        res.status(500).json({ error: "Failed to check grammar" });
+    }
+});
+
+// Toggle Favorite contact - Secured with Auth
+router.post('/toggle-favorite', authenticateToken, async (req, res) => {
+    const { targetUserId } = req.body;
+    const currentUserId = req.user.id;
+
+    if (!targetUserId) return res.status(400).json({ error: 'Target User ID required' });
+
+    try {
+        const currentUser = await User.findById(currentUserId);
+        if (!currentUser) return res.status(404).json({ error: 'User not found' });
+
+        const index = currentUser.favorites.indexOf(targetUserId);
+        if (index > -1) {
+            currentUser.favorites.splice(index, 1);
+        } else {
+            currentUser.favorites.push(targetUserId);
+        }
+
+        await currentUser.save();
+        res.json({ status: 'success', favorites: currentUser.favorites });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update User info (from Edit Contact panel) - Secured with Auth
+router.post('/user/update', authenticateToken, async (req, res) => {
+    const { targetUserId, name, mobile } = req.body;
+
+    if (!targetUserId) return res.status(400).json({ error: 'Target User ID required' });
+
+    try {
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (mobile !== undefined) updateData.mobile = mobile;
+        if (req.body.designation !== undefined) updateData.designation = req.body.designation;
+        if (req.body.about !== undefined) updateData.about = req.body.about;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            targetUserId,
+            updateData,
+            { new: true } // Return the updated document
+        );
+
+        if (!updatedUser) return res.status(404).json({ error: 'User not found' });
+
+        res.json({ status: 'success', user: updatedUser });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Mark messages as read - Secured with Auth
+router.post('/messages/mark-read', authenticateToken, async (req, res) => {
+    const { userId, senderId } = req.body;
+
+    // Security check: userId must match req.user.id
+    if (userId !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized reader ID' });
+    }
+
+    try {
+        const readAt = new Date();
+        await Message.updateMany(
+            { user_id: senderId, receiver_id: userId, is_read: false },
+            { is_read: true, read_at: readAt }
+        );
+
+        // Notify the sender that their messages were read
+        if (req.io) {
+            req.io.to(senderId).emit('messages_read', {
+                reader_id: userId,
+                read_at: readAt
+            });
+        }
+
+        res.json({ status: 'success' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Mark conversation as unread - Secured with Auth
+router.post('/messages/mark-unread', authenticateToken, async (req, res) => {
+    const { userId, targetUserId } = req.body;
+
+    // Security check: userId must match req.user.id
+    if (userId !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        console.log(`[MARK_UNREAD] User ${userId} marking conversation with ${targetUserId} as unread`);
+
+        // 1. Find the timestamp of the last message sent BY the person marking as unread (userId)
+        // to the person who sent the messages (targetUserId).
+        const lastReply = await Message.findOne({
+            user_id: userId,
+            receiver_id: targetUserId
+        }).sort({ created_at: -1 });
+
+        const lastReplyAt = lastReply ? lastReply.created_at : new Date(0);
+        console.log(`[MARK_UNREAD] Last reply by ${userId} was at ${lastReplyAt}`);
+
+        // 2. Find the latest 'read_at' timestamp for messages sent BY targetUserId TO userId
+        // that were received AFTER our last reply.
+        const latestReadMsg = await Message.findOne({
+            user_id: targetUserId,
+            receiver_id: userId,
+            is_read: true,
+            read_at: { $ne: null },
+            created_at: { $gt: lastReplyAt } // Must be after our last response
+        }).sort({ read_at: -1 });
+
+        if (!latestReadMsg) {
+            console.log(`[MARK_UNREAD] No new read messages found after last reply to mark as unread`);
+            return res.json({ status: 'success', modifiedCount: 0 });
+        }
+
+        const batchReadAt = latestReadMsg.read_at;
+        console.log(`[MARK_UNREAD] Reverting batch read at: ${batchReadAt}`);
+
+        // 3. Identify the messages in this specific batch received after our last reply
+        const batchMessages = await Message.find({
+            user_id: targetUserId,
+            receiver_id: userId,
+            read_at: batchReadAt,
+            created_at: { $gt: lastReplyAt }
+        }).select('_id');
+
+        const messageIds = batchMessages.map(m => m._id.toString());
+
+        // 4. Mark ONLY messages in this specific batch as unread
+        const result = await Message.updateMany(
+            {
+                _id: { $in: messageIds }
+            },
+            { is_read: false, read_at: null }
+        );
+
+        console.log(`[MARK_UNREAD] Updated ${result.modifiedCount} messages to unread`);
+
+        if (result.modifiedCount > 0) {
+            if (req.io) {
+                // Send specific IDs to sender for perfect sync
+                req.io.to(targetUserId).emit('messages_unread', {
+                    reader_id: userId,
+                    message_ids: messageIds
+                });
+
+                req.io.emit('messages_unread_broadcast', {
+                    reader_id: userId,
+                    target: targetUserId,
+                    message_ids: messageIds
+                });
+            }
+        }
+
+        res.json({ status: 'success', modifiedCount: result.modifiedCount });
+    } catch (err) {
+        console.error(`[MARK_UNREAD] Error:`, err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get P2P Chat History - Secured with Auth
+router.get('/p2p/:userId/:otherUserId', authenticateToken, async (req, res) => {
+    try {
+        const { userId, otherUserId } = req.params;
+
+        // Security check: requester must be either userId or otherUserId
+        if (req.user.id !== userId && req.user.id !== otherUserId) {
+            return res.status(403).json({ error: 'You are not authorized to view this chat history' });
+        }
+
+        const messages = await Message.find({
+            $or: [
+                { user_id: userId, receiver_id: otherUserId },
+                { user_id: otherUserId, receiver_id: userId }
+            ],
+            deleted_for: { $ne: req.user.id }
+        })
+            .sort({ created_at: 1 })
+            .populate('reply_to', 'content type file_path user_id sender_id');
+
+        // Map messages to include user-specific is_starred boolean
+        const enrichedMessages = messages.map(msg => {
+            const msgObj = msg.toObject();
+            msgObj.is_starred = (msg.starred_by || []).includes(req.user.id);
+            return msgObj;
+        });
+
+        res.json(enrichedMessages);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Send Message - Secured with Auth
+router.post('/send', authenticateToken, (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        next();
+    });
+}, async (req, res) => {
+    const { userId, content, reply_to, toUserId } = req.body;
+    const file = req.file;
+
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    // Security check
+    if (userId !== req.user.id) {
+        return res.status(403).json({ error: 'Sender ID mismatch' });
+    }
+
+    // Determine type and metadata
+    let type = 'text';
+    let filePath = null;
+    let fileName = null;
+    let fileSize = 0;
+    let pageCount = 0;
+
+    if (file) {
+        type = file.mimetype.startsWith('image/') ? 'image' : 'file';
+        filePath = '/uploads/' + file.filename;
+        fileName = file.originalname;
+        fileSize = file.size;
+
+        // Try to get page count for PDFs (wrapped in try-catch to prevent crashing)
+        if (file.mimetype === 'application/pdf') {
+            try {
+                const dataBuffer = fs.readFileSync(path.join(__dirname, '../uploads', file.filename));
+                // Only attempt if pdfParse is a function
+                if (typeof pdfParse === 'function') {
+                    const data = await pdfParse(dataBuffer);
+                    pageCount = data.numpages;
+                } else {
+                    console.error("pdf-parse is not a function:", typeof pdfParse);
+                }
+            } catch (e) {
+                console.error("PDF Page Count Failed", e);
+            }
+        }
+    } else if (req.body.file_path) {
+        // Handle Forwarding (Existing File)
+        filePath = req.body.file_path;
+        type = req.body.type || 'text';
+        fileName = req.body.fileName;
+        fileSize = req.body.fileSize;
+        pageCount = req.body.pageCount || 0;
+    }
+
+    try {
+        // Check for unprofessional content
+        let isFlagged = content && badWords.some(word => content.toLowerCase().includes(word));
+        let flagReason = isFlagged ? "Keyword match" : "";
+
+        if (!isFlagged && content && content.length > 5) { // AI Check for non-trivial messages
+            const aiResult = await checkUnethicalWithAI(content);
+            if (aiResult.isUnethical) {
+                isFlagged = true;
+                flagReason = aiResult.reason || "AI Detected Unethical Content";
+            }
+        }
+
+        // If toUserId is present -> P2P Message
+        if (toUserId) {
+            // Detect URL for preview
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const urlMatch = content ? content.match(urlRegex) : null;
+            let linkPreview = null;
+            if (urlMatch) {
+                linkPreview = await fetchLinkPreview(urlMatch[0]);
+            }
+
+            const isForwarded = req.body.isForwarded === 'true' || req.body.isForwarded === true;
+            let forwardCount = 0;
+            if (isForwarded) {
+                const originalCount = parseInt(req.body.forward_count) || 0;
+                forwardCount = originalCount + 1;
+                console.log(`[FORWARD] Orig: ${originalCount}, New: ${forwardCount}, to: ${toUserId}`);
+            }
+
+            const msg = await Message.create({
+                user_id: userId,
+                receiver_id: toUserId,
+                role: 'user',
+                content: content || '',
+                type,
+                file_path: filePath,
+                link_preview: linkPreview,
+                fileName, fileSize, pageCount, // Metadata
+                reply_to: reply_to || null,
+
+                is_flagged: !!isFlagged,
+                flag_reason: flagReason,
+                is_forwarded: isForwarded,
+                forward_count: forwardCount
+            });
+
+
+            if (isFlagged && req.io) {
+                // Notify admins
+                req.io.to('admins').emit('unethical_message_detected', {
+                    userId: userId,
+                    userName: req.user.name || "Unknown",
+                    messageId: msg._id,
+                    content: content,
+                    reason: flagReason,
+                    createdAt: msg.created_at,
+                    receiverId: toUserId || null
+                });
+            }
+
+            return res.json({ status: 'sent', message: msg });
+        }
+
+        // --- AI LOGIC BELOW (Only if no toUserId) ---
+
+        // Save User Message (for AI chat)
+        await Message.create({
+            user_id: userId,
+            receiver_id: null,
+            role: 'user',
+            content: content || '',
+            type,
+            file_path: filePath,
+            fileName, fileSize, pageCount, // Metadata
+            reply_to: reply_to || null,
+
+            is_flagged: !!isFlagged,
+            flag_reason: flagReason
+        });
+
+        // Prepare context for AI
+        let aiContent = "I received your file.";
+        let messages = [];
+
+        // 1. Handle Images (Vision Model - Llama 4 Maverick)
+        if (type === 'image') {
+            const imagePath = path.join(__dirname, '../uploads', file.filename);
+            const bitmap = fs.readFileSync(imagePath);
+            const base64Image = bitmap.toString('base64');
+
+            messages = [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: content || "Analyze this image." },
+                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+                    ]
+                }
+            ];
+
+            const chatCompletion = await groq.chat.completions.create({
+                messages: messages,
+                model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+            });
+            aiContent = chatCompletion.choices[0]?.message?.content || "Image processed.";
+
+        }
+        // 2. Handle PDFs - Text Extraction Only (Robust)
+        else if (type === 'file' && file.mimetype === 'application/pdf') {
+            const pdfPath = path.join(__dirname, '../uploads', file.filename);
+            try {
+                const dataBuffer = fs.readFileSync(pdfPath);
+
+                // Ensure pdfParse is functional
+                if (typeof pdfParse !== 'function') {
+                    throw new Error("pdf-parse library is not loaded correctly.");
+                }
+
+                const pdfData = await pdfParse(dataBuffer);
+                const text = pdfData.text.trim().substring(0, 10000); // Limit context
+
+                if (!text) throw new Error("PDF text empty");
+
+                messages = [
+                    { role: "system", content: "You are a helpful assistant. Analyze the document." },
+                    { role: "user", content: `${content || "Analyze this"}\n\nContent:\n${text}` }
+                ];
+                // Using 70b-versatile for pure text analysis (Reliable)
+                const chatCompletion = await groq.chat.completions.create({
+                    messages: messages,
+                    model: "llama-3.3-70b-versatile",
+                });
+                aiContent = chatCompletion.choices[0]?.message?.content || "PDF text analyzed.";
+
+            } catch (textErr) {
+                console.error("PDF Text Parse Error:", textErr);
+                aiContent = "Could not read the PDF file (unsupported format or encrypted). Error: " + textErr.message;
+            }
+        }
+        // 3. Handle Word Documents (DOCX) - Text + Embedded Images
+        else if (type === 'file' && file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            const docPath = path.join(__dirname, '../uploads', file.filename);
+            try {
+                // Convert to HTML to extract base64 images easily
+                const result = await mammoth.convertToHtml({ path: docPath });
+                const html = result.value || "";
+                const rawText = result.messages.map(m => m.message).join("\n") + "\n" + (await mammoth.extractRawText({ path: docPath })).value;
+
+                // Extract base64 images from HTML
+                const imgRegex = /src="data:image\/([a-zA-Z]+);base64,([^"]+)"/g;
+                let match;
+                let extractedImages = [];
+
+                while ((match = imgRegex.exec(html)) !== null) {
+                    if (extractedImages.length < 3) { // Limit to 3 images
+                        extractedImages.push({ type: match[1], data: match[2] });
+                    }
+                }
+
+                if (extractedImages.length > 0) {
+                    // Vision Request (Llama 4 Maverick for mixed content)
+                    let contentPayload = [
+                        { type: "text", text: content || "Analyze this Word document with its images." }
+                    ];
+                    const trimmedText = rawText.substring(0, 5000);
+                    if (trimmedText) contentPayload.push({ type: "text", text: `\n\nDocument Text:\n${trimmedText}` });
+
+                    extractedImages.forEach(img => {
+                        contentPayload.push({
+                            type: "image_url",
+                            image_url: { url: `data:image/${img.type};base64,${img.data}` }
+                        });
+                    });
+
+                    messages = [{ role: "user", content: contentPayload }];
+                    const chatCompletion = await groq.chat.completions.create({
+                        messages: messages,
+                        model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+                    });
+                    aiContent = chatCompletion.choices[0]?.message?.content || "Word document analyzed (Vision).";
+
+                } else {
+                    // Text Only Fallback (Versatile)
+                    const docText = (await mammoth.extractRawText({ path: docPath })).value.trim().substring(0, 10000);
+                    if (!docText || docText.length < 5) {
+                        aiContent = "The Word document appears empty.";
+                    } else {
+                        messages = [
+                            { role: "system", content: "You are a helpful assistant. Analyze the document." },
+                            { role: "user", content: `${content || "Analyze this"}\n\nContent:\n${docText}` }
+                        ];
+                        const chatCompletion = await groq.chat.completions.create({
+                            messages: messages,
+                            model: "llama-3.3-70b-versatile",
+                        });
+                        aiContent = chatCompletion.choices[0]?.message?.content || "Document analyzed.";
+                    }
+                }
+            } catch (docErr) {
+                console.error("DOCX Parse Error:", docErr);
+                aiContent = "Error reading the Word document.";
+            }
+        }
+        // 3. Handle Regular Text (Versatile)
+        else if (content) {
+            messages = [{ role: "user", content: content }];
+            const chatCompletion = await groq.chat.completions.create({
+                messages: messages,
+                model: "llama-3.3-70b-versatile",
+            });
+            aiContent = chatCompletion.choices[0]?.message?.content || "Done.";
+        } else {
+            // Just file (non-PDF or other), no content
+            aiContent = "File uploaded successfully.";
+        }
+
+        // Save AI Response
+        await Message.create({
+            user_id: userId,
+            receiver_id: null,
+            role: 'model',
+            content: aiContent,
+            type: 'text'
+        });
+
+        res.json({ status: 'sent', aiResponse: aiContent });
+
+    } catch (aiErr) {
+        console.error("Groq/DB Error FULL:", aiErr); // Enhanced logging
+        // Fallback
+        try {
+            const errorMsg = "Sorry, I encountered an error processing that. (" + (aiErr.error?.message || aiErr.message) + ")";
+            await Message.create({
+                user_id: userId,
+                receiver_id: null,
+                role: 'model',
+                content: errorMsg,
+                type: 'text'
+            });
+            res.json({ status: 'sent', aiResponse: errorMsg });
+        } catch (dbErr) {
+            res.status(500).json({ error: 'Database Error' });
+        }
+    }
+});
+
+// Toggle Pin/Star - Secured with Auth for Personalized Star
+router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
+    const { action, value } = req.body; // action: 'pin' or 'star'
+    const userId = req.user.id;
+
+    try {
+        const msg = await Message.findById(req.params.id);
+        if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+        if (action === 'pin') {
+            msg.is_pinned = value;
+        } else if (action === 'star') {
+            const index = msg.starred_by.indexOf(userId);
+            if (value && index === -1) {
+                msg.starred_by.push(userId);
+            } else if (!value && index > -1) {
+                msg.starred_by.splice(index, 1);
+            }
+        }
+
+        await msg.save();
+
+        const msgObj = msg.toObject();
+        msgObj.is_starred = msg.starred_by.includes(userId);
+        res.json(msgObj);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete Message - Secured with Auth
+router.post('/message/:id/delete', authenticateToken, async (req, res) => {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const { mode } = req.body; // 'me' or 'everyone'
+
+    try {
+        const msg = await Message.findById(req.params.id);
+        if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+        if (userRole === 'admin') {
+            msg.is_deleted_by_admin = true;
+        } else if (msg.user_id.toString() === userId) {
+            // Sender Deleting
+            if (mode === 'me') {
+                if (!msg.deleted_for.includes(userId)) {
+                    msg.deleted_for.push(userId);
+                }
+            } else if (mode === 'everyone') {
+                msg.is_deleted_by_user = true;
+            } else {
+                // Fallback for backward compatibility or when mode is not specified
+                if (msg.is_deleted_by_user) {
+                    if (!msg.deleted_for.includes(userId)) {
+                        msg.deleted_for.push(userId);
+                    }
+                } else {
+                    msg.is_deleted_by_user = true;
+                }
+            }
+        } else if (msg.receiver_id && msg.receiver_id.toString() === userId) {
+            // Receiver deleting "for me"
+            if (!msg.deleted_for.includes(userId)) {
+                msg.deleted_for.push(userId);
+            }
+        } else {
+            return res.status(403).json({ error: 'Unauthorized to delete this message' });
+        }
+
+        await msg.save();
+
+        // Notify participants via socket
+        if (req.io) {
+            const participants = [msg.user_id.toString()];
+            if (msg.receiver_id) participants.push(msg.receiver_id.toString());
+
+            participants.forEach(pId => {
+                req.io.to(pId).emit('message_deleted', {
+                    messageId: msg._id,
+                    is_deleted_by_admin: msg.is_deleted_by_admin,
+                    is_deleted_by_user: msg.is_deleted_by_user
+                });
+            });
+            // Also notify admins for review sync
+            req.io.to('admins').emit('message_deleted', {
+                messageId: msg._id,
+                is_deleted_by_admin: msg.is_deleted_by_admin,
+                is_deleted_by_user: msg.is_deleted_by_user,
+                userId: msg.user_id,
+                receiverId: msg.receiver_id
+            });
+        }
+
+        res.json({
+            status: 'success',
+            messageId: msg._id,
+            is_deleted_by_admin: msg.is_deleted_by_admin,
+            is_deleted_by_user: msg.is_deleted_by_user,
+            deleted_for: msg.deleted_for
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Bulk Delete Messages - Secured with Auth
+router.post('/messages/bulk-delete', authenticateToken, async (req, res) => {
+    const { messageIds, mode } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return res.status(400).json({ error: 'Message IDs (array) required' });
+    }
+
+    try {
+        const results = [];
+        const deletedIds = [];
+
+        for (const id of messageIds) {
+            try {
+                // Validate if the ID is a valid MongoDB ObjectId
+                const mongoose = require('mongoose');
+                if (!mongoose.Types.ObjectId.isValid(id)) {
+                    console.log(`[BULK DELETE] Skipping invalid ID: ${id}`);
+                    continue;
+                }
+
+                const msg = await Message.findById(id);
+                if (!msg) continue;
+
+                let updated = false;
+                if (userRole === 'admin') {
+                    msg.is_deleted_by_admin = true;
+                    updated = true;
+                } else if (msg.user_id.toString() === userId) {
+                    if (mode === 'me') {
+                        if (!msg.deleted_for.includes(userId)) {
+                            msg.deleted_for.push(userId);
+                            updated = true;
+                        }
+                    } else if (mode === 'everyone') {
+                        msg.is_deleted_by_user = true;
+                        updated = true;
+                    } else {
+                        // Fallback
+                        if (msg.is_deleted_by_user) {
+                            if (!msg.deleted_for.includes(userId)) {
+                                msg.deleted_for.push(userId);
+                                updated = true;
+                            }
+                        } else {
+                            msg.is_deleted_by_user = true;
+                            updated = true;
+                        }
+                    }
+                } else if (msg.receiver_id && msg.receiver_id.toString() === userId) {
+                    if (!msg.deleted_for.includes(userId)) {
+                        msg.deleted_for.push(userId);
+                        updated = true;
+                    }
+                }
+
+                if (updated) {
+                    await msg.save();
+                    deletedIds.push(msg._id);
+                    results.push({
+                        messageId: msg._id,
+                        is_deleted_by_admin: msg.is_deleted_by_admin,
+                        is_deleted_by_user: msg.is_deleted_by_user,
+                        deleted_for: msg.deleted_for
+                    });
+
+                    // Notify via socket for each message
+                    if (req.io) {
+                        const participants = [msg.user_id.toString()];
+                        if (msg.receiver_id) participants.push(msg.receiver_id.toString());
+
+                        participants.forEach(pId => {
+                            req.io.to(pId).emit('message_deleted', {
+                                messageId: msg._id,
+                                is_deleted_by_admin: msg.is_deleted_by_admin,
+                                is_deleted_by_user: msg.is_deleted_by_user
+                            });
+                        });
+                    }
+                }
+            } catch (innerErr) {
+                console.error(`[BULK DELETE] Error processing message ${id}:`, innerErr);
+                // Continue to next message instead of failing whole request
+            }
+        }
+
+        res.json({ status: 'success', results, deletedIds });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+
+// Get Unethical Messages (Persistence) - Admin Only
+router.get('/admin/unethical-messages', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+
+    try {
+        // Fetch last 50 flagged messages
+        const messages = await Message.find({ is_flagged: true })
+            .sort({ created_at: -1 })
+
+            .populate('user_id', 'name email');
+
+        const alerts = messages.map(msg => ({
+            userId: msg.user_id?._id,
+            userName: msg.user_id?.name || 'Unknown',
+            messageId: msg._id,
+            content: msg.content,
+            reason: msg.flag_reason,
+            createdAt: msg.created_at,
+            receiverId: msg.receiver_id
+        }));
+
+        res.json(alerts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = router;

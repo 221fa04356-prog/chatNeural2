@@ -1,0 +1,323 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import { User, Shield, Lock, Mail, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import logo from '../assets/logo.png';
+import LandingBackground from '../components/LandingBackground';
+import Snackbar from '../components/Snackbar';
+import '../styles/Home.css';
+
+export default function Home() {
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [showLoginForm, setShowLoginForm] = useState(false);
+
+    // Separate state for Admin and User
+    const [adminEmail, setAdminEmail] = useState('');
+    const [adminPassword, setAdminPassword] = useState('');
+
+    const [userLoginId, setUserLoginId] = useState('');
+    const [userPassword, setUserPassword] = useState('');
+
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Replaced separate error/msg state with Snackbar state
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'info' });
+    const [isExpired, setIsExpired] = useState(false);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        // Handle State-based navigation
+        if (location.state?.showLogin) {
+            setShowLoginForm(true);
+            if (location.state?.showAdmin) setIsAdmin(true);
+            else setIsAdmin(false);
+            window.history.replaceState({}, document.title);
+        }
+
+        // Handle Query Param-based navigation (for email links)
+        const params = new URLSearchParams(location.search);
+        if (params.get('showLogin') === 'true') {
+            setShowLoginForm(true);
+            if (params.get('role') === 'admin') setIsAdmin(true);
+            else setIsAdmin(false);
+
+            // Verify Token if present (from success email)
+            const token = params.get('token');
+            const userId = params.get('id');
+
+            if (token && userId) {
+                axios.post('/api/auth/verify-link-token', { userId, token })
+                    .then(() => {
+                        // Valid - remove query params
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    })
+                    .catch(() => {
+                        setIsExpired(true);
+                        setShowLoginForm(false); // Hide login form to show expired popup
+                    });
+            }
+        }
+    }, [location]);
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+
+        try {
+            const payload = isAdmin
+                ? { email: adminEmail, password: adminPassword }
+                : { loginId: userLoginId, password: userPassword };
+
+            const res = await axios.post('/api/auth/login', payload);
+            const user = res.data.user;
+            const token = res.data.token;
+
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('token', token);
+
+            // Force reload to ensure socket and state are clean
+            localStorage.removeItem('lastActiveChat');
+            sessionStorage.clear();
+            window.location.href = isAdmin && user.role === 'admin' ? '/admin' : '/chat';
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: err.response?.data?.error || 'Login failed',
+                type: 'error'
+            });
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (isAdmin && !adminEmail) {
+            setSnackbar({ open: true, message: 'Please enter your email to reset password', type: 'warning' });
+            return;
+        }
+        if (!isAdmin && !userLoginId) {
+            setSnackbar({ open: true, message: 'Please enter your Login ID to request password reset', type: 'warning' });
+            return;
+        }
+
+        try {
+            const payload = isAdmin ? { email: adminEmail } : { loginId: userLoginId };
+            await axios.post('/api/auth/forgot-password', payload);
+            setSnackbar({ open: true, message: 'Password reset request sent to Admin.', type: 'success' });
+        } catch (err) {
+            setSnackbar({
+                open: true,
+                message: err.response?.data?.error || 'Request failed',
+                type: 'error'
+            });
+        }
+    };
+
+    const handlePasswordKeyDown = (e) => {
+        if (e.key === ' ') {
+            e.preventDefault();
+        }
+    };
+
+
+
+
+
+
+    if (isExpired) {
+        return (
+            <div className="home-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <LandingBackground />
+                <style>
+                    {`
+                        @keyframes dropIn {
+                            0% { transform: translateY(-50px); opacity: 0; }
+                            100% { transform: translateY(0); opacity: 1; }
+                        }
+                    `}
+                </style>
+                <div
+                    className="login-card"
+                    style={{
+                        textAlign: 'center',
+                        maxWidth: '420px',
+                        padding: '3rem',
+                        position: 'relative',
+                        zIndex: 10,
+                        background: 'rgba(255, 255, 255, 0.4)', // More transparent
+                        backdropFilter: 'blur(10px)',
+                        animation: 'dropIn 0.6s cubic-bezier(0.22, 1, 0.36, 1)', // Drop effect
+                        border: '1px solid rgba(255, 255, 255, 0.4)'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                        <Shield size={32} color=" #0D9BB3" />
+                        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0D9BB3', margin: 0, letterSpacing: '-0.02em' }}>Link Expired</h2>
+                    </div>
+                    <p style={{ fontSize: '1rem', color: '#64748b', lineHeight: 1.6, marginBottom: '0' }}>
+                        This login link has expired because your password has been changed. Please refer recent mails.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="home-container">
+            <LandingBackground />
+
+            {snackbar.open && (
+                <Snackbar
+                    message={snackbar.message}
+                    type={snackbar.type}
+                    variant="system"
+                    onClose={() => setSnackbar({ ...snackbar, open: false })}
+                />
+            )}
+
+            {/* Interactive Content Container */}
+            <div className="home-content-wrapper">
+
+                {!showLoginForm ? (
+                    /* Hero Landing View */
+                    <div className="hero-view fade-in">
+                        <div className="hero-left">
+                            <div className="logo-container">
+                                <img src={logo} alt="Neural Chat Logo" />
+                            </div>
+                            <p className="tagline">
+                                Secure AI-Powered Communication
+                            </p>
+                        </div>
+
+                        <div className="hero-right">
+                            <h1 className="brand-title">
+                                Neural Chat
+                            </h1>
+
+                            <div className="button-group">
+                                <button
+                                    onClick={() => { setIsAdmin(false); setShowLoginForm(true); }}
+                                    className="btn-primary-neural"
+                                    style={{
+                                        padding: '1.2rem 2rem',
+                                        borderRadius: '1rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <User size={20} /> User Login
+                                </button>
+                                <button
+                                    onClick={() => { setIsAdmin(true); setShowLoginForm(true); }}
+                                    className="btn-outline-neural"
+                                    style={{
+                                        padding: '1.2rem 2rem',
+                                        borderRadius: '1rem',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <Shield size={20} /> Admin Login
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    /* Login Portal View */
+                    <div className="login-card-container fade-in-scale">
+                        <div className="login-card">
+                            <button
+                                onClick={() => setShowLoginForm(false)}
+                                className="back-button"
+                            >
+                                <ArrowLeft size={18} /> Back
+                            </button>
+
+                            <div className="login-header">
+                                <h2 className="login-title">
+                                    {isAdmin ? 'Admin Login' : 'User Login'}
+                                </h2>
+                                <p className="login-subtitle">Access your Neural Portal</p>
+                            </div>
+
+                            <form onSubmit={handleLogin} className="login-form">
+                                {/* Inline alerts removed to prevent layout shift */}
+
+                                <div className="form-group-custom">
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', color: '#475569', marginBottom: '0.6rem' }}>
+                                        {isAdmin ? 'Email' : 'Login ID'}
+                                    </label>
+                                    <div style={{ position: 'relative', width: '100%' }}>
+                                        {isAdmin ? <Mail size={18} style={{ position: 'absolute', top: '14px', left: '14px', color: '#94A3B8', zIndex: 10, pointerEvents: 'none' }} />
+                                            : <User size={18} style={{ position: 'absolute', top: '14px', left: '14px', color: '#94A3B8', zIndex: 10, pointerEvents: 'none' }} />}
+                                        <input
+                                            type={isAdmin ? "email" : "text"}
+                                            value={isAdmin ? adminEmail : userLoginId}
+                                            onChange={(e) => {
+                                                if (isAdmin) {
+                                                    setAdminEmail(e.target.value);
+                                                } else {
+                                                    const val = e.target.value;
+                                                    if (/^\d*$/.test(val)) {
+                                                        setUserLoginId(val.replace(/\s/g, ''));
+                                                    }
+                                                }
+                                            }}
+                                            placeholder={isAdmin ? "your@email.com" : "Enter Login ID"}
+                                            required
+                                            className="input-neural"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group-custom">
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', color: '#475569', marginBottom: '0.6rem' }}>Password</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '10px' }}>
+                                        <div style={{ position: 'relative', flex: 1 }}>
+                                            <Lock size={18} style={{ position: 'absolute', top: '50%', left: '14px', transform: 'translateY(-50%)', color: '#94A3B8', zIndex: 10, pointerEvents: 'none' }} />
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={isAdmin ? adminPassword : userPassword}
+                                                onChange={(e) => isAdmin ? setAdminPassword(e.target.value.replace(/\s/g, '')) : setUserPassword(e.target.value.replace(/\s/g, ''))}
+                                                onKeyDown={handlePasswordKeyDown}
+                                                placeholder="Enter Password"
+                                                required
+                                                style={{ paddingLeft: '44px', paddingRight: '14px', width: '100%' }}
+                                                className="input-neural"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="password-toggle-btn"
+                                        >
+                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button type="submit" className="btn-primary-neural" style={{ width: '100%', padding: '1.2rem', borderRadius: '1rem', border: 'none', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer', marginTop: '1rem' }}>
+                                    Log In Now
+                                </button>
+
+                                <div className="login-footer">
+                                    <button type="button" onClick={handleForgotPassword}>Forgot Password?</button>
+                                    <Link to={isAdmin ? "/admin-register" : "/register"} className="secondary-link">Create Account</Link>
+                                </div>
+                            </form>
+                        </div>
+                    </div >
+                )
+                }
+            </div>
+        </div>
+    );
+}
