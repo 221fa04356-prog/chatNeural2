@@ -2085,7 +2085,7 @@ export default function Chat() {
         } else if (isSameDay(lastSeenDate, yesterday)) {
             return `last seen yesterday at ${timeStr}`;
         } else {
-            return `last seen on ${lastSeenDate.toLocaleDateString()} at ${timeStr}`;
+            return `last seen on ${lastSeenDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })} at ${timeStr}`;
         }
     };
 
@@ -3243,7 +3243,7 @@ export default function Chat() {
 
         if (date.toDateString() === today.toDateString()) return 'today';
         if (date.toDateString() === yesterday.toDateString()) return 'yesterday';
-        return date.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }).toLowerCase();
+        return date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }).toLowerCase();
     };
 
     const renderStarredMessagesPanel = () => {
@@ -3290,7 +3290,7 @@ export default function Chat() {
                             const isMe = isMeMsg(msg);
                             const senderName = isMe ? 'You' : (msg.sender_id?.name || 'User');
                             const recipientName = isMe ? (isGroup ? activeTarget.name : activeTarget.name) : 'You';
-                            const dateStr = new Date(msg.created_at).toLocaleDateString();
+                            const dateStr = new Date(msg.created_at).toLocaleDateString('en-US');
 
                             return (
                                 <div key={idx} className="wa-starred-item" onClick={() => {
