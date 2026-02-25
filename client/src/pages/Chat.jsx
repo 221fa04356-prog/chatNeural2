@@ -5,9 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import {
     MessageSquare, CircleDashed, Users, MoreVertical, Plus,
     Search, Settings, Phone, Video, Paperclip, Smile, Mic, Send,
-    ArrowLeft, CheckCheck, User as UserIcon, FileText, Calendar, X, Star, ChevronDown, ChevronRight, Bell,
+    ArrowLeft, CheckCheck, User as UserIcon, FileText, Calendar, X, Star, ChevronDown, ChevronRight, ChevronLeft, Bell,
     Info, Reply, Copy, Forward, Pin, CheckSquare, Download, Trash2, Archive, BellOff, HeartOff, XCircle, Lock, List, Heart, ThumbsDown, Share, Pencil, Image, StarOff, Camera, Link2 as LinkIcon,
-    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User,
+    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User, Play,
     ShieldCheck, Monitor, BellRing, Laptop, LogOut, Globe, Clock, Building2, Mail, Briefcase, ExternalLink,
     ShieldAlert, Fingerprint, HardDrive, Keyboard, HelpCircle, Settings2, Volume2, MonitorSmartphone
 } from 'lucide-react';
@@ -31,6 +31,13 @@ const socket = io(SOCKET_URL, {
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
 });
+
+const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
 
 export default function Chat() {
     const [users, setUsers] = useState([]);
@@ -116,6 +123,7 @@ export default function Chat() {
     const [sharedMediaTab, setSharedMediaTab] = useState('media'); // 'media', 'docs', 'links'
     const [selectedMediaMsgs, setSelectedMediaMsgs] = useState([]);
     const [viewingImage, setViewingImage] = useState(null); // Track image for full-screen view
+    const [previewVideoUrl, setPreviewVideoUrl] = useState(null); // URL for YouTube preview
     const [isStarredMenuOpen, setIsStarredMenuOpen] = useState(false); // Menu for Starred Panel
     const [isGlobalStarredMenuOpen, setIsGlobalStarredMenuOpen] = useState(false); // Menu for Global Starred drawer
     const [isUnstarConfirmOpen, setIsUnstarConfirmOpen] = useState(false); // Confirmation bar
@@ -1831,7 +1839,21 @@ export default function Chat() {
 
     const handleFileSelect = (e) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
+            const selectedFile = e.target.files[0];
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
+            const extension = selectedFile.name.split('.').pop().toLowerCase();
+
+            if (allowedExtensions.includes(extension)) {
+                if (selectedFile.size > 1073741824) { // 1GB
+                    setSnackbar({ message: 'File must be less than 1GB', type: 'error', variant: 'system' });
+                    e.target.value = '';
+                } else {
+                    setFile(selectedFile);
+                }
+            } else {
+                setSnackbar({ message: 'Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.', type: 'error', variant: 'system' });
+                e.target.value = ''; // Reset input
+            }
         }
     };
 
@@ -3296,7 +3318,7 @@ export default function Chat() {
                         <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
                     </button>
 
-                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 17, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
+                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 22, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
                         {isGroup ? t('contact_info.group_title') : t('contact_info.title')}
                     </span>
 
@@ -4594,7 +4616,7 @@ export default function Chat() {
 
         return (
             <div className={`wa-contact-info-panel shared-media-panel ${isSharedMediaOpen ? 'active' : ''}`}>
-                <div className="wa-contact-info-header" style={{ background: isSelectionMode ? '#fff' : '#f0f2f5', borderBottom: '1px solid #d1d7db', height: 60, display: 'flex', alignItems: 'center', padding: '0 15px' }}>
+                <div className="wa-contact-info-header" style={{ background: '#fff', borderBottom: 'none', height: 60, display: 'flex', alignItems: 'center', padding: '0 15px' }}>
                     {isSelectionMode ? (
                         <div className="wa-selection-header-grid">
                             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -4758,31 +4780,54 @@ export default function Chat() {
                                                     <div className="wa-doc-checkbox-placeholder" />
                                                 )}
                                             </div>
-                                            <div
-                                                className="wa-link-card-small"
-                                                onClick={() => {
-                                                    // Mobile: Open Link. Desktop: Redirect THEN Open Link.
+                                            <a
+                                                className={`wa-link-card-small ${getYouTubeVideoId(msg.link_preview?.url || msg.content) ? 'youtube' : ''}`}
+                                                href={msg.link_preview?.url || msg.content}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => {
+                                                    // If they clicked the blue URL text directly, DON'T redirect, just open immediately.
+                                                    if (e.target.closest('.wa-link-url-small')) {
+                                                        return; // Let native <a> behavior handle it
+                                                    }
+
+                                                    // Desktop: Redirect THEN Open Link.
                                                     if (window.innerWidth > 768) {
+                                                        e.preventDefault();
                                                         handleSearchClick(msg._id);
                                                         setTimeout(() => window.open(msg.link_preview?.url || msg.content, '_blank'), 600);
-                                                    } else {
-                                                        window.open(msg.link_preview?.url || msg.content, '_blank');
                                                     }
                                                 }}
-                                                style={{ cursor: 'pointer' }}
+                                                style={{ cursor: 'pointer', textDecoration: 'none', display: 'block' }}
                                             >
                                                 <div className="wa-link-header-small">
                                                     <span className="wa-link-author">{msg.sender_id === user.id || msg.user_id === user.id ? 'You' : (selectedUser.name || 'User')}</span>
                                                     <span className="wa-link-time-small">{formatSharedMediaTimestamp(msg.created_at)}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: 10 }}>
-                                                    {msg.link_preview.image && <img src={msg.link_preview.image} alt="preview" className="wa-link-thumb-small" />}
+                                                    {msg.link_preview.image && (
+                                                        <div className="wa-link-thumb-small-wrapper">
+                                                            <img src={msg.link_preview.image} alt="preview" className="wa-link-thumb-small" />
+                                                            {getYouTubeVideoId(msg.link_preview?.url || msg.content) && (
+                                                                <div
+                                                                    className="wa-yt-preview-overlay-small"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        setPreviewVideoUrl(msg.link_preview?.url || msg.content);
+                                                                    }}
+                                                                >
+                                                                    <Play size={16} color="white" fill="white" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     <div className="wa-link-details-small">
-                                                        <div className="wa-link-title-small">{msg.link_preview.title}</div>
-                                                        <div className="wa-link-url-small">{msg.link_preview.url}</div>
+                                                        <div className="wa-link-title-small">{msg.link_preview?.title}</div>
+                                                        <div className="wa-link-url-small" style={{ wordBreak: 'break-all' }}>{msg.link_preview?.url || msg.content}</div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </a>
                                         </div>
                                     ))}
                                 </div>
@@ -5109,13 +5154,17 @@ export default function Chat() {
         if (e.clipboardData.files && e.clipboardData.files.length > 0) {
             e.preventDefault();
             const pastedFile = e.clipboardData.files[0];
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf'];
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
             const extension = pastedFile.name.split('.').pop().toLowerCase();
 
             if (allowedExtensions.includes(extension)) {
-                setFile(pastedFile);
+                if (pastedFile.size > 1073741824) {
+                    setSnackbar({ message: 'File must be less than 1GB', type: 'error', variant: 'system' });
+                } else {
+                    setFile(pastedFile);
+                }
             } else {
-                alert('Only JPG, JPEG, PNG, DOC, DOCX, and PDF files are allowed.');
+                setSnackbar({ message: 'Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.', type: 'error', variant: 'system' });
             }
         }
     };
@@ -5131,13 +5180,17 @@ export default function Chat() {
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const droppedFile = e.dataTransfer.files[0];
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf'];
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
             const extension = droppedFile.name.split('.').pop().toLowerCase();
 
             if (allowedExtensions.includes(extension)) {
-                setFile(droppedFile);
+                if (droppedFile.size > 1073741824) {
+                    setSnackbar({ message: 'File must be less than 1GB', type: 'error', variant: 'system' });
+                } else {
+                    setFile(droppedFile);
+                }
             } else {
-                alert('Only JPG, JPEG, PNG, DOC, DOCX, and PDF files are allowed.');
+                setSnackbar({ message: 'Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.', type: 'error', variant: 'system' });
             }
         }
     };
@@ -5975,14 +6028,14 @@ export default function Chat() {
 
                                     <div className="wa-input-pill">
                                         <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()}>
+                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
                                                 <Paperclip size={22} color="#54656f" />
                                             </button>
                                             <input
                                                 type="file"
                                                 ref={fileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf"
+                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
                                                 onChange={handleFileSelect}
                                             />
                                             <button className="wa-nav-icon-btn">
@@ -6247,12 +6300,40 @@ export default function Chat() {
                                                                     )}
 
                                                                     {msg.link_preview && (
-                                                                        <div className="wa-link-preview-card" onClick={() => window.open(msg.link_preview.url, '_blank')}>
-                                                                            {msg.link_preview.image && <div className="wa-link-preview-image"><img src={msg.link_preview.image} alt="preview" /></div>}
+                                                                        <div
+                                                                            className={`wa-link-preview-card ${getYouTubeVideoId(msg.link_preview.url) ? 'youtube' : ''}`}
+                                                                            onClick={() => window.open(msg.link_preview.url, '_blank')}
+                                                                        >
+                                                                            {msg.link_preview.image && (
+                                                                                <div className="wa-link-preview-image">
+                                                                                    <img src={msg.link_preview.image} alt="preview" />
+                                                                                    {getYouTubeVideoId(msg.link_preview.url) && (
+                                                                                        <div
+                                                                                            className="wa-yt-preview-overlay"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setPreviewVideoUrl(msg.link_preview.url);
+                                                                                            }}
+                                                                                        >
+                                                                                            <div className="wa-yt-play-btn">
+                                                                                                <Play size={32} color="white" fill="white" />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
                                                                             <div className="wa-link-preview-info">
                                                                                 <div className="wa-link-preview-title">{msg.link_preview.title}</div>
                                                                                 <div className="wa-link-preview-desc">{msg.link_preview.description}</div>
-                                                                                <div className="wa-link-preview-url">{new URL(msg.link_preview.url).hostname}</div>
+                                                                                <div className="wa-link-preview-url">
+                                                                                    {(() => {
+                                                                                        try {
+                                                                                            return new URL(msg.link_preview.url).hostname;
+                                                                                        } catch (e) {
+                                                                                            return msg.link_preview.url;
+                                                                                        }
+                                                                                    })()}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -6328,14 +6409,14 @@ export default function Chat() {
                                 <div className="wa-footer-inner">
                                     <div className="wa-input-pill">
                                         <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()}>
+                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
                                                 <Plus size={22} color="#54656f" />
                                             </button>
                                             <input
                                                 type="file"
                                                 ref={fileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf"
+                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
                                                 onChange={handleFileSelect}
                                             />
                                             <button className="wa-nav-icon-btn">
@@ -7043,6 +7124,29 @@ export default function Chat() {
             />
 
             {viewingImage && renderImageViewer()}
+            {previewVideoUrl && (
+                <div className="wa-video-preview-overlay-fixed" onClick={() => setPreviewVideoUrl(null)}>
+                    <div className="wa-video-preview-container" onClick={(e) => e.stopPropagation()}>
+                        <div className="wa-video-preview-header">
+                            <span>Video Preview</span>
+                            <button className="wa-video-preview-close" onClick={() => setPreviewVideoUrl(null)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="wa-video-preview-body">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src={`https://www.youtube.com/embed/${getYouTubeVideoId(previewVideoUrl)}?autoplay=1`}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
+            )}
             {renderChatContextMenu()}
             {renderCameraModals()}
         </div>
