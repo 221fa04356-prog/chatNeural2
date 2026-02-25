@@ -1,4 +1,4 @@
-export const formatDateForSeparator = (dateString, currentDate = new Date()) => {
+export const formatDateForSeparator = (dateString, t, locale = 'en-US', currentDate = new Date()) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     const today = new Date(currentDate);
@@ -12,11 +12,11 @@ export const formatDateForSeparator = (dateString, currentDate = new Date()) => 
     };
 
     if (isSameDay(date, today)) {
-        return 'Today';
+        return t ? t('chat_window.today') : 'Today';
     }
 
     if (isSameDay(date, yesterday)) {
-        return 'Yesterday';
+        return t ? t('chat_window.yesterday') : 'Yesterday';
     }
 
     // Check if within the last 7 days for "Day of week"
@@ -24,9 +24,9 @@ export const formatDateForSeparator = (dateString, currentDate = new Date()) => 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 7) {
-        return date.toLocaleDateString('en-US', { weekday: 'long' });
+        return date.toLocaleDateString(locale, { weekday: 'long' });
     }
 
     // Older dates: Day, Date Month (e.g., Monday, 12 June)
-    return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'long' });
+    return date.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'long' });
 };

@@ -216,4 +216,30 @@ router.patch('/:groupId/name', authenticateToken, async (req, res) => {
     }
 });
 
+// Toggle Star for Group Message
+router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
+    const { action, value } = req.body;
+    const userId = req.user.id;
+
+    try {
+        const msg = await GroupMessage.findById(req.params.id);
+        if (!msg) return res.status(404).json({ error: 'Group message not found' });
+
+        if (action === 'star') {
+            if (!msg.starred_by) msg.starred_by = [];
+            const index = msg.starred_by.indexOf(userId);
+            if (value && index === -1) {
+                msg.starred_by.push(userId);
+            } else if (!value && index > -1) {
+                msg.starred_by.splice(index, 1);
+            }
+        }
+
+        await msg.save();
+        res.json({ status: 'success', is_starred: msg.starred_by.includes(userId) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

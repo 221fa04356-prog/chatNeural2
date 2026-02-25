@@ -4,6 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const Message = require('../models/Message');
+const GroupMessage = require('../models/GroupMessage');
 const User = require('../models/User'); // Import User model
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse'); // Renamed to avoid confusion
@@ -326,6 +327,15 @@ router.post('/user/update', authenticateToken, async (req, res) => {
 
         if (!updatedUser) return res.status(404).json({ error: 'User not found' });
 
+        if (req.io) {
+            req.io.emit('user_profile_updated', {
+                userId: updatedUser._id,
+                name: updatedUser.name,
+                mobile: updatedUser.mobile,
+                about: updatedUser.about
+            });
+        }
+
         res.json({ status: 'success', user: updatedUser });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -441,6 +451,35 @@ router.post('/messages/mark-unread', authenticateToken, async (req, res) => {
         res.json({ status: 'success', modifiedCount: result.modifiedCount });
     } catch (err) {
         console.error(`[MARK_UNREAD] Error:`, err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET All Starred Messages (Global)
+router.get('/messages/starred/all', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Fetch starred P2P messages
+        const p2pStarred = await Message.find({ starred_by: userId })
+            .populate('user_id', 'name image mobile')
+            .populate('receiver_id', 'name image mobile')
+            .lean();
+
+        // Fetch starred Group messages
+        const groupStarred = await GroupMessage.find({ starred_by: userId })
+            .populate('sender_id', 'name image mobile')
+            .populate('group_id', 'name icon')
+            .lean();
+
+        // Standardize output
+        const combined = [
+            ...p2pStarred.map(m => ({ ...m, isGroup: false })),
+            ...groupStarred.map(m => ({ ...m, isGroup: true }))
+        ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        res.json(combined);
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
