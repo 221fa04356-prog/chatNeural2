@@ -1,17 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import logo from '../assets/logo.png';
 import { useNavigate } from 'react-router-dom';
 import {
     MessageSquare, CircleDashed, Users, MoreVertical, Plus,
     Search, Settings, Phone, Video, Paperclip, Smile, Mic, Send,
     ArrowLeft, CheckCheck, User as UserIcon, FileText, Calendar, X, Star, ChevronDown, ChevronRight, Bell,
     Info, Reply, Copy, Forward, Pin, CheckSquare, Download, Trash2, Archive, BellOff, HeartOff, XCircle, Lock, List, Heart, ThumbsDown, Share, Pencil, Image, StarOff, Camera, Link2 as LinkIcon,
-    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User
+    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User,
+    ShieldCheck, Monitor, BellRing, Laptop, LogOut, Globe, Clock, Building2, Mail, Briefcase, ExternalLink,
+    ShieldAlert, Fingerprint, HardDrive, Keyboard, HelpCircle, Settings2, Volume2, MonitorSmartphone
 } from 'lucide-react';
 import io from 'socket.io-client';
 import '../styles/Chat.css';
 import { formatDateForSeparator } from '../utils/dateUtils';
 import Snackbar from '../components/Snackbar';
+import { getTranslator, getLangCode } from '../utils/translations';
 
 import NeuralBackground from '../components/NeuralBackground';
 import ConfirmModal from '../components/ConfirmModal';
@@ -36,6 +40,8 @@ export default function Chat() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const navigate = useNavigate();
     const bottomRef = useRef(null);
+    const chatMessagesRef = useRef(null);
+    const [showScrollBtn, setShowScrollBtn] = useState(false);
 
     // --- File Upload State ---
     const [file, setFile] = useState(null);
@@ -104,20 +110,41 @@ export default function Chat() {
     // --- Shared Media & Selection State ---
     const [isSharedMediaOpen, setIsSharedMediaOpen] = useState(false);
     const [isStarredMessagesOpen, setIsStarredMessagesOpen] = useState(false); // New state for Starred Messages
+    const [isGlobalStarredOpen, setIsGlobalStarredOpen] = useState(false); // For starred from main menu
+    const [globalStarredMessages, setGlobalStarredMessages] = useState([]);
+    const [isGlobalStarredLoading, setIsGlobalStarredLoading] = useState(false);
     const [sharedMediaTab, setSharedMediaTab] = useState('media'); // 'media', 'docs', 'links'
     const [selectedMediaMsgs, setSelectedMediaMsgs] = useState([]);
     const [viewingImage, setViewingImage] = useState(null); // Track image for full-screen view
     const [isStarredMenuOpen, setIsStarredMenuOpen] = useState(false); // Menu for Starred Panel
+    const [isGlobalStarredMenuOpen, setIsGlobalStarredMenuOpen] = useState(false); // Menu for Global Starred drawer
     const [isUnstarConfirmOpen, setIsUnstarConfirmOpen] = useState(false); // Confirmation bar
+    const [unstarTarget, setUnstarTarget] = useState('current'); // 'current' or 'global'
     const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
     const [showUnreadBanner, setShowUnreadBanner] = useState(true);
     const starredMenuRef = useRef(null);
+    const globalStarredMenuRef = useRef(null);
     const filtersRef = useRef(null);
 
     // --- Mute State ---
     const [isMuteModalOpen, setIsMuteModalOpen] = useState(false);
     const [muteTargetUser, setMuteTargetUser] = useState(null); // { id: string, name: string }
     const [muteDuration, setMuteDuration] = useState('8 hours'); // '8 hours' | '1 week' | 'Always'
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [activeSettingsTab, setActiveSettingsTab] = useState(null);
+    const [isSettingsEditing, setIsSettingsEditing] = useState(false);
+
+    // --- General Settings State ---
+    const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('neuChat_language') || 'British English, British English');
+    const [selectedFontSize, setSelectedFontSize] = useState(() => localStorage.getItem('neuChat_fontSize') || '100% (default)');
+    const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
+    const [isFontSizeDropdownOpen, setIsFontSizeDropdownOpen] = useState(false);
+    const [pendingLanguage, setPendingLanguage] = useState(null); // language awaiting confirmation
+    const [isLangConfirmOpen, setIsLangConfirmOpen] = useState(false);
+
+    // Derive translator from the currently selected language (re-computed on every render,
+    // so after a reload the correct translations are immediately active).
+    const t = getTranslator(getLangCode(selectedLanguage));
 
     // --- Grammar Suggestion State ---
     const [grammarSuggestions, setGrammarSuggestions] = useState(null);
@@ -125,6 +152,49 @@ export default function Chat() {
     const [showGrammarBar, setShowGrammarBar] = useState(false);
 
     const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+
+    const handleUpdateProfile = async () => {
+        const cleanMobile = (userData.mobile || '').replace(/\D/g, '');
+        const payload = {
+            userId: userData.id || userData._id || user.id || user._id,
+            mobile: cleanMobile,
+            about: userData.about
+        };
+        console.log('[CLIENT] Attempting profile update with payload:', payload);
+
+        if (!payload.userId) {
+            console.error('[CLIENT] Error: No user ID found in session');
+            setSnackbar({ message: 'Session error: User ID missing. Please re-login.', type: 'error' });
+            return;
+        }
+
+        if (payload.mobile && payload.mobile.length !== 10) {
+            setSnackbar({ message: 'Error: Mobile number must be exactly 10 digits', type: 'error' });
+            return;
+        }
+
+        try {
+            const res = await axios.put('/api/auth/update-profile', payload);
+            console.log('[CLIENT] Update successful:', res.data);
+
+            if (res.data.user) {
+                // Merge with current userData to preserve fields like 'image' not returned by endpoint
+                const updatedUser = { ...userData, ...res.data.user };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                setUserData(updatedUser);
+                setSnackbar({ message: 'Profile Updated successfully', type: 'success', variant: 'system' });
+                setIsSettingsEditing(false);
+            }
+        } catch (err) {
+            console.error('[CLIENT] Update failed details:', {
+                status: err.response?.status,
+                data: err.response?.data,
+                message: err.message
+            });
+            const errorMsg = err.response?.data?.error || err.message || 'Network error occurred';
+            setSnackbar({ message: `Update Failed: ${errorMsg}`, type: 'error' });
+        }
+    };
     const [isEditingProfileAbout, setIsEditingProfileAbout] = useState(false);
     const [isEditingProfilePhone, setIsEditingProfilePhone] = useState(false);
     const [profileEditValue, setProfileEditValue] = useState("");
@@ -966,6 +1036,19 @@ export default function Chat() {
             fetchUsers();
         };
 
+        const onUserProfileUpdated = (data) => {
+            console.log('Socket: user_profile_updated', data);
+            setUsers(prev => prev.map(u =>
+                String(u._id) === String(data.userId)
+                    ? { ...u, name: data.name, mobile: data.mobile, about: data.about }
+                    : u
+            ));
+
+            if (selectedUserRef.current && String(selectedUserRef.current._id) === String(data.userId)) {
+                setSelectedUser(prev => ({ ...prev, name: data.name, mobile: data.mobile, about: data.about }));
+            }
+        };
+
         const onReconnectAttempt = (attempt) => {
             console.log(`Socket: Reconnecting attempt #${attempt}...`);
         };
@@ -993,6 +1076,7 @@ export default function Chat() {
         });
         socket.on('user_status_change', onStatusChange);
         socket.on('message_deleted', onMessageDeleted);
+        socket.on('user_profile_updated', onUserProfileUpdated);
 
         // --- Connect ---
         socket.auth = { token: localStorage.getItem('token') };
@@ -1135,12 +1219,15 @@ export default function Chat() {
             if (starredMenuRef.current && !starredMenuRef.current.contains(e.target)) {
                 setIsStarredMenuOpen(false);
             }
+            if (globalStarredMenuRef.current && !globalStarredMenuRef.current.contains(e.target)) {
+                setIsGlobalStarredMenuOpen(false);
+            }
         };
-        if (isStarredMenuOpen) {
+        if (isStarredMenuOpen || isGlobalStarredMenuOpen) {
             document.addEventListener('mousedown', handleClickOutside);
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isStarredMenuOpen]);
+    }, [isStarredMenuOpen, isGlobalStarredMenuOpen]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -1167,6 +1254,29 @@ export default function Chat() {
         filtersEl.addEventListener('wheel', handleWheel, { passive: false });
         return () => filtersEl.removeEventListener('wheel', handleWheel);
     }, []);
+
+    // --- Fetch Global Starred Messages ---
+    const fetchGlobalStarredMessages = async () => {
+        setIsGlobalStarredLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get('/api/chat/messages/starred/all', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setGlobalStarredMessages(res.data);
+        } catch (err) {
+            console.error("Failed to fetch global starred messages", err);
+        } finally {
+            setIsGlobalStarredLoading(false);
+        }
+    };
+
+    // Trigger fetch when global starred panel opens
+    useEffect(() => {
+        if (isGlobalStarredOpen) {
+            fetchGlobalStarredMessages();
+        }
+    }, [isGlobalStarredOpen]);
 
     // --- Fetch Current User Data (For Profile) ---
     useEffect(() => {
@@ -1386,6 +1496,7 @@ export default function Chat() {
             setIsStarredMessagesOpen(false);
             setIsSharedMediaOpen(false);
             setIsEditContactOpen(false);
+            setShowScrollBtn(false);
         }
         setSelectedUser(u);
         fetchP2PRequest(u._id);
@@ -1670,29 +1781,46 @@ export default function Chat() {
 
     const handleUnstarAllRequest = () => {
         setIsStarredMenuOpen(false);
+        setUnstarTarget('current');
+        setIsUnstarConfirmOpen(true);
+    };
+
+    const handleGlobalUnstarAllRequest = () => {
+        setIsGlobalStarredMenuOpen(false);
+        setUnstarTarget('global');
         setIsUnstarConfirmOpen(true);
     };
 
     const confirmUnstarAll = async () => {
-        const starredMsgs = messages.filter(m => m.is_starred);
-        if (starredMsgs.length === 0) {
+        const targetMsgs = unstarTarget === 'global' ? globalStarredMessages : messages.filter(m => m.is_starred);
+        if (targetMsgs.length === 0) {
             setIsUnstarConfirmOpen(false);
             return;
         }
 
         const token = localStorage.getItem('token');
         try {
-            await Promise.all(starredMsgs.map(m =>
-                axios.post(`/api/chat/message/${m._id || m.id}/toggle`, {
+            await Promise.all(targetMsgs.map(m => {
+                const endpoint = m.isGroup ? `/api/groups/message/${m._id || m.id}/toggle` : `/api/chat/message/${m._id || m.id}/toggle`;
+                return axios.post(endpoint, {
                     action: 'star',
                     value: false
                 }, {
                     headers: { 'Authorization': `Bearer ${token}` }
-                })
-            ));
+                });
+            }));
 
-            setMessages(prev => prev.map(m => ({ ...m, is_starred: false })));
-            setSnackbar({ message: "All messages unstarred", type: 'success', variant: 'system' });
+            if (unstarTarget === 'global') {
+                setGlobalStarredMessages([]);
+                // Also update local current chat messages if any of them were unstarred
+                setMessages(prev => prev.map(m => ({ ...m, is_starred: false })));
+                setGroupMessages(prev => prev.map(m => ({ ...m, is_starred: false })));
+            } else {
+                setMessages(prev => prev.map(m => ({ ...m, is_starred: false })));
+                // Also update global list if it's loaded
+                setGlobalStarredMessages(prev => prev.filter(m => !targetMsgs.some(tm => String(tm._id) === String(m._id))));
+            }
+            setSnackbar({ message: "Messages unstarred", type: 'success', variant: 'system' });
             setIsUnstarConfirmOpen(false);
         } catch (err) {
             console.error("Unstar all failed", err);
@@ -1800,17 +1928,37 @@ export default function Chat() {
             const token = localStorage.getItem('token');
             const data = { targetUserId: user.id || user._id };
             if (field === 'name') data.name = profileEditValue;
-            if (field === 'mobile') data.mobile = profileEditValue;
+            if (field === 'mobile') {
+                const cleanMobile = profileEditValue.replace(/\D/g, '');
+                if (cleanMobile.length !== 10) {
+                    setSnackbar({ message: 'Error: Mobile number must be exactly 10 digits', type: 'error' });
+                    return;
+                }
+                data.mobile = cleanMobile;
+            }
             if (field === 'about') data.about = profileEditValue;
 
-            await axios.post('/api/chat/user/update', data, {
+            const res = await axios.post('/api/chat/user/update', data, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            if (field === 'name') setIsEditingProfileName(false);
-            if (field === 'mobile') setIsEditingProfilePhone(false);
-            if (field === 'about') setIsEditingProfileAbout(false);
-            setSnackbar({ message: 'Contact updated', type: 'success', variant: 'system' });
+            const updatedUser = { ...userData };
+            if (field === 'name') {
+                updatedUser.name = profileEditValue;
+                setIsEditingProfileName(false);
+            }
+            if (field === 'mobile') {
+                updatedUser.mobile = profileEditValue;
+                setIsEditingProfilePhone(false);
+            }
+            if (field === 'about') {
+                updatedUser.about = profileEditValue;
+                setIsEditingProfileAbout(false);
+            }
+
+            setUserData(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setSnackbar({ message: 'Profile Updated successfully', type: 'success', variant: 'system' });
         } catch (err) {
             console.error("Failed to update profile", err);
             setSnackbar({ message: 'Update failed', type: 'error' });
@@ -2068,8 +2216,8 @@ export default function Chat() {
 
     const renderUserStatus = (u) => {
         if (!u) return '';
-        if (u.isOnline) return 'Online';
-        if (!u.lastSeen) return 'click here for contact info';
+        if (u.isOnline) return t('chat_window.online');
+        if (!u.lastSeen) return t('chat_window.click_for_info');
 
         const lastSeenDate = new Date(u.lastSeen);
         const now = new Date();
@@ -2081,11 +2229,12 @@ export default function Chat() {
         const timeStr = lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
 
         if (isSameDay(lastSeenDate, now)) {
-            return `last seen today at ${timeStr}`;
+            return t('chat_window.last_seen_today', { time: timeStr });
         } else if (isSameDay(lastSeenDate, yesterday)) {
-            return `last seen yesterday at ${timeStr}`;
+            return t('chat_window.last_seen_yesterday', { time: timeStr });
         } else {
-            return `last seen on ${lastSeenDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })} at ${timeStr}`;
+            const dateStr = lastSeenDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+            return t('chat_window.last_seen_on', { date: dateStr, time: timeStr });
         }
     };
 
@@ -2097,23 +2246,38 @@ export default function Chat() {
         <div className="wa-nav-sidebar">
             <div className="wa-nav-top">
                 <button
-                    className={`wa-nav-icon-btn ${!isProfileOpen ? 'active' : ''}`}
-                    onClick={() => setIsProfileOpen(false)}
-                    title="Chats"
+                    className={`wa-nav-icon-btn ${(!isProfileOpen && !isSettingsOpen) ? 'active' : ''}`}
+                    onClick={() => {
+                        setIsProfileOpen(false);
+                        setIsSettingsOpen(false);
+                    }}
+                    title={t('sidebar.chats')}
                 >
                     <MessageSquare size={24} />
                     {/* Optional: Add red dot for total unread */}
                 </button>
-                <button className="wa-nav-icon-btn" title="Status"><CircleDashed size={24} /></button>
-                <button className="wa-nav-icon-btn" title="Channels"><Users size={24} /></button>
-                <button className="wa-nav-icon-btn" title="Communities"><Users size={24} /></button>
+                <button className="wa-nav-icon-btn" title={t('sidebar.status')}><CircleDashed size={24} /></button>
+                <button className="wa-nav-icon-btn" title={t('sidebar.channels')}><Users size={24} /></button>
+                <button className="wa-nav-icon-btn" title={t('sidebar.communities')}><Users size={24} /></button>
             </div>
             <div className="wa-nav-bottom">
-                <button className="wa-nav-icon-btn" title="Settings"><Settings size={24} /></button>
+                <button
+                    className={`wa-nav-icon-btn ${isSettingsOpen ? 'active' : ''}`}
+                    title={t('sidebar.settings')}
+                    onClick={() => {
+                        setIsSettingsOpen(true);
+                        setIsProfileOpen(false);
+                    }}
+                >
+                    <Settings size={24} />
+                </button>
                 <button
                     className={`wa-nav-icon-btn wa-profile-btn ${isProfileOpen ? 'active' : ''}`}
-                    onClick={() => setIsProfileOpen(true)}
-                    title="Profile"
+                    onClick={() => {
+                        setIsProfileOpen(true);
+                        setIsSettingsOpen(false);
+                    }}
+                    title={t('sidebar.profile')}
                 >
                     {/* User Profile Image as Icon */}
                     {userData.image ? (
@@ -2139,7 +2303,7 @@ export default function Chat() {
                     color: '#3b4a54',
                     pointerEvents: 'none'
                 }}>
-                    Profile
+                    {t('profile_drawer.title')}
                 </span>
             </div>
             {/* Continuous White Content Area */}
@@ -2163,7 +2327,7 @@ export default function Chat() {
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
 
                     <div style={{ flex: 1 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>Name</div>
+                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.name_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             {isEditingProfileName ? (
                                 <div style={{ borderBottom: '2px solid #027EB5', flex: 1, display: 'flex', alignItems: 'center' }}>
@@ -2185,7 +2349,7 @@ export default function Chat() {
                                 </>
                             )}
                         </div>
-                        {!isEditingProfileName && <div className="wa-section-note" style={{ fontSize: 13, color: '#8696a0', marginTop: 14 }}>This is not your username or pin. This name will be visible to your WhatsApp contacts.</div>}
+                        {!isEditingProfileName && <div className="wa-section-note" style={{ fontSize: 13, color: '#8696a0', marginTop: 14 }}>{t('profile_drawer.name_desc')}</div>}
                     </div>
                 </div>
 
@@ -2193,7 +2357,7 @@ export default function Chat() {
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
 
                     <div style={{ flex: 1, borderTop: '1px solid #e9edef', paddingTop: 14 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>About</div>
+                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.about_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             {isEditingProfileAbout ? (
                                 <div style={{ borderBottom: '2px solid #027EB5', flex: 1, display: 'flex', alignItems: 'center' }}>
@@ -2209,7 +2373,7 @@ export default function Chat() {
                                 </div>
                             ) : (
                                 <>
-                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#111b21' }}>{userData.about || 'Available'}</span>
+                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#111b21' }}>{userData.about || t('settings.profile.status_available')}</span>
                                     <Pencil size={20} color="#8696a0" style={{ cursor: 'pointer' }} onClick={() => { setIsEditingProfileAbout(true); setProfileEditValue(userData.about || "Available"); }} />
                                 </>
                             )}
@@ -2220,7 +2384,7 @@ export default function Chat() {
                 {/* Phone Section */}
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
                     <div style={{ flex: 1, borderTop: '1px solid #e9edef', paddingTop: 14 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>Phone</div>
+                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.phone_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <Phone size={20} color="#8696a0" fill="#8696a0" strokeWidth={0.1} style={{ marginRight: 30 }} />
@@ -2261,7 +2425,7 @@ export default function Chat() {
                     >
                         <X size={24} />
                     </button>
-                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>New chat</span>
+                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>{t('new_chat.title')}</span>
                     <div style={{ flex: 1 }}></div>
                     <button
                         onClick={() => setIsPhoneNumberPanelOpen(true)}
@@ -2278,7 +2442,7 @@ export default function Chat() {
                             <Search size={18} color="#54656f" style={{ marginRight: 15 }} />
                             <input
                                 type="text"
-                                placeholder="Search name or number"
+                                placeholder={t('new_chat.search_placeholder')}
                                 style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%', fontSize: 15 }}
                                 value={newChatSearchQuery}
                                 onChange={(e) => setNewChatSearchQuery(e.target.value)}
@@ -2290,18 +2454,18 @@ export default function Chat() {
                     <div className="wa-new-chat-actions">
                         <div className="wa-new-chat-action-item" onClick={(e) => { e.stopPropagation(); setIsNewGroupOpen(true); setIsNewChatOpen(false); }}>
                             <div className="wa-action-icon-circle" style={{ background: '#027EB5' }}><Users size={20} color="white" /></div>
-                            <span>New group</span>
+                            <span>{t('new_chat.new_group')}</span>
                         </div>
 
 
                         <div className="wa-new-chat-action-item">
                             <div className="wa-action-icon-circle" style={{ background: '#027EB5' }}><Users size={20} color="white" /></div>
-                            <span>New community</span>
+                            <span>{t('new_chat.new_community')}</span>
                         </div>
                     </div>
 
                     <div style={{ padding: '15px 16px 10px', color: '#027EB5', fontSize: 13, fontWeight: 500 }}>
-                        Contacts on Neural Chat
+                        {t('new_chat.contacts_title')}
                     </div>
 
                     {/* Me Section */}
@@ -2332,7 +2496,7 @@ export default function Chat() {
                                         </div>
                                         <div className="wa-user-info">
                                             <div className="wa-user-name" style={{ fontWeight: 500 }}>{u.name}</div>
-                                            <div className="wa-user-last-msg" style={{ fontSize: 13, color: '#667781' }}>{u.about || 'Available'}</div>
+                                            <div className="wa-user-last-msg" style={{ fontSize: 13, color: '#667781' }}>{u.about || t('settings.profile.status_available')}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -2475,14 +2639,14 @@ export default function Chat() {
                     >
                         <ArrowLeft size={24} />
                     </button>
-                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>Archived chats</span>
+                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>{t('chat_list.archived')}</span>
                 </div>
 
                 <div className="wa-drawer-content wa-user-list" style={{ background: 'white', display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
                     {allArchived.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8696a0', padding: 40, textAlign: 'center' }}>
                             <Archive size={48} style={{ marginBottom: 20, opacity: 0.5 }} />
-                            <div style={{ fontSize: 14 }}>No chats archived yet</div>
+                            <div style={{ fontSize: 14 }}>{t('chat_list.no_archived_chats')}</div>
                         </div>
                     ) : (
                         allArchived.map(item => {
@@ -2527,18 +2691,24 @@ export default function Chat() {
                                         </div>
                                         <div className="wa-chat-row-bottom">
                                             <span className="wa-chat-last-msg">
-                                                {item.lastMessage?.content || 'No messages'}
+                                                {item.lastMessage?.type === 'image' ? '📷 Photo' :
+                                                    item.lastMessage?.type === 'file' ? '📄 File' :
+                                                        item.lastMessage?.content || 'No messages'}
                                             </span>
-                                            {item.unreadCount > 0 && <div className="wa-unread-badge">{item.unreadCount}</div>}
-                                            <ChevronDown
-                                                size={18}
-                                                color="#8696a0"
-                                                style={{ marginLeft: 4, opacity: 0.6, cursor: 'pointer' }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setOpenDropdown({ type: 'contact', id: item._id });
-                                                }}
-                                            />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {item.isMuted && <BellOff size={14} color="#8696a0" />}
+                                                {item.isPinned && <Pin size={14} color="#8696a0" style={{ transform: 'rotate(45deg)' }} />}
+                                                {item.unreadCount > 0 && <div className="wa-unread-badge">{item.unreadCount}</div>}
+                                                <ChevronDown
+                                                    size={18}
+                                                    color="#8696a0"
+                                                    style={{ marginLeft: 4, opacity: 0.6, cursor: 'pointer' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenDropdown({ type: 'contact', id: item._id });
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     {renderDropdownMenu('contact', item._id, item)}
@@ -2547,6 +2717,136 @@ export default function Chat() {
                         })
                     )}
                 </div>
+            </div>
+        );
+    };
+
+    const navigateToMessage = async (msg) => {
+        // Starred panel stays open as per user request
+        if (msg.isGroup) {
+            const group = groups.find(g => g._id === msg.group_id?._id) || msg.group_id;
+            setSelectedGroup(group);
+            setSelectedUser(null);
+            await fetchGroupMessages(group._id);
+        } else {
+            const myId = userData._id || userData.id;
+            const otherId = String(msg.user_id?._id) === String(myId) ? msg.receiver_id?._id : msg.user_id?._id;
+            const otherUser = users.find(u => String(u._id) === String(otherId));
+            if (otherUser) {
+                handleUserSelect(otherUser);
+                setSelectedGroup(null);
+            }
+        }
+        setTimeout(() => {
+            handleSearchClick(msg._id);
+        }, 500);
+    };
+
+    const renderGlobalStarredDrawer = () => {
+        return (
+            <div className={`wa-profile-drawer wa-new-chat-drawer ${isGlobalStarredOpen ? 'active' : ''}`}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef', boxSizing: 'border-box', width: '100%' }}>
+                    <button
+                        onClick={() => { setIsGlobalStarredOpen(false); }}
+                        style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', width: 32, padding: 0, flexShrink: 0 }}
+                    >
+                        <ArrowLeft size={24} />
+                    </button>
+                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>{t('contact_info.starred_messages')}</span>
+                    <div style={{ flex: 1 }}></div>
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            className="wa-nav-icon-btn"
+                            onClick={(e) => { e.stopPropagation(); setIsGlobalStarredMenuOpen(prev => !prev); }}
+                            style={{ background: 'none', border: 'none', padding: 0 }}
+                        >
+                            <MoreVertical size={20} color="#54656f" />
+                        </button>
+                        {isGlobalStarredMenuOpen && (
+                            <div className="wa-menu-dropdown wa-starred-menu-dropdown" ref={globalStarredMenuRef} style={{ top: '100%', right: 0, left: 'auto', marginTop: 8 }}>
+                                <div className="wa-menu-item wa-starred-menu-item" onClick={handleGlobalUnstarAllRequest} style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', gap: 12 }}>
+                                    <StarOff size={18} color="#3b4a54" />
+                                    <span>{t('chat_list.unstar_all')}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="wa-drawer-content wa-user-list" style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', padding: 0 }}>
+                    {isGlobalStarredLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#8696a0' }}>
+                            <CircleDashed size={24} className="wa-spinner" style={{ animation: 'waSpinner 1s linear infinite' }} />
+                        </div>
+                    ) : globalStarredMessages.length === 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8696a0', padding: 40, textAlign: 'center' }}>
+                            <Star size={48} style={{ marginBottom: 20, opacity: 0.5 }} />
+                            <div style={{ fontSize: 14 }}>{t('chat_list.no_starred_messages')}</div>
+                        </div>
+                    ) : (
+                        globalStarredMessages.map((msg, idx) => {
+                            const myId = userData._id || userData.id;
+                            const senderObj = msg.isGroup ? msg.sender_id : msg.user_id;
+                            const isMe = String(senderObj?._id || senderObj) === String(myId);
+                            const senderName = isMe ? t('chat_window.you') : (senderObj?.name || 'Someone');
+
+                            let recipientName = '';
+                            if (msg.isGroup) {
+                                recipientName = msg.group_id?.name || 'Group';
+                            } else {
+                                if (isMe) {
+                                    const recId = msg.receiver_id?._id || msg.receiver_id;
+                                    const isSentToSelf = String(recId) === String(myId);
+                                    recipientName = isSentToSelf ? t('chat_window.you') : (msg.receiver_id?.name || 'User');
+                                } else {
+                                    recipientName = t('chat_window.you');
+                                }
+                            }
+
+                            return (
+                                <div key={idx} className="wa-starred-item" onClick={() => navigateToMessage(msg)} style={{ margin: '8px 12px', background: 'white', borderRadius: '8px', boxShadow: '0 1px 1px 0 rgba(11,20,26,.06)', cursor: 'pointer' }}>
+                                    <div className="wa-starred-item-header" style={{ padding: '12px 12px 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div className="wa-starred-names" style={{ fontSize: '13px', color: '#54656f', display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                            <span style={{ fontWeight: '500' }}>{senderName}</span>
+                                            <ChevronRight size={14} />
+                                            <span style={{ fontWeight: '500' }}>{recipientName}</span>
+                                        </div>
+                                        <div className="wa-starred-date" style={{ fontSize: '11px', color: '#8696a0' }}>
+                                            {new Date(msg.created_at).toLocaleDateString()}
+                                        </div>
+                                        <ChevronRight size={14} color="#8696a0" />
+                                    </div>
+                                    <div style={{ padding: '0 12px 12px' }}>
+                                        <div className={`wa-starred-bubble ${isMe ? 'sent' : 'received'}`} style={{ maxWidth: '100%', margin: 0, padding: '6px 7px 8px' }}>
+                                            <div className="wa-starred-content">
+                                                {msg.type === 'image' && msg.file_path && (
+                                                    <img src={msg.file_path} alt="" style={{ maxWidth: '100%', borderRadius: '4px', marginBottom: '4px', display: 'block' }} />
+                                                )}
+                                                {msg.content && <div className="wa-msg-text" style={{ fontSize: '14.2px', lineHeight: '19px', color: '#111b21', wordBreak: 'break-word' }}>{msg.content}</div>}
+                                            </div>
+                                            <div className="wa-starred-meta" style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
+                                                <Star size={10} fill="#8696a0" color="#8696a0" />
+                                                <span style={{ fontSize: '10px', color: '#8696a0' }}>{formatTime(msg.created_at)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {isUnstarConfirmOpen && unstarTarget === 'global' && (
+                    <div className="wa-unstar-confirm-bar">
+                        <div className="wa-unstar-confirm-content">
+                            <span>{t('chat_list.unstar_all_confirm')}</span>
+                            <div className="wa-unstar-confirm-actions">
+                                <button className="wa-unstar-btn cancel" onClick={() => setIsUnstarConfirmOpen(false)}>{t('lang_confirm.cancel')}</button>
+                                <button className="wa-unstar-btn confirm" onClick={confirmUnstarAll}>{t('chat_list.ok')}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };
@@ -2560,7 +2860,7 @@ export default function Chat() {
                             <ArrowLeft size={24} />
                         </button>
                         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', marginRight: 40 }}>
-                            <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>New group</span>
+                            <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>{t('new_chat.new_group')}</span>
                         </div>
                         <div style={{ width: 40 }}></div>
                     </div>
@@ -2574,13 +2874,13 @@ export default function Chat() {
                                             <img src={groupIcon} alt="Group Icon" className="wa-group-actual-icon" />
                                             <div className="wa-group-icon-hover">
                                                 <Camera size={24} color="white" />
-                                                <span>CHANGE GROUP ICON</span>
+                                                <span>{t('new_chat.change_group_icon')}</span>
                                             </div>
                                         </>
                                     ) : (
                                         <>
                                             <Camera size={48} />
-                                            <span>Add group icon</span>
+                                            <span>{t('new_chat.add_group_icon')}</span>
                                         </>
                                     )}
                                 </div>
@@ -2588,15 +2888,15 @@ export default function Chat() {
                                     <div className="wa-group-icon-menu" ref={groupIconMenuRef} style={{ top: '60%', left: '50%', transform: 'translate(-50%, 0)', marginLeft: 0 }}>
                                         <div className="wa-group-icon-menu-item" onClick={handleCameraAction}>
                                             <Camera size={20} color="#54656f" />
-                                            <span>Take photo</span>
+                                            <span>{t('new_chat.take_photo')}</span>
                                         </div>
                                         <div className="wa-group-icon-menu-item">
                                             <Image size={20} color="#54656f" />
-                                            <span>Upload photo</span>
+                                            <span>{t('new_chat.upload_photo')}</span>
                                         </div>
                                         <div className="wa-group-icon-menu-item">
                                             <Smile size={20} color="#54656f" />
-                                            <span>Emoji & sticker</span>
+                                            <span>{t('new_chat.emoji_sticker')}</span>
                                         </div>
                                     </div>
                                 )}
@@ -2607,7 +2907,7 @@ export default function Chat() {
                                     <input
                                         type="text"
                                         className="wa-group-subject-input"
-                                        placeholder="Group subject (optional)"
+                                        placeholder={t('new_chat.group_subject_placeholder')}
                                         value={groupSubject}
                                         onChange={(e) => setGroupSubject(e.target.value)}
                                         autoFocus
@@ -2619,7 +2919,7 @@ export default function Chat() {
                             <div className="wa-group-settings-container">
                                 <div className="wa-group-setting-item" onClick={() => setNewGroupStep(3)}>
                                     <div className="wa-group-setting-info">
-                                        <span className="wa-group-setting-title">Group permissions</span>
+                                        <span className="wa-group-setting-title">{t('new_chat.group_permissions')}</span>
                                     </div>
                                     <ChevronRight size={20} color="#667781" />
                                 </div>
@@ -2689,14 +2989,14 @@ export default function Chat() {
                             <ArrowLeft size={24} />
                         </button>
                         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', marginRight: 40 }}>
-                            <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>Group permissions</span>
+                            <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>{t('new_chat.group_permissions')}</span>
                         </div>
                         <div style={{ width: 40 }}></div>
                     </div>
 
                     <div className="wa-drawer-content" style={{ background: 'white', overflowY: 'auto', flex: 1, position: 'relative' }}>
                         <div className="wa-perms-container">
-                            <div className="wa-perms-section-label">Members can:</div>
+                            <div className="wa-perms-section-label">{t('new_chat.members_can')}</div>
                             <PermissionItem
                                 icon={Pencil}
                                 title="Edit group settings"
@@ -2916,9 +3216,9 @@ export default function Chat() {
                     }}
                     style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#027EB5', justifySelf: 'start' }}
                 >
-                    <span style={{ fontSize: 16, fontWeight: 500 }}>Close</span>
+                    <span style={{ fontSize: 16, fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
                 </button>
-                <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap', justifySelf: 'center' }}>Search messages</span>
+                <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap', justifySelf: 'center' }}>{t('chat_list.search_messages')}</span>
                 <div style={{ justifySelf: 'end' }} />
             </div>
 
@@ -2928,7 +3228,7 @@ export default function Chat() {
                     <Search size={20} color="#54656f" style={{ marginRight: 12 }} />
                     <input
                         type="text"
-                        placeholder="Search..."
+                        placeholder={t('settings.search_placeholder')}
                         value={messageSearchQuery}
                         onChange={(e) => setMessageSearchQuery(e.target.value)}
                         style={{ border: 'none', background: 'transparent', color: 'black', fontSize: 14, outline: 'none', width: '100%' }}
@@ -2939,7 +3239,7 @@ export default function Chat() {
                 <div style={{ marginTop: 20 }}>
                     {isSearching ? (
                         <div style={{ textAlign: 'center', color: '#8696a0', fontSize: 14, marginTop: 40 }}>
-                            Looking for messages...
+                            {t('chat_list.looking_for_messages')}
                         </div>
                     ) : (
                         searchResults.length > 0 ? (
@@ -2993,11 +3293,11 @@ export default function Chat() {
                 <div className="wa-contact-info-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', borderBottom: '1px solid #e9edef', background: 'white' }}>
 
                     <button className="wa-contact-info-close-btn" onClick={() => setIsContactInfoOpen(false)} style={{ position: 'absolute', left: 16, zIndex: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>Close</span>
+                        <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
                     </button>
 
                     <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 17, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
-                        Contact info
+                        {isGroup ? t('contact_info.group_title') : t('contact_info.title')}
                     </span>
 
                     <button
@@ -3058,8 +3358,8 @@ export default function Chat() {
 
                     {/* About Section */}
                     <div className="wa-contact-info-item">
-                        <div className="wa-info-item-label">About</div>
-                        <div className="wa-info-item-value">Available</div>
+                        <div className="wa-info-item-label">{t('profile_drawer.about_label')}</div>
+                        <div className="wa-info-item-value">{activeTarget.about || 'Available'}</div>
                     </div>
 
                     <div className="wa-contact-section-divider"></div>
@@ -3068,7 +3368,7 @@ export default function Chat() {
                     <div className="wa-contact-info-item clickable" onClick={() => setIsSharedMediaOpen(true)}>
                         <div className="wa-info-item-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                <span className="wa-info-item-text">Media, links and docs</span>
+                                <span className="wa-info-item-text">{t('contact_info.media_links_docs')}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <span className="wa-info-item-count">
                                         {(activeTarget.mediaCount || 0) + (activeTarget.linkCount || 0) + (activeTarget.docCount || 0)}
@@ -3152,7 +3452,7 @@ export default function Chat() {
                             setIsStarredMessagesOpen(true);
                         }}>
                             <div className="wa-setting-icon"><Star size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">Starred messages</div>
+                            <div className="wa-setting-text">{t('contact_info.starred_messages')}</div>
                             <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
                         </div>
                         <div className="wa-setting-item clickable" onClick={() => {
@@ -3160,13 +3460,13 @@ export default function Chat() {
                             setIsNotificationSettingsOpen(true);
                         }}>
                             <div className="wa-setting-icon"><BellOff size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">Notification settings</div>
+                            <div className="wa-setting-text">{t('contact_info.mute_notifications')}</div>
                             <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
                         </div>
                         <div className="wa-setting-item">
                             <div className="wa-setting-icon"><CircleDashed size={20} color="#54656f" /></div>
                             <div className="wa-setting-text">
-                                <div>Disappearing messages</div>
+                                <div>{t('contact_info.disappearing_messages')}</div>
                                 <div className="wa-setting-subtext">Off</div>
                             </div>
                             <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
@@ -3174,7 +3474,7 @@ export default function Chat() {
                         <div className="wa-setting-item">
                             <div className="wa-setting-icon"><Lock size={20} color="#54656f" /></div>
                             <div className="wa-setting-text">
-                                <div>Encryption</div>
+                                <div>{t('contact_info.encryption')}</div>
                                 <div className="wa-setting-subtext">Messages are end-to-end encrypted. Click to verify.</div>
                             </div>
                         </div>
@@ -3214,17 +3514,17 @@ export default function Chat() {
                         {isGroup ? (
                             <div className="wa-setting-item danger" onClick={() => { /* Exit Logic */ }}>
                                 <div className="wa-setting-icon"><XCircle size={20} color="#e53935" /></div>
-                                <div className="wa-setting-text">Exit group</div>
+                                <div className="wa-setting-text">{t('contact_info.exit_group')}</div>
                             </div>
                         ) : (
                             <div className="wa-setting-item danger">
                                 <div className="wa-setting-icon"><HeartOff size={20} color="#e53935" /></div>
-                                <div className="wa-setting-text">Block {displayName}</div>
+                                <div className="wa-setting-text">{t('contact_info.block', { name: displayName })}</div>
                             </div>
                         )}
                         <div className="wa-setting-item danger">
                             <div className="wa-setting-icon"><ThumbsDown size={20} color="#e53935" /></div>
-                            <div className="wa-setting-text">Report {isGroup ? 'group' : displayName}</div>
+                            <div className="wa-setting-text">{isGroup ? t('contact_info.report_group') : t('contact_info.report', { name: displayName })}</div>
                         </div>
                     </div>
 
@@ -3287,17 +3587,27 @@ export default function Chat() {
                 <div className="wa-starred-list">
                     {starredMsgs.length > 0 ? (
                         starredMsgs.map((msg, idx) => {
-                            const isMe = isMeMsg(msg);
-                            const senderName = isMe ? 'You' : (msg.sender_id?.name || 'User');
-                            const recipientName = isMe ? (isGroup ? activeTarget.name : activeTarget.name) : 'You';
+                            const myId = user.id || user._id;
+                            const isMe = String(msg.sender_id?._id || msg.sender_id || msg.user_id) === String(myId);
+                            const senderName = isMe ? 'You' : (msg.sender_id?.name || msg.user_id?.name || activeTarget.name || 'Someone');
+
+                            let recipientName = '';
+                            if (isGroup) {
+                                recipientName = activeTarget.name || 'Group';
+                            } else {
+                                if (isMe) {
+                                    const recId = msg.receiver_id?._id || msg.receiver_id;
+                                    const isSentToSelf = String(recId) === String(myId);
+                                    recipientName = isSentToSelf ? 'You' : (msg.receiver_id?.name || activeTarget.name || 'User');
+                                } else {
+                                    recipientName = 'You';
+                                }
+                            }
                             const dateStr = new Date(msg.created_at).toLocaleDateString('en-US');
 
                             return (
                                 <div key={idx} className="wa-starred-item" onClick={() => {
                                     handleSearchClick(msg._id);
-                                    if (window.innerWidth <= 768) {
-                                        setIsStarredMessagesOpen(false);
-                                    }
                                 }}>
                                     <div className="wa-starred-item-header">
                                         <div className="wa-starred-avatar">
@@ -4194,7 +4504,7 @@ export default function Chat() {
                                     setUsers(prev => prev.map(u => u._id === selectedUser._id ? { ...u, name: newName, mobile: editPhone } : u));
                                     // Close Panel
                                     setIsEditContactOpen(false);
-                                    setSnackbar({ message: 'Contact updated', type: 'success' });
+                                    setSnackbar({ message: 'Profile Updated successfully', type: 'success', variant: 'system' });
                                 } catch (err) {
                                     console.error("Failed to update contact", err);
                                     setSnackbar({ message: 'Failed to update contact', type: 'error' });
@@ -4289,11 +4599,11 @@ export default function Chat() {
                         <div className="wa-selection-header-grid">
                             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                                 <button onClick={() => setSelectedMediaMsgs([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#027EB5', fontSize: '16px', fontWeight: 500, padding: 0, width: 'auto' }}>
-                                    Close
+                                    {t('lang_confirm.cancel')}
                                 </button>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <span style={{ fontSize: 18, fontWeight: 500, whiteSpace: 'nowrap' }}>{selectedMediaMsgs.length} Selected</span>
+                                <span style={{ fontSize: 18, fontWeight: 500, whiteSpace: 'nowrap' }}>{t('chat_window.selected_count', { count: selectedMediaMsgs.length })}</span>
                             </div>
                             <div className="wa-selection-header-actions">
                                 <Copy size={22} color="#54656f" className="wa-copy-icon-mobile" style={{ cursor: 'pointer' }} onClick={handleBulkCopy} />
@@ -4305,11 +4615,11 @@ export default function Chat() {
                     ) : <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', width: '100%', height: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-start', paddingLeft: '8px' }}>
                             <button onClick={() => setIsSharedMediaOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#027EB5', fontSize: '16px', fontWeight: 500, padding: 0 }}>
-                                Back
+                                {t('chat_window.back')}
                             </button>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
-                            <span style={{ fontSize: 16, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Media, links and docs</span>
+                            <span style={{ fontSize: 16, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('contact_info.media_links_docs')}</span>
                         </div>
                         <div /> {/* Spacer */}
                     </div>
@@ -4328,7 +4638,7 @@ export default function Chat() {
                                     className={`wa-media-tab ${sharedMediaTab === tab ? 'active' : ''}`}
                                     onClick={() => setSharedMediaTab(tab)}
                                 >
-                                    <div>{tab.charAt(0).toUpperCase() + tab.slice(1)}</div>
+                                    <div>{t(`shared_media.tabs.${tab}`)}</div>
                                     <div className="wa-tab-count">{count}</div>
                                 </div>
                             );
@@ -4339,7 +4649,7 @@ export default function Chat() {
                 <div className="wa-contact-info-content" style={{ background: '#fff' }}>
                     {currentItems.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8696a0', padding: 40, textAlign: 'center' }}>
-                            <div style={{ fontSize: 14 }}>No {sharedMediaTab} shared yet</div>
+                            <div style={{ fontSize: 14 }}>{t('chat_window.no_media_shared', { tab: t(`shared_media.tabs.${sharedMediaTab}`) })}</div>
                         </div>
                     ) : (
                         <div style={{ padding: '15px' }}>
@@ -4519,11 +4829,12 @@ export default function Chat() {
             {isPhoneNumberPanelOpen && renderPhoneNumberPanel()}
             {isNewGroupOpen && renderNewGroupDrawer()}
             {isArchivedChatsOpen && renderArchivedChatsDrawer()}
+            {isGlobalStarredOpen && renderGlobalStarredDrawer()}
 
 
             {/* Chat List Header */}
             <div className="wa-header" style={{ background: 'white' }}>
-                <span className="wa-header-title">Chats</span>
+                <span className="wa-header-title">{t('chat_list.title')}</span>
                 <div className="wa-header-icons">
                     <button className="wa-nav-icon-btn" title="Notifications">
                         <Bell size={20} />
@@ -4543,10 +4854,10 @@ export default function Chat() {
                             <div className="wa-menu-item" onClick={logout}>Log out</div>
                             <div className="wa-menu-item" onClick={(e) => { e.stopPropagation(); setIsNewGroupOpen(true); setShowMenu(false); }}>New group</div>
 
-                            <div className="wa-menu-item">Starred messages</div>
+                            <div className="wa-menu-item" onClick={(e) => { e.stopPropagation(); setIsGlobalStarredOpen(true); setShowMenu(false); }}>Starred messages</div>
                             <div className="wa-menu-item" onClick={() => { setIsArchivedChatsOpen(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
                                 <Archive size={18} style={{ marginRight: 12, flexShrink: 0 }} />
-                                <span style={{ flex: 1 }}>Archived chats</span>
+                                <span style={{ flex: 1 }}>{t('chat_list.archived')}</span>
                                 {totalUnreadArchived > 0 && <span style={{ background: '#25d366', color: '#111b21', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '600', marginLeft: 8, flexShrink: 0 }}>{totalUnreadArchived}</span>}
                             </div>
                         </div>
@@ -4561,7 +4872,7 @@ export default function Chat() {
                     <Search size={18} color="#54656f" />
                     <input
                         type="text"
-                        placeholder="Search or ask AI"
+                        placeholder={t('chat_list.search_placeholder')}
                         className="wa-search-input"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -4586,7 +4897,7 @@ export default function Chat() {
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <span style={{ marginRight: 8 }}>×</span> {/* Or use an icon like X from lucide-react if preferred, using text x as per request 'x You have {n}...' */}
-                        You have {totalUnread} new notifications
+                        {t('chat_list.unread_notifications', { count: totalUnread })}
                     </div>
                     {/* Close button implementation if needed, but request implies the 'x' is at the start */}
                     {/* Based on drawing: "x You have {3} new notifications" */}
@@ -4603,25 +4914,25 @@ export default function Chat() {
                     className={`wa-filter-pill ${filterType === 'all' ? 'active' : ''}`}
                     onClick={() => setFilterType('all')}
                 >
-                    All
+                    {t('chat_list.filter_all')}
                 </button>
                 <button
                     className={`wa-filter-pill ${filterType === 'unread' ? 'active' : ''}`}
                     onClick={() => setFilterType('unread')}
                 >
-                    Unread {totalActiveUnread > 0 && <span className="wa-pill-count">{totalActiveUnread}</span>}
+                    {t('chat_list.filter_unread')} {totalActiveUnread > 0 && <span className="wa-pill-count">{totalActiveUnread}</span>}
                 </button>
                 <button
                     className={`wa-filter-pill ${filterType === 'favorites' ? 'active' : ''}`}
                     onClick={() => setFilterType('favorites')}
                 >
-                    Favourites {totalFavorites > 0 && <span className="wa-pill-count">{totalFavorites}</span>}
+                    {t('chat_list.filter_favorites')} {totalFavorites > 0 && <span className="wa-pill-count">{totalFavorites}</span>}
                 </button>
                 <button
                     className={`wa-filter-pill ${filterType === 'groups' ? 'active' : ''}`}
                     onClick={() => setFilterType('groups')}
                 >
-                    Groups {groups.filter(g => g.unreadCount > 0).length > 0 && <span className="wa-pill-count">{groups.filter(g => g.unreadCount > 0).length}</span>}
+                    {t('chat_list.filter_groups')} {groups.filter(g => g.unreadCount > 0).length > 0 && <span className="wa-pill-count">{groups.filter(g => g.unreadCount > 0).length}</span>}
                 </button>
                 <button className="wa-nav-icon-btn wa-filter-plus-btn"><Plus size={18} /></button>
             </div>
@@ -4635,89 +4946,33 @@ export default function Chat() {
                     </div>
                 ) : (
                     <>
-                        {/* Groups first */}
-                        {groups
-                            .filter(g => {
-                                const displayName = g.name || 'Unnamed Group';
+                        {/* Unified Chat List: Groups + Users mixed by Pinned status and Date */}
+                        {[...groups.map(g => ({ ...g, is_group: true })), ...users.map(u => ({ ...u, is_group: false }))]
+                            .filter(item => {
+                                const displayName = item.name || (item.is_group ? 'Unnamed Group' : 'User');
+                                const contentPart = item.lastMessage?.content || '';
                                 const nameMatch = displayName.toLowerCase().includes(searchQuery.toLowerCase());
-                                if (archivedChatIds.includes(g._id)) return false;
-                                if (filterType === 'all') return nameMatch;
-                                if (filterType === 'unread') return nameMatch && (g.unreadCount > 0);
-                                if (filterType === 'favorites') return nameMatch && g.isFavorite;
-                                if (filterType === 'groups') return nameMatch;
-                                return nameMatch;
-                            })
-                            .map(g => {
-                                const myId = user.id || user._id;
-                                const displayName = g.name || 'Unnamed Group';
-                                const lastMsgPreview = g.lastMessage?.content || (g.lastMessage?.is_system ? `${g.lastMessage.sender_id?.name || 'Someone'} ${g.lastMessage.content}` : 'No messages');
-                                return (
-                                    <div
-                                        key={g._id}
-                                        className={`wa-user-item ${selectedGroup?._id === g._id ? 'active' : ''}`}
-                                        onClick={() => {
-                                            setSelectedGroup(g);
-                                            setSelectedUser(null);
-                                            fetchGroupMessages(g._id);
-                                            // Reset unread locally
-                                            setGroups(prev => prev.map(item => item._id === g._id ? { ...item, unreadCount: 0 } : item));
-                                        }}
-                                        onContextMenu={(e) => { e.preventDefault(); setOpenDropdown({ type: 'contact', id: g._id }); }}
-                                        onTouchStart={(e) => { e.persist(); longPressTimer.current = setTimeout(() => { setOpenDropdown({ type: 'contact', id: g._id }); }, 600); }}
-                                        onTouchEnd={() => clearTimeout(longPressTimer.current)}
-                                        onTouchMove={() => clearTimeout(longPressTimer.current)}
-                                    >
-                                        <div className="wa-avatar" style={{ background: '#dfe5e7', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {g.icon ? (
-                                                <img src={g.icon} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <Camera size={22} color="#8696a0" />
-                                            )}
-                                        </div>
-                                        <div className="wa-chat-info">
-                                            <div className="wa-chat-row-top">
-                                                <span className="wa-chat-name">{displayName}</span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <span className="wa-chat-time">{formatTime(g.lastMessage?.created_at || g.created_at)}</span>
-                                                    <div className="wa-dropdown-trigger" onClick={(e) => { e.stopPropagation(); setOpenDropdown({ type: 'contact', id: g._id }); }}>
-                                                        <ChevronDown size={18} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="wa-chat-row-bottom">
-                                                <span className="wa-chat-last-msg">
-                                                    {g.lastMessage?.type === 'image' ? '📷 Photo' :
-                                                        g.lastMessage?.type === 'file' ? '📄 File' :
-                                                            g.lastMessage?.content || (g.lastMessage?.is_system ? `${g.lastMessage.sender_id?.name || 'Someone'} ${g.lastMessage.content}` : 'No messages')}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    {g.isMuted && <BellOff size={14} color="#8696a0" />}
-                                                    {g.isPinned && <Pin size={14} color="#8696a0" style={{ transform: 'rotate(45deg)' }} />}
-                                                    {g.unreadCount > 0 && <div className="wa-unread-badge">{g.unreadCount}</div>}
-                                                </div>
-                                            </div>
-                                            {renderDropdownMenu('contact', g._id, g)}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                        {/* P2P Users */}
-                        {users
-                            .filter(u => {
-                                const namePart = u.name || '';
-                                const contentPart = u.lastMessage?.content || '';
-                                const nameMatch = namePart.toLowerCase().includes(searchQuery.toLowerCase());
                                 const msgMatch = contentPart.toLowerCase().includes(searchQuery.toLowerCase());
                                 const matchesSearch = nameMatch || msgMatch;
-                                if (archivedChatIds.includes(u._id)) return false;
+
+                                if (archivedChatIds.includes(item._id)) return false;
                                 if (filterType === 'all') return matchesSearch;
-                                if (filterType === 'unread') return matchesSearch && (u.unreadCount > 0);
-                                if (filterType === 'favorites') return matchesSearch && u.isFavorite;
-                                if (filterType === 'groups') return false; // Hide users when filtering by groups
+                                if (filterType === 'unread') return matchesSearch && (item.unreadCount > 0);
+                                if (filterType === 'favorites') return matchesSearch && item.isFavorite;
+                                if (filterType === 'groups') return matchesSearch && item.is_group;
                                 return matchesSearch;
                             })
-                            .map(u => {
+                            .sort((a, b) => {
+                                // Pinned always first
+                                if (a.isPinned && !b.isPinned) return -1;
+                                if (!a.isPinned && b.isPinned) return 1;
+                                // Then by date
+                                return new Date(b.lastMessage?.created_at || b.created_at) - new Date(a.lastMessage?.created_at || a.created_at);
+                            })
+                            .map(item => {
+                                const isGroup = item.is_group;
+                                const displayName = item.name || (isGroup ? 'Unnamed Group' : 'User');
+
                                 const renderHighlightedContent = (content) => {
                                     if (!searchQuery || !content) return content;
                                     const parts = content.split(new RegExp(`(${searchQuery})`, 'gi'));
@@ -4727,53 +4982,74 @@ export default function Chat() {
                                         ) : (part)
                                     );
                                 };
+
                                 return (
                                     <div
-                                        key={u._id}
-                                        className={`wa-user-item ${selectedUser?._id === u._id ? 'active' : ''}`}
-                                        onClick={() => { handleUserSelect(u); setSelectedGroup(null); }}
-                                        onContextMenu={(e) => { e.preventDefault(); setOpenDropdown({ type: 'contact', id: u._id }); }}
-                                        onTouchStart={(e) => { e.persist(); longPressTimer.current = setTimeout(() => { setOpenDropdown({ type: 'contact', id: u._id }); }, 600); }}
+                                        key={item._id}
+                                        className={`wa-user-item ${((isGroup && selectedGroup?._id === item._id) || (!isGroup && selectedUser?._id === item._id)) ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (isGroup) {
+                                                setSelectedGroup(item);
+                                                setSelectedUser(null);
+                                                fetchGroupMessages(item._id);
+                                                setGroups(prev => prev.map(g => g._id === item._id ? { ...g, unreadCount: 0 } : g));
+                                            } else {
+                                                handleUserSelect(item);
+                                                setSelectedGroup(null);
+                                            }
+                                        }}
+                                        onContextMenu={(e) => { e.preventDefault(); setOpenDropdown({ type: 'contact', id: item._id }); }}
+                                        onTouchStart={(e) => { e.persist(); longPressTimer.current = setTimeout(() => { setOpenDropdown({ type: 'contact', id: item._id }); }, 600); }}
                                         onTouchEnd={() => clearTimeout(longPressTimer.current)}
                                         onTouchMove={() => clearTimeout(longPressTimer.current)}
                                     >
-                                        <div className="wa-avatar">
-                                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#54656f' }}>
-                                                {u.name?.charAt(0).toUpperCase()}
-                                            </span>
+                                        <div className="wa-avatar" style={isGroup ? { background: '#dfe5e7', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' } : {}}>
+                                            {isGroup ? (
+                                                item.icon ? (
+                                                    <img src={item.icon} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <Camera size={22} color="#8696a0" />
+                                                )
+                                            ) : (
+                                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#54656f' }}>
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="wa-chat-info">
                                             <div className="wa-chat-row-top">
-                                                <span className="wa-chat-name">{u.name}</span>
+                                                <span className="wa-chat-name">{displayName}</span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    <span className="wa-chat-time">{formatTime(u.lastMessage?.created_at)}</span>
-                                                    <div className="wa-dropdown-trigger" onClick={(e) => { e.stopPropagation(); setOpenDropdown({ type: 'contact', id: u._id }); }}>
+                                                    <span className="wa-chat-time">{formatTime(item.lastMessage?.created_at || item.created_at)}</span>
+                                                    <div className="wa-dropdown-trigger" onClick={(e) => { e.stopPropagation(); setOpenDropdown({ type: 'contact', id: item._id }); }}>
                                                         <ChevronDown size={18} />
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="wa-chat-row-bottom">
                                                 <span className="wa-chat-last-msg">
-                                                    {u.lastMessage?.is_deleted_by_admin ? (
+                                                    {item.lastMessage?.is_deleted_by_admin ? (
                                                         <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
                                                             <Trash2 size={12} style={{ marginRight: 4 }} /> This message was deleted by Admin
                                                         </span>
-                                                    ) : u.lastMessage?.is_deleted_by_user ? (
+                                                    ) : item.lastMessage?.is_deleted_by_user ? (
                                                         <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
                                                             <XCircle size={12} style={{ marginRight: 4 }} />
-                                                            {String(u.lastMessage.sender_id) === String(user.id || user._id) ? 'You deleted this message' : 'This message was deleted'}
+                                                            {String(item.lastMessage.sender_id) === String(user.id || user._id) ? 'You deleted this message' : 'This message was deleted'}
                                                         </span>
                                                     ) : (
-                                                        u.lastMessage?.type === 'image' ? '📷 Image' : renderHighlightedContent(u.lastMessage?.content || '')
+                                                        item.lastMessage?.type === 'image' ? (isGroup ? '📷 Photo' : '📷 Image') :
+                                                            item.lastMessage?.type === 'file' ? '📄 File' :
+                                                                renderHighlightedContent(item.lastMessage?.content || (item.lastMessage?.is_system ? `${item.lastMessage.sender_id?.name || 'Someone'} ${item.lastMessage.content}` : 'No messages'))
                                                     )}
                                                 </span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    {u.isMuted && <BellOff size={14} color="#8696a0" />}
-                                                    {u.isPinned && <Pin size={14} color="#8696a0" style={{ transform: 'rotate(45deg)' }} />}
-                                                    {u.unreadCount > 0 && <div className="wa-unread-badge">{u.unreadCount}</div>}
+                                                    {item.isMuted && <BellOff size={14} color="#8696a0" />}
+                                                    {item.isPinned && <Pin size={14} color="#8696a0" style={{ transform: 'rotate(45deg)' }} />}
+                                                    {item.unreadCount > 0 && <div className="wa-unread-badge">{item.unreadCount}</div>}
                                                 </div>
                                             </div>
-                                            {renderDropdownMenu('contact', u._id, u)}
+                                            {renderDropdownMenu('contact', item._id, item)}
                                         </div>
                                     </div>
                                 );
@@ -5290,7 +5566,14 @@ export default function Chat() {
 
                         {/* Messages */}
                         <div
+                            ref={chatMessagesRef}
                             className="wa-chat-messages-area"
+                            onScroll={() => {
+                                const el = chatMessagesRef.current;
+                                if (!el) return;
+                                const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                                setShowScrollBtn(distFromBottom > 80);
+                            }}
                             onContextMenu={(e) => {
                                 e.preventDefault();
                                 setChatContextMenu({ x: e.clientX, y: e.clientY });
@@ -5309,7 +5592,7 @@ export default function Chat() {
                                         return (msg.content || '').toLowerCase().includes(messageSearchQuery.toLowerCase());
                                     })
                                     .forEach((msg) => {
-                                        const dateLabel = formatDateForSeparator(msg.created_at);
+                                        const dateLabel = formatDateForSeparator(msg.created_at, t, getLangCode(selectedLanguage));
                                         if (!currentGroup || currentGroup.date !== dateLabel) {
                                             currentGroup = {
                                                 date: dateLabel,
@@ -5670,7 +5953,7 @@ export default function Chat() {
                                             <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
                                                 <div className="wa-reply-preview-header">
                                                     <span className="wa-reply-preview-name">
-                                                        {isMeMsg(replyingTo) ? 'You' : (selectedUser?.name || 'User')}
+                                                        {isMeMsg(replyingTo) ? t('chat_window.you') : (selectedUser?.name || 'User')}
                                                     </span>
                                                 </div>
                                                 <div className="wa-reply-preview-content">
@@ -5716,7 +5999,7 @@ export default function Chat() {
                                             )}
                                             <textarea
                                                 className="wa-input-box"
-                                                placeholder="Type a message"
+                                                placeholder={t('chat_window.input_placeholder')}
                                                 value={input}
                                                 onChange={(e) => setInput(e.target.value)}
                                                 onPaste={handlePaste}
@@ -5797,7 +6080,16 @@ export default function Chat() {
                         </div>
 
                         {/* Group Messages Area */}
-                        <div className="wa-chat-messages-area">
+                        <div
+                            ref={chatMessagesRef}
+                            className="wa-chat-messages-area"
+                            onScroll={() => {
+                                const el = chatMessagesRef.current;
+                                if (!el) return;
+                                const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                                setShowScrollBtn(distFromBottom > 80);
+                            }}
+                        >
                             <div style={{ flex: '1 1 auto' }}></div>
 
                             {/* Group Welcome Card */}
@@ -6122,6 +6414,19 @@ export default function Chat() {
                         <p style={{ fontSize: 14, marginTop: 10 }}>Send and receive messages without keeping your phone online.</p>
                     </div>
                 )}
+
+                {/* Shared Scroll-to-bottom Button positioned in wa-main-chat parent */}
+                {showScrollBtn && (selectedUser || selectedGroup) && (window.innerWidth > 768 || !(isMessageSearchOpen || isContactInfoOpen || isStarredMessagesOpen || isSharedMediaOpen || isEditContactOpen || isNotificationSettingsOpen)) && (
+                    <button
+                        className="wa-scroll-to-bottom-btn"
+                        onClick={() => {
+                            chatMessagesRef.current?.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: 'smooth' });
+                        }}
+                        title="Scroll to latest"
+                    >
+                        <ChevronDown size={22} />
+                    </button>
+                )}
             </div>
             {isMessageSearchOpen && (selectedUser || selectedGroup) && renderSearchSidebar()}
             {renderContactInfoPanel()}
@@ -6132,22 +6437,447 @@ export default function Chat() {
         </div >
     );
 
+    const renderSettingsPanel = () => {
+        if (!isSettingsOpen) return null;
+
+        const settingsTabs = [
+            { id: 'profile', label: t('settings.tabs.profile.label'), icon: User, description: t('settings.tabs.profile.description') },
+            { id: 'general', label: t('settings.tabs.general.label'), icon: Settings2, description: t('settings.tabs.general.description') },
+            { id: 'security', label: t('settings.tabs.security.label'), icon: ShieldCheck, description: t('settings.tabs.security.description') },
+            { id: 'privacy', label: t('settings.tabs.privacy.label'), icon: Lock, description: t('settings.tabs.privacy.description') },
+            { id: 'chats', label: t('settings.tabs.chats.label'), icon: MessageSquare, description: t('settings.tabs.chats.description') },
+            { id: 'media', label: t('settings.tabs.media.label'), icon: Video, description: t('settings.tabs.media.description') },
+            { id: 'notifications', label: t('settings.tabs.notifications.label'), icon: BellRing, description: t('settings.tabs.notifications.description') },
+            { id: 'devices', label: t('settings.tabs.devices.label'), icon: Laptop, description: t('settings.tabs.devices.description') },
+            { id: 'shortcuts', label: t('settings.tabs.shortcuts.label'), icon: Keyboard, description: t('settings.tabs.shortcuts.description') },
+            { id: 'support', label: t('settings.tabs.support.label'), icon: HelpCircle, description: t('settings.tabs.support.description') },
+        ];
+
+        const renderTabContent = () => {
+            switch (activeSettingsTab) {
+                case 'profile':
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <div className="wa-settings-profile-card">
+                                <div className="wa-settings-glow" />
+                                <div className="wa-settings-profile-main">
+                                    <div className="wa-settings-avatar-wrap">
+                                        <div className="wa-settings-avatar">
+                                            <img src={userData.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256"} alt="Profile" />
+                                        </div>
+                                        <button className="wa-settings-avatar-edit"><Camera size={18} /></button>
+                                    </div>
+                                    <div className="wa-settings-profile-info">
+                                        <div className="wa-settings-name-row">
+                                            <h3>{userData.name || "User"}</h3>
+                                            <span className="wa-settings-status-badge">
+                                                <div className="wa-settings-status-dot pulse" /> {t('settings.profile.status_available')}
+                                            </span>
+                                        </div>
+                                        <p className="wa-settings-title">{userData.designation || "Lead Systems Architect"} — <span>Enterprise Core</span></p>
+                                        <div className="wa-settings-meta-row">
+                                            <div className="wa-settings-meta-item"><Building2 size={14} /> HQ - San Francisco</div>
+                                            <div className="wa-settings-meta-item"><Clock size={14} /> (GMT-7) Pacific Time</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="wa-settings-grid">
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">{t('settings.profile.professional_id')}</h4>
+                                    <div className="wa-settings-fields">
+                                        <div className="wa-settings-field read-only">
+                                            <label>{t('settings.profile.corp_email')}</label>
+                                            <p>{userData.email || "johnklauss@gmail.com"}</p>
+                                        </div>
+                                        <div className="wa-settings-field read-only">
+                                            <label>{t('settings.profile.emp_id')}</label>
+                                            <p className="font-mono">{userData.loginId || "EMP-992-ARC"}</p>
+                                        </div>
+                                        <div className="wa-settings-field read-only">
+                                            <label>{t('settings.profile.job_pos')}</label>
+                                            <p>{userData.designation || "Lead Systems Architect"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">{t('settings.profile.personal_bio')}</h4>
+                                    <div className="wa-settings-fields">
+                                        <div className="wa-settings-field read-only">
+                                            <label>{t('settings.profile.display_name')}</label>
+                                            <p>{userData.name || "User"}</p>
+                                        </div>
+                                        <div className="wa-settings-field">
+                                            <label>{t('settings.profile.about')}</label>
+                                            {isSettingsEditing ? (
+                                                <textarea
+                                                    className="wa-settings-input wa-settings-textarea"
+                                                    value={userData.about || ""}
+                                                    placeholder={t('settings.profile.about_placeholder')}
+                                                    onChange={(e) => setUserData({ ...userData, about: e.target.value })}
+                                                />
+                                            ) : (
+                                                <p>{userData.about || t('settings.profile.status_available')}</p>
+                                            )}
+                                        </div>
+                                        <div className="wa-settings-field">
+                                            <label>{t('settings.profile.phone')}</label>
+                                            {isSettingsEditing ? (
+                                                <input
+                                                    type="text"
+                                                    className="wa-settings-input"
+                                                    value={userData.mobile || ""}
+                                                    onChange={(e) => setUserData({ ...userData, mobile: e.target.value })}
+                                                />
+                                            ) : (
+                                                <p>{userData.mobile || "N/A"}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+
+                case 'general': {
+                    const languages = [
+                        'Albanian, Shqip', 'Arabic, العربية', 'Azerbaijani, Azərbaycan',
+                        'Bangla, বাংলা', 'Brazilian Portuguese, Português (Brasil)',
+                        'British English, British English', 'Bulgarian, Български', 'Catalan, Català',
+                        'Chinese Simplified, 中文(简体)', 'Chinese Traditional, 中文(繁體)',
+                        'Croatian, Hrvatski', 'Czech, Čeština', 'Danish, Dansk',
+                        'Dutch, Nederlands', 'English, English', 'Estonian, Eesti',
+                        'Finnish, Suomi', 'French, Français', 'German, Deutsch',
+                        'Greek, Ελληνικά', 'Hebrew, עברית', 'Hindi, हिन्दी',
+                        'Hungarian, Magyar', 'Indonesian, Bahasa Indonesia', 'Italian, Italiano',
+                        'Japanese, 日本語', 'Kannada, ಕನ್ನಡ', 'Korean, 한국어',
+                        'Latvian, Latviešu', 'Lithuanian, Lietuvių', 'Malay, Bahasa Melayu',
+                        'Marathi, मराठी', 'Norwegian, Norsk', 'Polish, Polski',
+                        'Romanian, Română', 'Russian, Русский', 'Slovak, Slovenčina',
+                        'Slovenian, Slovenščina', 'Spanish, Español', 'Swedish, Svenska',
+                        'Tamil, தமிழ்', 'Telugu, తెలుగు', 'Thai, ไทย',
+                        'Turkish, Türkçe', 'Ukrainian, Українська', 'Urdu, اردو',
+                        'Vietnamese, Tiếng Việt'
+                    ];
+                    const fontSizes = ['80%', '90%', '100% (default)', '110%', '125%', '135%', '150%'];
+
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            {/* Language Section */}
+                            <div className="wa-general-section">
+                                <p className="wa-general-section-label">{t('general.language')}</p>
+                                <div
+                                    className={`wa-general-dropdown-trigger ${isLanguageDropdownOpen ? 'open' : ''}`}
+                                    onClick={() => { setIsLanguageDropdownOpen(v => !v); setIsFontSizeDropdownOpen(false); }}
+                                >
+                                    <Globe size={18} className="wa-general-dropdown-globe" />
+                                    <span className="wa-general-dropdown-value">{selectedLanguage.split(',')[0].trim()}</span>
+                                    <ChevronDown size={18} className={`wa-general-dropdown-chevron ${isLanguageDropdownOpen ? 'flipped' : ''}`} />
+                                </div>
+                                {isLanguageDropdownOpen && (
+                                    <div className="wa-general-dropdown-list custom-scrollbar">
+                                        {languages.map(lang => (
+                                            <div
+                                                key={lang}
+                                                className={`wa-general-dropdown-option ${selectedLanguage === lang ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                    if (lang !== selectedLanguage) {
+                                                        setPendingLanguage(lang);
+                                                        setIsLangConfirmOpen(true);
+                                                    }
+                                                    setIsLanguageDropdownOpen(false);
+                                                }}
+                                            >
+                                                <span>{lang}</span>
+                                                {selectedLanguage === lang && <Check size={16} className="wa-general-selected-check" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Font Size Section */}
+                            <div className="wa-general-section" style={{ marginTop: 28 }}>
+                                <p className="wa-general-section-label">{t('general.font_size')}</p>
+                                <div
+                                    className={`wa-general-dropdown-trigger ${isFontSizeDropdownOpen ? 'open' : ''}`}
+                                    onClick={() => { setIsFontSizeDropdownOpen(v => !v); setIsLanguageDropdownOpen(false); }}
+                                >
+                                    <span className="wa-general-dropdown-value">{selectedFontSize}</span>
+                                    <ChevronDown size={18} className={`wa-general-dropdown-chevron ${isFontSizeDropdownOpen ? 'flipped' : ''}`} />
+                                </div>
+                                {isFontSizeDropdownOpen && (
+                                    <div className="wa-general-dropdown-list custom-scrollbar" style={{ maxHeight: 260 }}>
+                                        {fontSizes.map(size => (
+                                            <div
+                                                key={size}
+                                                className={`wa-general-dropdown-option ${selectedFontSize === size ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                    setSelectedFontSize(size);
+                                                    localStorage.setItem('neuChat_fontSize', size);
+                                                    setIsFontSizeDropdownOpen(false);
+                                                }}
+                                            >
+                                                <span>{size}</span>
+                                                {selectedFontSize === size && <Check size={16} className="wa-general-selected-check" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="wa-general-font-hint">
+                                    Use <kbd className="wa-general-kbd">Ctrl</kbd> + <kbd className="wa-general-kbd">/</kbd> - {t('general.font_size_hint')}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                case 'chats':
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <h3 className="wa-settings-content-title">Workspace Appearance</h3>
+                            <div className="wa-settings-theme-grid">
+                                {['Dark', 'Light', 'System Default'].map(theme => (
+                                    <div key={theme} className={`wa-settings-theme-card ${theme === 'Dark' ? 'active' : ''}`}>
+                                        <div className={`wa-settings-theme-preview ${theme.toLowerCase().replace(' ', '-')}`} />
+                                        <p>{theme}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="wa-settings-section mt-8">
+                                <h4 className="wa-settings-section-title">Chat History & Storage</h4>
+                                <div className="wa-settings-list bordered">
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Auto-Archive Conversations</p>
+                                            <p className="wa-settings-item-desc">Archive inactive chats after 30 days.</p>
+                                        </div>
+                                        <input type="checkbox" className="wa-settings-checkbox" />
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <span>Clear All Chat Data</span>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+
+                case 'media':
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <h3 className="wa-settings-content-title">Hardware Diagnostics</h3>
+                            <div className="wa-settings-media-tester">
+                                <div className="wa-settings-video-preview">
+                                    <Video size={48} />
+                                    <div className="wa-settings-video-status">
+                                        <div className="wa-settings-status-dot error" /> Camera Inactive
+                                    </div>
+                                </div>
+                                <div className="wa-settings-media-controls">
+                                    <div className="wa-settings-grid">
+                                        <div className="wa-settings-field-group">
+                                            <label>Camera Source</label>
+                                            <select className="wa-settings-select">
+                                                <option>Integrated FaceTime HD Camera</option>
+                                                <option>Logitech StreamCam Plus</option>
+                                            </select>
+                                        </div>
+                                        <div className="wa-settings-field-group">
+                                            <label>Microphone</label>
+                                            <select className="wa-settings-select">
+                                                <option>MacBook Pro Microphone</option>
+                                                <option>Blue Yeti USB Mic</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="wa-settings-audio-meter">
+                                        <Mic size={20} />
+                                        <div className="wa-settings-meter-bar">
+                                            <div className="wa-settings-meter-fill" style={{ width: '33%' }} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+
+                case 'shortcuts':
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <h3 className="wa-settings-content-title">Command Quick-Links</h3>
+                            <div className="wa-settings-shortcuts-list">
+                                {[
+                                    { label: 'Search Messages', keys: ['Ctrl', 'F'] },
+                                    { label: 'New Chat Session', keys: ['Ctrl', 'N'] },
+                                    { label: 'Mute/Unmute Audio', keys: ['Ctrl', 'Shift', 'M'] },
+                                    { label: 'Toggle Sidebar', keys: ['Ctrl', '\\'] },
+                                    { label: 'Mark as Read', keys: ['Alt', 'R'] }
+                                ].map((item, i) => (
+                                    <div key={i} className="wa-settings-shortcut-item">
+                                        <span>{item.label}</span>
+                                        <div className="wa-settings-keys">
+                                            {item.keys.map(key => (
+                                                <kbd key={key}>{key}</kbd>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+
+                case 'support':
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <div className="wa-settings-support-banner">
+                                <h3>Need Internal Support?</h3>
+                                <p>Our dedicated IT workspace team is available 24/7 for security audits and hardware provisioning.</p>
+                                <div className="wa-settings-banner-actions">
+                                    <button className="wa-settings-btn-white">Contact Admin</button>
+                                    <button className="wa-settings-btn-glass">Knowledge Base</button>
+                                </div>
+                            </div>
+                            <div className="wa-settings-grid mt-6">
+                                <div className="wa-settings-card">
+                                    <h4>Compliance & Privacy</h4>
+                                    <p>View your data processing agreement and local privacy compliance requirements for your region.</p>
+                                    <button className="wa-settings-link">Read Legal Documentation &rarr;</button>
+                                </div>
+                                <div className="wa-settings-card">
+                                    <h4>Version Info</h4>
+                                    <p>Production Build: v2024.11.02-Stable</p>
+                                    <p>Internal IP: 10.0.4.221</p>
+                                    <button className="wa-settings-badge-success">Up to Date</button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+
+                default:
+                    return (
+                        <div className="wa-settings-empty-state-centered">
+                            <div className="wa-settings-empty-logo">
+                                <img src={logo} alt="Neural Chat" />
+                                <h1 style={{ color: '#027EB5', fontSize: '2.5rem', fontWeight: '800', margin: 0 }}>Neural Chat</h1>
+                            </div>
+                            <div className="wa-settings-empty-info">
+                                <Settings size={32} color="#027EB5" />
+                                <h3>{t('settings.choose_category')}</h3>
+                                <p>{t('settings.choose_category_desc')}</p>
+                            </div>
+                        </div>
+                    );
+            }
+        };
+
+        return (
+            <div className="wa-settings-overlay modal-animate-in">
+                <div className="wa-settings-container">
+                    {/* Navigation Sidebar */}
+                    <div className={`wa-settings-sidebar ${activeSettingsTab ? 'hide-mobile' : ''}`}>
+                        <div className="wa-settings-sidebar-header">
+                            <h2 className="wa-settings-sidebar-title">{t('settings.title')}</h2>
+                            <div className="wa-settings-search">
+                                <Search size={16} />
+                                <input placeholder={t('settings.search_placeholder')} />
+                            </div>
+                        </div>
+
+                        <nav className="wa-settings-nav custom-scrollbar">
+                            {settingsTabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveSettingsTab(tab.id)}
+                                    className={`wa-settings-nav-item ${activeSettingsTab === tab.id ? 'active' : ''}`}
+                                >
+                                    <div className="wa-settings-nav-icon">
+                                        <tab.icon size={20} />
+                                    </div>
+                                    <div className="wa-settings-nav-text">
+                                        <p className="wa-settings-nav-label">{tab.label}</p>
+                                        <p className="wa-settings-nav-desc">{tab.description}</p>
+                                    </div>
+                                    {activeSettingsTab === tab.id && <div className="wa-settings-active-indicator" />}
+                                </button>
+                            ))}
+                        </nav>
+
+                        <div className="wa-settings-sidebar-footer">
+                            <button className="wa-settings-terminate-btn" onClick={() => {
+                                localStorage.removeItem('token');
+                                localStorage.removeItem('user');
+                                navigate('/login');
+                            }}>
+                                <LogOut size={16} />
+                                {t('settings.terminate_session')}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className={`wa-settings-main ${activeSettingsTab ? 'show-detail' : ''}`}>
+                        {activeSettingsTab && (
+                            <div className="wa-settings-header fade-in">
+                                <button className="wa-settings-back-btn" onClick={() => setActiveSettingsTab(null)}>
+                                    <ArrowLeft size={16} strokeWidth={2.5} />
+                                </button>
+                                <div className="wa-settings-header-info">
+                                    <div className="wa-settings-breadcrumb">
+                                        <span className="wa-settings-preferences-tag">{t('settings.preferences')}</span>
+                                    </div>
+                                    <h2 className="wa-settings-tab-title">
+                                        {settingsTabs.find(tab => tab.id === activeSettingsTab)?.label || activeSettingsTab}
+                                    </h2>
+                                </div>
+                                <div className="wa-settings-header-actions">
+                                    {!isSettingsEditing ? (
+                                        <button className="wa-settings-btn-edit" onClick={() => setIsSettingsEditing(true)}>
+                                            <Pencil size={14} /> {t('settings.edit_identity')}
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button className="wa-settings-btn-cancel" onClick={() => setIsSettingsEditing(false)}>{t('settings.discard_changes')}</button>
+                                            <button className="wa-settings-btn-commit" onClick={handleUpdateProfile}>{t('settings.commit_updates')}</button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className={`wa-settings-content custom-scrollbar ${!activeSettingsTab ? 'no-padding' : ''}`}>
+                            <div className={activeSettingsTab ? 'wa-settings-content-inner' : 'wa-settings-full-height'}>
+                                {renderTabContent()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={`wa-app-container ${selectedUser ? 'chat-active' : 'list-active'}`}>
             {renderLeftSidebar()}
-            {renderLeftPanel()}
-            {/* Right Side Panel (Main Chat + Overlays) */}
-            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', height: '100%' }}>
-                {/* Main Chat always mounted to preserve scroll */}
-                {renderMainChat()}
+            {isSettingsOpen ? (
+                renderSettingsPanel()
+            ) : (
+                <>
+                    {renderLeftPanel()}
+                    {/* Right Side Panel (Main Chat + Overlays) */}
+                    <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', height: '100%' }}>
+                        {/* Main Chat always mounted to preserve scroll */}
+                        {renderMainChat()}
 
-                {/* File Preview Overlay (Restricted to Chat Area) */}
-                {file && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000, display: 'flex', flexDirection: 'column', background: '#e9edef' }}>
-                        {renderFilePreview()}
+                        {/* File Preview Overlay (Restricted to Chat Area) */}
+                        {file && (
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000, display: 'flex', flexDirection: 'column', background: '#e9edef' }}>
+                                {renderFilePreview()}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            )}
             {infoMessage && renderMessageInfo()}
             {/* Contact Info Panel at Root Level */}
             {/* Moved inside renderMainChat for desktop side-by-side view */}
@@ -6162,6 +6892,39 @@ export default function Chat() {
 
             {isMuteModalOpen && renderMuteModal()}
             {isForwardModalOpen && renderForwardModal()}
+
+            {/* Language Change Confirmation Modal */}
+            {isLangConfirmOpen && pendingLanguage && (
+                <div className="wa-lang-confirm-overlay" onClick={() => setIsLangConfirmOpen(false)}>
+                    <div className="wa-lang-confirm-modal" onClick={e => e.stopPropagation()}>
+                        <h3 className="wa-lang-confirm-title">{t('lang_confirm.title')}</h3>
+                        <p className="wa-lang-confirm-desc">
+                            {t('lang_confirm.description', { lang: pendingLanguage.split(',')[0].trim() })}
+                        </p>
+                        <div className="wa-lang-confirm-actions">
+                            <button
+                                className="wa-lang-confirm-cancel"
+                                onClick={() => { setIsLangConfirmOpen(false); setPendingLanguage(null); }}
+                            >
+                                {t('lang_confirm.cancel')}
+                            </button>
+                            <button
+                                className="wa-lang-confirm-accept"
+                                onClick={() => {
+                                    setSelectedLanguage(pendingLanguage);
+                                    localStorage.setItem('neuChat_language', pendingLanguage);
+                                    setIsLangConfirmOpen(false);
+                                    setPendingLanguage(null);
+                                    // Actually restart the app to apply the language change
+                                    window.location.reload();
+                                }}
+                            >
+                                {t('lang_confirm.confirm', { lang: pendingLanguage.split(',')[0].trim() })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ConfirmModal
                 isOpen={isDeleteModalOpen}

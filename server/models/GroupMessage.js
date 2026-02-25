@@ -10,6 +10,7 @@ const groupMessageSchema = new mongoose.Schema({
     fileName: { type: String },
     fileSize: { type: Number },
     is_system: { type: Boolean, default: false }, // For "You created this group" type messages
+    starred_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     created_at: { type: Date, default: Date.now }
 }, {
     toJSON: { virtuals: true },

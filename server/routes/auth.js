@@ -411,4 +411,70 @@ router.post('/verify-link-token', async (req, res) => {
     }
 });
 
+// Update User Profile (Self)
+router.put('/update-profile', async (req, res) => {
+    const { userId, about, mobile } = req.body;
+    console.log('[PROFILE UPDATE] Request received for userId:', userId);
+
+    if (!userId) {
+        console.error('[PROFILE UPDATE] Missing userId');
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    try {
+        const updateData = {};
+        if (about !== undefined) updateData.about = about;
+        if (mobile !== undefined) {
+            // Basic mobile validation match register logic
+            if (!/^\d{10}$/.test(mobile)) {
+                console.error('[PROFILE UPDATE] Invalid mobile format:', mobile);
+                return res.status(400).json({ error: 'Mobile number must be exactly 10 digits.' });
+            }
+            // Check if mobile matches someone else
+            const existing = await User.findOne({ mobile, _id: { $ne: userId } });
+            if (existing) {
+                console.error('[PROFILE UPDATE] Mobile already in use by:', existing._id);
+                return res.status(400).json({ error: 'Mobile number already used by another account' });
+            }
+            updateData.mobile = mobile;
+        }
+
+        console.log('[PROFILE UPDATE] Updating with:', updateData);
+        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+
+        if (!updatedUser) {
+            console.error('[PROFILE UPDATE] User not found for ID:', userId);
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        console.log('[PROFILE UPDATE] Successfully updated user:', updatedUser._id);
+
+        if (req.io) {
+            req.io.emit('user_profile_updated', {
+                userId: updatedUser._id,
+                name: updatedUser.name,
+                mobile: updatedUser.mobile,
+                about: updatedUser.about
+            });
+        }
+
+        res.json({
+            message: 'Profile updated successfully',
+            user: {
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                mobile: updatedUser.mobile,
+                about: updatedUser.about,
+                designation: updatedUser.designation,
+                login_id: updatedUser.login_id,
+                role: updatedUser.role
+            }
+        });
+    } catch (err) {
+        console.error('[PROFILE UPDATE] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
