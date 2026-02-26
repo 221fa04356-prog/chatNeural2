@@ -92,7 +92,7 @@ router.post('/register', async (req, res) => {
 
 // Login
 router.post('/login', async (req, res) => {
-    const { email, loginId, password } = req.body;
+    const { email, loginId, password, force } = req.body;
 
     let query = {};
     if (email) query.email = email;
@@ -109,6 +109,22 @@ router.post('/login', async (req, res) => {
 
         const match = await bcrypt.compare(password, user.password);
         if (!match) return res.status(400).json({ error: 'Invalid credentials' });
+
+        // Check for active sessions using socket rooms
+        const activeSockets = req.io ? req.io.sockets.adapter.rooms.get(user.id.toString())?.size || 0 : 0;
+
+        if (!force && activeSockets > 0) {
+            return res.status(409).json({ error: 'The user is already signed in', needsForce: true });
+        }
+
+        if (force && req.io) {
+            // Tell the active client to clear local storage and log out
+            req.io.to(user.id.toString()).emit('force_logout');
+            // Hard disconnect the sockets shortly after
+            setTimeout(() => {
+                req.io.in(user.id.toString()).disconnectSockets(true);
+            }, 300);
+        }
 
         // One Password One User Policy (Single Session)
         // Increment token version to invalidate previous tokens
@@ -412,6 +428,111 @@ router.post('/verify-link-token', async (req, res) => {
 });
 
 // Update User Profile (Self)
+const twilio = require('twilio');
+const VerificationLog = require('../models/VerificationLog');
+
+router.post('/send-call-otp', async (req, res) => {
+    const { context, identifier, mobile } = req.body;
+    try {
+        let finalMobile = mobile;
+        if (!finalMobile && identifier) {
+            let query = {};
+            if (context.includes('admin') || identifier.includes('@')) query.email = identifier;
+            else query.login_id = identifier;
+
+            const user = await User.findOne(query);
+            if (!user) return res.status(404).json({ error: 'User not found' });
+            if (!user.mobile) return res.status(400).json({ error: 'No mobile number registered to this account' });
+            finalMobile = user.mobile;
+        }
+
+        if (!finalMobile) return res.status(400).json({ error: 'Mobile number is required' });
+
+        // Clean mobile number - extract last 10 digits
+        const cleanMobile = finalMobile.replace(/\D/g, '').slice(-10);
+        if (cleanMobile.length !== 10) return res.status(400).json({ error: 'Invalid mobile number length' });
+
+        // Generate 6 digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpKey = identifier || cleanMobile;
+        const maskedMobile = cleanMobile.slice(0, 2) + 'XXXXXX' + cleanMobile.slice(-2);
+
+        // Save to Database mapping instead of volatile Map
+        await VerificationLog.findOneAndUpdate(
+            { identifier: otpKey },
+            {
+                otp,
+                context,
+                maskedMobile,
+                status: 'pending',
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+            },
+            { upsert: true, new: true }
+        );
+
+        // Setup Twilio
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+
+        if (accountSid && authToken && fromPhone) {
+            const client = twilio(accountSid, authToken);
+            const spacedOtp = otp.split('').join(' ');
+            const twiml = `<Response><Say>Welcome to Neural Chat. Your verification code is ${spacedOtp}. I repeat, ${spacedOtp}. Once again, ${spacedOtp}. Thank you for using the Call verification system.</Say></Response>`;
+
+            await client.calls.create({
+                twiml: twiml,
+                to: '+91' + cleanMobile,
+                from: fromPhone
+            });
+        } else {
+            console.log('\n=============================================');
+            console.log('[TWILIO MOCK] Call to +91' + cleanMobile);
+            console.log('[TWILIO MOCK] Body: Welcome... Your OTP is: ' + otp);
+            console.log('=============================================\n');
+        }
+
+        res.json({ success: true, maskedMobile });
+    } catch (err) {
+        console.error('Call Error:', err);
+        res.status(500).json({ error: 'Failed to initiate call. Please try again.' });
+    }
+});
+
+router.post('/verify-call-otp', async (req, res) => {
+    const { identifier, otp } = req.body;
+    let cleanIdentifier = identifier;
+
+    // if identifier was phone number, clean it
+    if (/^\d+$/.test(identifier)) {
+        cleanIdentifier = identifier.replace(/\D/g, '').slice(-10);
+    }
+
+    try {
+        const record = await VerificationLog.findOne({
+            identifier: { $in: [cleanIdentifier, identifier] },
+            status: 'pending'
+        });
+
+        if (!record) return res.status(400).json({ error: 'OTP expired or not requested' });
+        if (Date.now() > new Date(record.expiresAt).getTime()) {
+            await VerificationLog.deleteOne({ _id: record._id });
+            return res.status(400).json({ error: 'OTP expired' });
+        }
+
+        if (record.otp === otp) {
+            record.status = 'verified';
+            await record.save();
+            return res.json({ success: true });
+        } else {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+    } catch (err) {
+        console.error('OTP Verification Error:', err);
+        return res.status(500).json({ error: 'Server error during verification' });
+    }
+});
+
 router.put('/update-profile', async (req, res) => {
     const { userId, about, mobile } = req.body;
     console.log('[PROFILE UPDATE] Request received for userId:', userId);

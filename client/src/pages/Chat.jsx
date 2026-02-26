@@ -146,6 +146,7 @@ export default function Chat() {
 
     // --- General Settings State ---
     const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('neuChat_language') || 'British English, British English');
+    const [selectedTheme, setSelectedTheme] = useState(() => localStorage.getItem('neuChat_theme') || 'Dark');
     const [selectedFontSize, setSelectedFontSize] = useState(() => localStorage.getItem('neuChat_fontSize') || '100% (default)');
     const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
     const [isFontSizeDropdownOpen, setIsFontSizeDropdownOpen] = useState(false);
@@ -1224,6 +1225,14 @@ export default function Chat() {
         socket.on('message_deleted', onMessageDeleted);
         socket.on('user_profile_updated', onUserProfileUpdated);
 
+        const onForceLogout = () => {
+            console.warn('Socket: force_logout received. Another session was started.');
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = '/';
+        };
+        socket.on('force_logout', onForceLogout);
+
         // --- Connect ---
         socket.auth = { token: localStorage.getItem('token') };
         if (!socket.connected) {
@@ -1320,6 +1329,7 @@ export default function Chat() {
             socket.off('messages_unread', onMessagesUnread);
             socket.off('user_status_change', onStatusChange);
             socket.off('message_deleted', onMessageDeleted);
+            socket.off('force_logout', onForceLogout);
             if (socket.connected) socket.disconnect();
         };
     }, [user.id, navigate]);
@@ -7387,7 +7397,14 @@ export default function Chat() {
                             <h3 className="wa-settings-content-title">Workspace Appearance</h3>
                             <div className="wa-settings-theme-grid">
                                 {['Dark', 'Light', 'System Default'].map(theme => (
-                                    <div key={theme} className={`wa-settings-theme-card ${theme === 'Dark' ? 'active' : ''}`}>
+                                    <div
+                                        key={theme}
+                                        className={`wa-settings-theme-card ${selectedTheme === theme ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setSelectedTheme(theme);
+                                            localStorage.setItem('neuChat_theme', theme);
+                                        }}
+                                    >
                                         <div className={`wa-settings-theme-preview ${theme.toLowerCase().replace(' ', '-')}`} />
                                         <p>{theme}</p>
                                     </div>
@@ -7395,22 +7412,28 @@ export default function Chat() {
                             </div>
                             <div className="wa-settings-section mt-8">
                                 <h4 className="wa-settings-section-title">Chat History & Storage</h4>
-                                <div className="wa-settings-list bordered">
+                                <div className="wa-settings-list">
                                     <div className="wa-settings-item">
                                         <div className="wa-settings-item-info">
                                             <p className="wa-settings-item-label">Auto-Archive Conversations</p>
                                             <p className="wa-settings-item-desc">Archive inactive chats after 30 days.</p>
                                         </div>
-                                        <input type="checkbox" className="wa-settings-checkbox" />
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
                                     </div>
                                     <button className="wa-settings-list-action">
-                                        <span>Clear All Chat Data</span>
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Clear All Chat Data</p>
+                                        </div>
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
                             </div>
                         </div>
                     );
+
 
                 case 'media':
                     return (

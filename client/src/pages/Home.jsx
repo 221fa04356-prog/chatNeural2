@@ -5,11 +5,14 @@ import { User, Shield, Lock, Mail, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import logo from '../assets/logo.png';
 import LandingBackground from '../components/LandingBackground';
 import Snackbar from '../components/Snackbar';
+import HumanVerification from '../components/HumanVerification';
 import '../styles/Home.css';
 
 export default function Home() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [showLoginForm, setShowLoginForm] = useState(false);
+    const [showForceLogout, setShowForceLogout] = useState(false);
+    const [isHumanVerified, setIsHumanVerified] = useState(false);
 
     // Separate state for Admin and User
     const [adminEmail, setAdminEmail] = useState('');
@@ -61,13 +64,18 @@ export default function Home() {
         }
     }, [location]);
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
+    const handleLogin = async (e, forceParams = false) => {
+        if (e) e.preventDefault();
+
+        if (!isHumanVerified) {
+            setSnackbar({ open: true, message: 'Please complete the Human Verification first.', type: 'error' });
+            return;
+        }
 
         try {
             const payload = isAdmin
-                ? { email: adminEmail, password: adminPassword }
-                : { loginId: userLoginId, password: userPassword };
+                ? { email: adminEmail, password: adminPassword, force: forceParams }
+                : { loginId: userLoginId, password: userPassword, force: forceParams };
 
             const res = await axios.post('/api/auth/login', payload);
             const user = res.data.user;
@@ -81,11 +89,15 @@ export default function Home() {
             sessionStorage.clear();
             window.location.href = isAdmin && user.role === 'admin' ? '/admin' : '/chat';
         } catch (err) {
-            setSnackbar({
-                open: true,
-                message: err.response?.data?.error || 'Login failed',
-                type: 'error'
-            });
+            if (err.response?.status === 409 && err.response?.data?.needsForce) {
+                setShowForceLogout(true);
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: err.response?.data?.error || 'Login failed',
+                    type: 'error'
+                });
+            }
         }
     };
 
@@ -230,6 +242,42 @@ export default function Home() {
                             </div>
                         </div>
                     </div>
+                ) : showForceLogout ? (
+                    /* Force Logout Warning View */
+                    <div className="login-card-container fade-in-scale">
+                        <div className="login-card">
+                            <div className="login-header" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                                <div style={{ display: 'inline-flex', padding: '16px', background: '#fee2e2', borderRadius: '50%', marginBottom: '1rem' }}>
+                                    <Lock size={32} color="#ef4444" />
+                                </div>
+                                <h2 className="login-title" style={{ color: '#ef4444', fontSize: '1.5rem', marginBottom: '8px' }}>Active Session Found</h2>
+                                <p className="login-subtitle" style={{ fontSize: '1rem', color: '#64748b' }}>
+                                    The user is already signed in on another device.
+                                </p>
+                            </div>
+
+                            <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '24px', textAlign: 'center', lineHeight: '1.6' }}>
+                                Logging in here will disconnect your other session. Do you want to sign out from the other device and continue?
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    onClick={() => setShowForceLogout(false)}
+                                    className="btn-outline-neural"
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '1rem', fontWeight: 'bold' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleLogin(null, true)}
+                                    className="btn-primary-neural"
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '1rem', background: '#ef4444', border: 'none', fontWeight: 'bold', color: 'white' }}
+                                >
+                                    Signout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
                     /* Login Portal View */
                     <div className="login-card-container fade-in-scale">
@@ -304,7 +352,15 @@ export default function Home() {
                                     </div>
                                 </div>
 
-                                <button type="submit" className="btn-primary-neural" style={{ width: '100%', padding: '1.2rem', borderRadius: '1rem', border: 'none', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer', marginTop: '1rem' }}>
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <HumanVerification
+                                        onVerified={(status) => setIsHumanVerified(status)}
+                                        context={isAdmin ? 'admin_login' : 'user_login'}
+                                        identifier={isAdmin ? adminEmail : userLoginId}
+                                    />
+                                </div>
+
+                                <button type="submit" className="btn-primary-neural" style={{ width: '100%', padding: '1.2rem', borderRadius: '1rem', border: 'none', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer', marginTop: '0.5rem' }}>
                                     Log In Now
                                 </button>
 
