@@ -69,7 +69,7 @@ const translations = {
                 general: { label: 'General', description: 'System startup & closing behavior' },
                 security: { label: 'Security & Account', description: 'SSO, 2FA & Audit info' },
                 privacy: { label: 'Privacy', description: 'Blocked contacts & GDPR' },
-                chats: { label: 'Chats & Styling', description: 'Themes, wallpaper & transcripts' },
+                chats: { label: 'Chat Theme', description: 'Themes, wallpaper & transcripts' },
                 media: { label: 'Video & Voice', description: 'Camera & Microphone testing' },
                 notifications: { label: 'Notifications', description: 'Alerts & Focused hours' },
                 devices: { label: 'Managed Devices', description: 'Authorized workstation access' },

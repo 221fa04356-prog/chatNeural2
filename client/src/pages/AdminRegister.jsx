@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Shield, Lock, Mail, User, Key, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
+import HumanVerification from '../components/HumanVerification';
 import Snackbar from '../components/Snackbar';
 import '../styles/Home.css';
 
@@ -11,10 +12,16 @@ export default function AdminRegister() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'info' });
+    const [isHumanVerified, setIsHumanVerified] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!isHumanVerified) {
+            setSnackbar({ open: true, message: 'Please complete the Human Verification first', type: 'warning' });
+            return;
+        }
 
         // Validations
         const nameRegex = /^[a-zA-Z\s]+$/;
@@ -187,6 +194,13 @@ export default function AdminRegister() {
                                         className="input-neural"
                                     />
                                 </div>
+                            </div>
+
+                            <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                                <HumanVerification
+                                    onVerified={(status) => setIsHumanVerified(status)}
+                                    context="admin_register"
+                                />
                             </div>
 
                             <button type="submit" className="btn-primary-neural" style={{ width: '100%', borderRadius: '1rem', border: 'none', fontWeight: '800', cursor: 'pointer' }}>

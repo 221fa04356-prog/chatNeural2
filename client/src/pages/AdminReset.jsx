@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Shield, Lock, Mail, Key, Eye, EyeOff } from 'lucide-react';
+import HumanVerification from '../components/HumanVerification';
 
 export default function AdminReset() {
     const [formData, setFormData] = useState({ email: '', newPassword: '', confirmPassword: '', secretKey: '' });
@@ -9,10 +10,16 @@ export default function AdminReset() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [msg, setMsg] = useState('');
+    const [isHumanVerified, setIsHumanVerified] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!isHumanVerified) {
+            setError('Please complete the Human Verification first');
+            return;
+        }
 
         if (formData.newPassword !== formData.confirmPassword) {
             setError('Passwords do not match');
@@ -124,6 +131,14 @@ export default function AdminReset() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        <HumanVerification
+                            onVerified={(status) => setIsHumanVerified(status)}
+                            context="admin_reset"
+                            identifier={formData.email}
+                        />
                     </div>
 
                     <button type="submit" className="btn-primary">Reset Password</button>
