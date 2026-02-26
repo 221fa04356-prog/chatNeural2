@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import io from 'socket.io-client';
 import '../styles/Chat.css';
+import '../styles/PrivacySettings.css';
 import { formatDateForSeparator } from '../utils/dateUtils';
 import Snackbar from '../components/Snackbar';
 import { getTranslator, getLangCode } from '../utils/translations';
@@ -141,6 +142,115 @@ export default function Chat() {
     const [isFontSizeDropdownOpen, setIsFontSizeDropdownOpen] = useState(false);
     const [pendingLanguage, setPendingLanguage] = useState(null); // language awaiting confirmation
     const [isLangConfirmOpen, setIsLangConfirmOpen] = useState(false);
+    const [privacySettings, setPrivacySettings] = useState({
+        lastSeen: 'Everyone',
+        onlineStatus: 'Everyone',
+        profilePhoto: 'Everyone',
+        about: 'Everyone',
+        status: 'Everyone',
+        readReceipts: true,
+        typingIndicator: true,
+        whoCanMessageMe: 'Everyone',
+        messageRequestsRequired: true,
+        blockUnknown: false,
+        whoCanAddMeToGroups: 'Everyone',
+        requireConsentBeforeForward: false,
+        forwardLimit: 5,
+        notifyOnForward: false,
+        sensitiveDataScan: true,
+        autoRedact: false,
+        scamDetection: true,
+        phishingDetection: true,
+        threatAlertSensitivity: 'Medium',
+        screenshotDetection: true,
+        notifyOnScreenshot: true,
+        blurOnScreenshot: false,
+        addWatermark: false,
+        restrictApprovedDevices: false,
+        requireApprovalNewDevice: true,
+        autoLockLocationChange: false,
+        geoFencedMessages: false,
+        restrictedCountry: 'None',
+        hiddenChatsFolder: false,
+        decoyMode: false,
+        panicMode: false,
+        showPrivacyScore: true,
+        showEncryptionBadge: true,
+        showRiskAlerts: true
+    });
+    const fontSizesArr = [
+        '25%', '33%', '50%', '67%', '75%', '80%', '90%',
+        '100% (default)',
+        '110%', '125%', '150%', '175%', '200%', '250%', '300%', '400%', '500%'
+    ];
+
+    // --- Advanced Browser Zoom Synchronization ---
+    const [baseDPR, setBaseDPR] = useState(() => {
+        const stored = localStorage.getItem('neuChat_baseDPR');
+        if (stored) return parseFloat(stored);
+        localStorage.setItem('neuChat_baseDPR', window.devicePixelRatio.toString());
+        return window.devicePixelRatio;
+    });
+
+    const [browserScale, setBrowserScale] = useState(1);
+
+    useEffect(() => {
+        const handleResize = () => {
+            // Detect current browser zoom level relative to baseline
+            const currentScale = window.devicePixelRatio / baseDPR;
+            setBrowserScale(currentScale);
+
+            // Sync the "Font Size" setting with the browser zoom if they are close
+            const currentPercent = Math.round(currentScale * 100);
+            const matchingSize = fontSizesArr.find(s => parseInt(s) === currentPercent);
+            if (matchingSize && matchingSize !== selectedFontSize) {
+                setSelectedFontSize(matchingSize);
+                localStorage.setItem('neuChat_fontSize', matchingSize);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial check
+        return () => window.removeEventListener('resize', handleResize);
+    }, [baseDPR, selectedFontSize]);
+
+    useEffect(() => {
+        const targetScale = parseInt(selectedFontSize) / 100;
+        const internalZoom = targetScale / browserScale;
+
+        const container = document.querySelector('.wa-app-container');
+        if (container) {
+            // Apply zoom factor specifically to the app container
+            // and COMPENSATE dimensions to ensure it always fills 100% of the viewport.
+            // Support range from 25% (0.25) to 500% (5.0)
+            if (internalZoom >= 0.25 && internalZoom <= 5.0) {
+                container.style.zoom = internalZoom;
+                container.style.width = `${100 / internalZoom}vw`;
+                container.style.height = `${100 / internalZoom}vh`;
+                // Add transform-origin to ensure it scales from the top-left correctly
+                container.style.transformOrigin = 'top left';
+                document.body.style.backgroundColor = '#111b21';
+            } else {
+                container.style.zoom = '1';
+                container.style.width = '100vw';
+                container.style.height = '100vh';
+            }
+        }
+    }, [selectedFontSize, browserScale]);
+
+    const handleFontSizeChange = (size) => {
+        setSelectedFontSize(size);
+        localStorage.setItem('neuChat_fontSize', size);
+
+        // CALIBRATION: If user manually selects 100%, we recalibrate the baseline
+        // to match the current browser state. This fix synchronizes the app and browser.
+        if (size.includes('100%')) {
+            const currentDPR = window.devicePixelRatio;
+            setBaseDPR(currentDPR);
+            localStorage.setItem('neuChat_baseDPR', currentDPR.toString());
+            setSnackbar({ message: 'Scale calibrated to 100%', type: 'success', variant: 'system' });
+        }
+    };
 
     // Derive translator from the currently selected language (re-computed on every render,
     // so after a reload the correct translations are immediately active).
@@ -1196,13 +1306,40 @@ export default function Chat() {
                 } else if (isNewChatOpen) {
                     setIsNewChatOpen(false);
                 } else if (selectedUser) {
-
                     setSelectedUser(null);
                     // Also cleanup selection modes
                     setIsForwardingMode(false);
                     setIsChatSelectionMode(false);
                     setForwardSelectedMsgs([]);
                 }
+            }
+
+            // --- Synchronized Zoom Shortcuts ---
+            // Support standard browser shortcuts (Ctrl + =/-)
+            // We DON'T e.preventDefault() for native keys, so the browser zooms natively, 
+            // and our 'resize' listener handles the label sync.
+            if (e.ctrlKey && (e.key === '=' || e.key === '+' || e.key === '-')) {
+                // Let browser handle native zoom
+                return;
+            }
+
+            // Custom shortcuts for cycling (Ctrl + / or Ctrl + ,)
+            if (e.ctrlKey && (e.key === '/' || e.key === ',')) {
+                e.preventDefault();
+                const currentIndex = fontSizesArr.indexOf(selectedFontSize);
+                const nextIndex = (currentIndex + 1) % fontSizesArr.length;
+                const newSize = fontSizesArr[nextIndex];
+                handleFontSizeChange(newSize);
+                setSnackbar({ message: `Zoom: ${newSize}`, type: 'info', variant: 'system' });
+            }
+            // Ctrl + Shift + / (Ctrl + ?) or Ctrl + Shift + , (Ctrl + <) to decrease
+            if (e.ctrlKey && e.shiftKey && (e.key === '?' || e.key === '<')) {
+                e.preventDefault();
+                const currentIndex = fontSizesArr.indexOf(selectedFontSize);
+                const prevIndex = (currentIndex - 1 + fontSizesArr.length) % fontSizesArr.length;
+                const newSize = fontSizesArr[prevIndex];
+                handleFontSizeChange(newSize);
+                setSnackbar({ message: `Zoom: ${newSize}`, type: 'info', variant: 'system' });
             }
         };
 
@@ -6559,7 +6696,6 @@ export default function Chat() {
                         'Turkish, Türkçe', 'Ukrainian, Українська', 'Urdu, اردو',
                         'Vietnamese, Tiếng Việt'
                     ];
-                    const fontSizes = ['80%', '90%', '100% (default)', '110%', '125%', '135%', '150%'];
 
                     return (
                         <div className="wa-settings-tab-content fade-in">
@@ -6607,14 +6743,13 @@ export default function Chat() {
                                     <ChevronDown size={18} className={`wa-general-dropdown-chevron ${isFontSizeDropdownOpen ? 'flipped' : ''}`} />
                                 </div>
                                 {isFontSizeDropdownOpen && (
-                                    <div className="wa-general-dropdown-list custom-scrollbar" style={{ maxHeight: 260 }}>
-                                        {fontSizes.map(size => (
+                                    <div className="wa-general-dropdown-list custom-scrollbar" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                                        {fontSizesArr.map(size => (
                                             <div
                                                 key={size}
                                                 className={`wa-general-dropdown-option ${selectedFontSize === size ? 'selected' : ''}`}
                                                 onClick={() => {
-                                                    setSelectedFontSize(size);
-                                                    localStorage.setItem('neuChat_fontSize', size);
+                                                    handleFontSizeChange(size);
                                                     setIsFontSizeDropdownOpen(false);
                                                 }}
                                             >
@@ -6627,6 +6762,347 @@ export default function Chat() {
                                 <p className="wa-general-font-hint">
                                     Use <kbd className="wa-general-kbd">Ctrl</kbd> + <kbd className="wa-general-kbd">/</kbd> - {t('general.font_size_hint')}
                                 </p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                case 'privacy': {
+                    const toggleSetting = (key) => {
+                        setPrivacySettings(prev => ({ ...prev, [key]: !prev[key] }));
+                    };
+
+                    return (
+                        <div className="wa-settings-tab-content fade-in">
+                            <div className="wa-settings-grid privacy-grid">
+                                {/* 🔐 1. Personal Info Visibility */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Personal Info Visibility</h4>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Last Seen Visibility</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.lastSeen}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Online Status Visibility</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.onlineStatus}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Profile Photo Visibility</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.profilePhoto}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">About Visibility</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.about}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Status Visibility</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.status}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Read Receipts</p>
+                                            <p className="wa-settings-item-desc">Control who can see when you read messages</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.readReceipts} onChange={() => toggleSetting('readReceipts')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Typing Indicator</p>
+                                            <p className="wa-settings-item-desc">Show when you are typing a message</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.typingIndicator} onChange={() => toggleSetting('typingIndicator')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* 🔒 2. Messaging & Forwarding Control */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Messaging & Forwarding Control</h4>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Who Can Message Me</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.whoCanMessageMe}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Message Requests Required</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.messageRequestsRequired} onChange={() => toggleSetting('messageRequestsRequired')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Block Unknown Account Messages</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.blockUnknown} onChange={() => toggleSetting('blockUnknown')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Who Can Add Me to Groups</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.whoCanAddMeToGroups}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Require Consent Before Forwarding</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.requireConsentBeforeForward} onChange={() => toggleSetting('requireConsentBeforeForward')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Limit Message Forward Count</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.forwardLimit} messages</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Notify Me when Forwarded</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.notifyOnForward} onChange={() => toggleSetting('notifyOnForward')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* 🧠 3. AI Privacy Protection */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">AI Privacy Protection</h4>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Enable Sensitive Data Scan</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.sensitiveDataScan} onChange={() => toggleSetting('sensitiveDataScan')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Auto-Redact Sensitive Information</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.autoRedact} onChange={() => toggleSetting('autoRedact')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Enable Scam & Threat Detection</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.scamDetection} onChange={() => toggleSetting('scamDetection')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Phishing Link Detection</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.phishingDetection} onChange={() => toggleSetting('phishingDetection')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Threat Alert Sensitivity</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.threatAlertSensitivity}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+
+                                {/* 📸 4. Screenshot & Media Protection */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Screenshot & Media Protection</h4>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Screenshot Detection</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.screenshotDetection} onChange={() => toggleSetting('screenshotDetection')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Notify Me on Screenshot</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.notifyOnScreenshot} onChange={() => toggleSetting('notifyOnScreenshot')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Blur Messages After Screenshot</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.blurOnScreenshot} onChange={() => toggleSetting('blurOnScreenshot')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Add Watermark to Shared Media</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.addWatermark} onChange={() => toggleSetting('addWatermark')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* 📍 5. Device & Access Privacy */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Device & Access Privacy</h4>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Restrict to Approved Devices Only</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.restrictApprovedDevices} onChange={() => toggleSetting('restrictApprovedDevices')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Require Approval for New Device</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.requireApprovalNewDevice} onChange={() => toggleSetting('requireApprovalNewDevice')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Auto-Lock on Suspicious Location</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.autoLockLocationChange} onChange={() => toggleSetting('autoLockLocationChange')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Enable Geo-Fenced Messages</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.geoFencedMessages} onChange={() => toggleSetting('geoFencedMessages')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Restrict Messages to Country</p>
+                                            <p className="wa-settings-item-desc">{privacySettings.restrictedCountry}</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+
+                                {/* 🎭 6. Hidden & Decoy Mode */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Hidden & Decoy Mode</h4>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Enable Hidden Chats Folder</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.hiddenChatsFolder} onChange={() => toggleSetting('hiddenChatsFolder')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Enable Decoy Mode</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.decoyMode} onChange={() => toggleSetting('decoyMode')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <button className="wa-settings-list-action">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Set / Change Decoy PIN</p>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Panic Mode</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.panicMode} onChange={() => toggleSetting('panicMode')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* 📊 7. Privacy Score & Monitoring */}
+                                <div className="wa-settings-section">
+                                    <h4 className="wa-settings-section-title">Privacy Score & Monitoring</h4>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Show Privacy Score</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.showPrivacyScore} onChange={() => toggleSetting('showPrivacyScore')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Show Encryption Level Badge</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.showEncryptionBadge} onChange={() => toggleSetting('showEncryptionBadge')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                    <div className="wa-settings-item">
+                                        <div className="wa-settings-item-info">
+                                            <p className="wa-settings-item-label">Show Risk Alerts</p>
+                                        </div>
+                                        <label className="wa-settings-toggle">
+                                            <input type="checkbox" checked={privacySettings.showRiskAlerts} onChange={() => toggleSetting('showRiskAlerts')} />
+                                            <span className="wa-settings-toggle-slider" />
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     );
@@ -6833,7 +7309,9 @@ export default function Chat() {
                                 <div className="wa-settings-header-actions">
                                     {!isSettingsEditing ? (
                                         <button className="wa-settings-btn-edit" onClick={() => setIsSettingsEditing(true)}>
-                                            <Pencil size={14} /> {t('settings.edit_identity')}
+                                            <Pencil size={14} />
+                                            <span className="wa-settings-btn-text-desktop">{t('settings.edit_identity')}</span>
+                                            <span className="wa-settings-btn-text-mobile">Edit</span>
                                         </button>
                                     ) : (
                                         <>
