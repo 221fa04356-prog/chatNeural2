@@ -362,6 +362,7 @@
     border-radius: 1rem;
     border: 2px solid #F1F5F9;
     background: #F8FAFC;
+    color: #1e293b;
     font-size: 1rem;
     outline: none;
     transition: all 0.2s ease;
@@ -377,6 +378,7 @@
     border-radius: 1rem;
     border: 2px solid #F1F5F9;
     background: #F8FAFC;
+    color: #1e293b;
     outline: none;
     transition: all 0.2s ease;
     cursor: pointer;

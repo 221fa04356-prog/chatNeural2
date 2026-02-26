@@ -47,8 +47,7 @@ export default function AIChatWidget() {
         return null;
     }
 
-    // HIDDEN: Chatbot is currently disabled. Ask the assistant to activate it when needed.
-    return null;
+    // HIDDEN: Chatbot is currently disabled via CSS.
 
     // Drag Effects
     useEffect(() => {
@@ -128,13 +127,17 @@ export default function AIChatWidget() {
         if (e.clipboardData.files && e.clipboardData.files.length > 0) {
             e.preventDefault();
             const pastedFile = e.clipboardData.files[0];
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf'];
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
             const extension = pastedFile.name.split('.').pop().toLowerCase();
 
             if (allowedExtensions.includes(extension)) {
-                setFile(pastedFile);
+                if (pastedFile.size > 1073741824) {
+                    alert('File must be less than 1GB');
+                } else {
+                    setFile(pastedFile);
+                }
             } else {
-                alert('Only JPG, JPEG, PNG, DOC, DOCX, and PDF files are allowed.');
+                alert('Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.');
             }
         }
     };
@@ -150,13 +153,17 @@ export default function AIChatWidget() {
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const droppedFile = e.dataTransfer.files[0];
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf'];
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
             const extension = droppedFile.name.split('.').pop().toLowerCase();
 
             if (allowedExtensions.includes(extension)) {
-                setFile(droppedFile);
+                if (droppedFile.size > 1073741824) {
+                    alert('File must be less than 1GB');
+                } else {
+                    setFile(droppedFile);
+                }
             } else {
-                alert('Only JPG, JPEG, PNG, DOC, DOCX, and PDF files are allowed.');
+                alert('Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.');
             }
         }
     };
@@ -307,7 +314,7 @@ export default function AIChatWidget() {
         <div
             ref={widgetRef}
             className={`ai-widget-container ${isOpen ? 'open' : ''}`}
-            style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+            style={{ transform: `translate(${position.x}px, ${position.y}px)`, display: 'none' }}
         >
             {!isOpen && (
                 <div
@@ -375,15 +382,33 @@ export default function AIChatWidget() {
                     </div>
 
                     <form onSubmit={handleSend} className="ai-input-area">
-                        <button type="button" onClick={() => fileInputRef.current.click()} className="icon-btn">
+                        <button type="button" onClick={() => fileInputRef.current.click()} className="icon-btn" title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
                             <Paperclip size={18} />
                         </button>
                         <input
                             type="file"
                             ref={fileInputRef}
                             style={{ display: 'none' }}
-                            accept=".jpg,.jpeg,.png,.doc,.docx,.pdf"
-                            onChange={(e) => setFile(e.target.files[0])}
+                            accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                    const selectedFile = e.target.files[0];
+                                    const allowedExtensions = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'pdf', 'xls', 'xlsx', 'mp4', 'avi', 'mkv', 'mov', 'webm'];
+                                    const extension = selectedFile.name.split('.').pop().toLowerCase();
+
+                                    if (allowedExtensions.includes(extension)) {
+                                        if (selectedFile.size > 1073741824) { // 1GB limit
+                                            alert('File must be less than 1GB');
+                                            e.target.value = '';
+                                        } else {
+                                            setFile(selectedFile);
+                                        }
+                                    } else {
+                                        alert('Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.');
+                                        e.target.value = '';
+                                    }
+                                }
+                            }}
                         />
                         {file && (
                             <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', flexShrink: 0, maxWidth: '200px', marginRight: '8px' }}>
