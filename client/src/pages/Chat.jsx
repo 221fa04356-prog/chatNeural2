@@ -142,6 +142,7 @@ export default function Chat() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [activeSettingsTab, setActiveSettingsTab] = useState(null);
     const [isSettingsEditing, setIsSettingsEditing] = useState(false);
+    const [pinReplaceModal, setPinReplaceModal] = useState(null); // { newId, isGroup, pinnedIds }
 
     // --- General Settings State ---
     const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('neuChat_language') || 'British English, British English');
@@ -646,7 +647,10 @@ export default function Chat() {
     };
 
     const handleBulkStar = async () => {
-        if (selectedMediaMsgs.length === 0) return;
+        if (selectedMediaMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
         const ids = selectedMediaMsgs.map(m => m._id);
         const token = localStorage.getItem('token');
         try {
@@ -664,13 +668,19 @@ export default function Chat() {
     };
 
     const handleBulkDelete = () => {
-        if (selectedMediaMsgs.length === 0) return;
+        if (selectedMediaMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
         setMsgToDelete(selectedMediaMsgs.map(m => m._id));
         setIsDeleteModalOpen(true);
     };
 
     const handleBulkCopy = async () => {
-        if (selectedMediaMsgs.length === 0) return;
+        if (selectedMediaMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
 
         const texts = selectedMediaMsgs.map(m => {
             if (m.type === 'text') return m.content;
@@ -705,7 +715,10 @@ export default function Chat() {
     };
 
     const handleBulkForward = () => {
-        if (selectedMediaMsgs.length === 0) return;
+        if (selectedMediaMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
         // Don't set isForwardingMode(true) to avoid global checkboxes in main chat
         setForwardSelectedMsgs(selectedMediaMsgs);
         setIsForwardModalOpen(true);
@@ -717,7 +730,10 @@ export default function Chat() {
 
     // --- Bulk Actions for Main Chat Section ---
     const handleChatSelectionBulkStar = async () => {
-        if (forwardSelectedMsgs.length === 0) return;
+        if (forwardSelectedMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
         const ids = forwardSelectedMsgs.map(m => m._id);
         const token = localStorage.getItem('token');
         try {
@@ -738,13 +754,19 @@ export default function Chat() {
     };
 
     const handleChatSelectionBulkDelete = () => {
-        if (forwardSelectedMsgs.length === 0) return;
+        if (forwardSelectedMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
         setMsgToDelete(forwardSelectedMsgs.map(m => m._id));
         setIsDeleteModalOpen(true);
     };
 
     const handleChatSelectionBulkCopy = async () => {
-        if (forwardSelectedMsgs.length === 0) return;
+        if (forwardSelectedMsgs.length === 0) {
+            setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+            return;
+        }
 
         // If only one image is selected, use the high-quality image copy logic
         if (forwardSelectedMsgs.length === 1 && forwardSelectedMsgs[0].type === 'image') {
@@ -1012,30 +1034,36 @@ export default function Chat() {
             } else {
                 console.log('[DEBUG] Background message from', senderId, '- showing notification.');
 
-                const sender = usersRef.current.find(u => u._id === senderId);
-                const senderName = sender ? (sender.name || sender.firstName || 'Someone') : 'New Message';
-                const senderAvatar = sender ? sender.avatar : null;
+                // Check if user is muted
+                const mutedKey = `mutedChats_${userRef.current?.id || userRef.current?._id}`;
+                const mutedMap = JSON.parse(localStorage.getItem(mutedKey)) || {};
 
-                let previewText = 'Sent a message';
-                if (data.type === 'text') previewText = data.content;
-                else if (data.type === 'image') previewText = '📷 Sent an image';
-                else if (data.type === 'video') previewText = '🎥 Sent a video';
-                else if (data.type === 'audio') previewText = '🎤 Sent an audio message';
-                else if (data.type === 'file') previewText = '📄 Sent a file';
+                if (!mutedMap[senderId]) {
+                    const sender = usersRef.current.find(u => u._id === senderId);
+                    const senderName = sender ? (sender.name || sender.firstName || 'Someone') : 'New Message';
+                    const senderAvatar = sender ? sender.avatar : null;
 
-                if (previewText.length > 50) previewText = previewText.substring(0, 50) + '...';
+                    let previewText = 'Sent a message';
+                    if (data.type === 'text') previewText = data.content;
+                    else if (data.type === 'image') previewText = '📷 Sent an image';
+                    else if (data.type === 'video') previewText = '🎥 Sent a video';
+                    else if (data.type === 'audio') previewText = '🎤 Sent an audio message';
+                    else if (data.type === 'file') previewText = '📄 Sent a file';
 
-                setSnackbar({
-                    senderName,
-                    senderAvatar,
-                    message: previewText,
-                    type: 'info',
-                    duration: 6000,
-                    onReply: (text) => {
-                        console.log(`[DEBUG] Snackbar onReply triggered. Target: ${senderId}, Text: ${text}`);
-                        handleNotificationReply(text, senderId);
-                    }
-                });
+                    if (previewText.length > 50) previewText = previewText.substring(0, 50) + '...';
+
+                    setSnackbar({
+                        senderName,
+                        senderAvatar,
+                        message: previewText,
+                        type: 'info',
+                        duration: 6000,
+                        onReply: (text) => {
+                            console.log(`[DEBUG] Snackbar onReply triggered. Target: ${senderId}, Text: ${text}`);
+                            handleNotificationReply(text, senderId);
+                        }
+                    });
+                }
             }
 
             fetchUsers();
@@ -1247,20 +1275,26 @@ export default function Chat() {
                 });
                 setTimeout(scrollToBottom, 50);
             } else {
-                // Show notification for group messages if not in that group
-                const senderName = data.message.sender_id?.name || 'Group Member';
-                const groupName = groups.find(g => g._id === data.groupId)?.name || 'Group';
+                // Check if group is muted
+                const mutedKey = `mutedChats_${userRef.current?.id || userRef.current?._id}`;
+                const mutedMap = JSON.parse(localStorage.getItem(mutedKey)) || {};
 
-                let previewText = data.message.content || 'Sent a message';
-                if (data.message.type === 'image') previewText = '📷 Image';
-                else if (data.message.type === 'file') previewText = '📄 File';
+                if (!mutedMap[data.groupId]) {
+                    // Show notification for group messages if not in that group
+                    const senderName = data.message.sender_id?.name || 'Group Member';
+                    const groupName = groups.find(g => g._id === data.groupId)?.name || 'Group';
 
-                setSnackbar({
-                    senderName: `${senderName} @ ${groupName}`,
-                    message: previewText,
-                    type: 'info',
-                    duration: 5000
-                });
+                    let previewText = data.message.content || 'Sent a message';
+                    if (data.message.type === 'image') previewText = '📷 Image';
+                    else if (data.message.type === 'file') previewText = '📄 File';
+
+                    setSnackbar({
+                        senderName: `${senderName} @ ${groupName}`,
+                        message: previewText,
+                        type: 'info',
+                        duration: 5000
+                    });
+                }
             }
 
             setGroups(prev => prev.map(g => {
@@ -1451,7 +1485,17 @@ export default function Chat() {
             const res = await axios.get('/api/groups/my-groups', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setGroups(res.data || []);
+            const pinnedGroupsKey = `pinnedGroups_${user.id}`;
+            const pinnedGroupIds = JSON.parse(localStorage.getItem(pinnedGroupsKey)) || [];
+            const processedGroups = (res.data || []).map(g => ({
+                ...g,
+                isPinned: pinnedGroupIds.includes(g._id)
+            })).sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return 0;
+            });
+            setGroups(processedGroups);
         } catch (err) {
             console.error('fetchGroups error:', err);
         }
@@ -1513,8 +1557,8 @@ export default function Chat() {
             }
             const filteredUsers = res.data.filter(u => u.role !== 'admin');
 
-            // Get Pinned & Muted Chats
-            const pinnedKey = `pinnedChats_${user.id}`;
+            // Get Pinned & Muted Chats (contacts use their own key)
+            const pinnedKey = `pinnedContacts_${user.id}`;
             const mutedKey = `mutedChats_${user.id}`;
             const pinnedIds = JSON.parse(localStorage.getItem(pinnedKey)) || [];
             const mutedMap = JSON.parse(localStorage.getItem(mutedKey)) || {};
@@ -1578,30 +1622,75 @@ export default function Chat() {
     }, [isContactInfoOpen]);
 
     const handleTogglePinChat = (contactId) => {
-        const pinnedKey = `pinnedChats_${user.id}`;
+        const isGroup = groups.some(g => g._id === contactId);
+        const pinnedKey = isGroup ? `pinnedGroups_${user.id}` : `pinnedContacts_${user.id}`;
         let pinnedIds = JSON.parse(localStorage.getItem(pinnedKey)) || [];
 
         if (pinnedIds.includes(contactId)) {
             // Unpin
             pinnedIds = pinnedIds.filter(id => id !== contactId);
+            localStorage.setItem(pinnedKey, JSON.stringify(pinnedIds));
+            setUsers(prev => prev.map(u => u._id === contactId ? { ...u, isPinned: false } : u));
+            setGroups(prev => prev.map(g => g._id === contactId ? { ...g, isPinned: false } : g));
+            fetchUsers();
+            fetchGroups();
+            setSnackbar({
+                message: `Chat unpinned`,
+                type: 'success',
+                variant: 'system',
+                onAction: () => handleTogglePinChat(contactId),
+                actionLabel: 'Undo'
+            });
+            setOpenDropdown(null);
+        } else if (pinnedIds.length >= 5) {
+            // Limit reached — open replacement modal
+            setPinReplaceModal({ newId: contactId, isGroup, pinnedIds });
+            setOpenDropdown(null);
         } else {
-            // Pin
-            if (pinnedIds.length >= 4) {
-                setSnackbar({ message: 'You can only pin up to 4 chats', type: 'error' });
-                return;
-            }
+            // Pin normally
             pinnedIds.push(contactId);
+            localStorage.setItem(pinnedKey, JSON.stringify(pinnedIds));
+            setUsers(prev => prev.map(u => u._id === contactId ? { ...u, isPinned: true } : u));
+            setGroups(prev => prev.map(g => g._id === contactId ? { ...g, isPinned: true } : g));
+            fetchUsers();
+            fetchGroups();
+            setSnackbar({
+                message: `Chat pinned`,
+                type: 'success',
+                variant: 'system',
+                onAction: () => handleTogglePinChat(contactId),
+                actionLabel: 'Undo'
+            });
+            setOpenDropdown(null);
         }
+    };
 
-        localStorage.setItem(pinnedKey, JSON.stringify(pinnedIds));
+    const handlePinReplace = (oldId) => {
+        if (!pinReplaceModal) return;
+        const { newId, isGroup, pinnedIds } = pinReplaceModal;
+        const pinnedKey = isGroup ? `pinnedGroups_${user.id}` : `pinnedContacts_${user.id}`;
 
-        // Update local state immediately for both
-        setUsers(prev => prev.map(u => u._id === contactId ? { ...u, isPinned: pinnedIds.includes(contactId) } : u));
-        setGroups(prev => prev.map(g => g._id === contactId ? { ...g, isPinned: pinnedIds.includes(contactId) } : g));
+        // Replace old with new
+        const newPinnedIds = pinnedIds.filter(id => id !== oldId);
+        newPinnedIds.push(newId);
+        localStorage.setItem(pinnedKey, JSON.stringify(newPinnedIds));
 
-        fetchUsers(); // Refresh list to reflect order
+        // Update state
+        setUsers(prev => prev.map(u => {
+            if (u._id === oldId) return { ...u, isPinned: false };
+            if (u._id === newId) return { ...u, isPinned: true };
+            return u;
+        }));
+        setGroups(prev => prev.map(g => {
+            if (g._id === oldId) return { ...g, isPinned: false };
+            if (g._id === newId) return { ...g, isPinned: true };
+            return g;
+        }));
+
+        fetchUsers();
         fetchGroups();
-        setOpenDropdown(null);
+        setPinReplaceModal(null);
+        setSnackbar({ message: 'Pinned chat replaced successfully', type: 'success', variant: 'system' });
     };
 
     const markAsRead = async (senderId) => {
@@ -1657,7 +1746,7 @@ export default function Chat() {
             );
             setMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
             setGroupMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
-            setSnackbar({ message: `Message ${!currentState ? 'starred' : 'unstarred'}`, type: 'success', variant: 'system' });
+            setSnackbar({ message: `Message ${!currentState ? 'starred' : 'unstarred'}`, type: 'success', variant: 'system', onAction: () => handleToggleStar(msgId, !currentState), actionLabel: 'Undo' });
             setOpenDropdown(null);
         } catch (err) { console.error("Star toggle failed", err); }
     };
@@ -1672,8 +1761,11 @@ export default function Chat() {
             setUsers(prev => prev.map(u => u._id === targetId ? { ...u, isFavorite: !isFav } : u));
             setGroups(prev => prev.map(g => g._id === targetId ? { ...g, isFavorite: !isFav } : g));
 
-            const isGroup = groups.some(g => g._id === targetId);
-            setSnackbar({ message: `${isGroup ? 'Group' : 'User'} ${!isFav ? 'added to favorites' : 'removed from favorites'}`, type: 'success', variant: 'system' });
+            const groupObj = groups.find(g => g._id === targetId);
+            const userObj = users.find(u => u._id === targetId);
+            const isGroup = !!groupObj;
+            const displayName = groupObj ? groupObj.name : (userObj ? userObj.name : (isGroup ? 'Group' : 'User'));
+            setSnackbar({ message: `${displayName} ${!isFav ? 'added to favorites' : 'removed from favorites'}`, type: 'success', variant: 'system', onAction: () => handleToggleFavorite(targetId, !isFav), actionLabel: 'Undo' });
             setOpenDropdown(null);
         } catch (err) { console.error("Favorite toggle failed", err); }
     };
@@ -1704,7 +1796,7 @@ export default function Chat() {
                 await fetchUsers();
 
                 if (res.data.modifiedCount > 0) {
-                    setSnackbar({ message: 'Marked as unread', type: 'success', variant: 'system' });
+                    setSnackbar({ message: 'Marked as unread', type: 'success', variant: 'system', onAction: () => markAsRead(targetId), actionLabel: 'Undo' });
                 } else {
                     setSnackbar({ message: 'No messages to Mark as Unread identified', type: 'info', variant: 'system' });
                 }
@@ -1769,10 +1861,8 @@ export default function Chat() {
             message: `Chat ${muteTargetUser.name} is muted`,
             type: 'info',
             variant: 'system',
-            action: {
-                label: 'Undo',
-                onClick: () => handleUnmuteAction(muteTargetUser.id, muteTargetUser.name)
-            }
+            onAction: () => handleUnmuteAction(muteTargetUser.id, muteTargetUser.name),
+            actionLabel: 'Undo'
         });
     };
 
@@ -2864,7 +2954,8 @@ export default function Chat() {
                                                     style={{ marginLeft: 4, opacity: 0.6, cursor: 'pointer' }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setOpenDropdown({ type: 'contact', id: item._id });
+                                                        const pos = e.clientY > window.innerHeight - 300 ? 'up' : 'down';
+                                                        setOpenDropdown({ type: 'contact', id: item._id, pos });
                                                     }}
                                                 />
                                             </div>
@@ -4388,16 +4479,17 @@ export default function Chat() {
         if (type === 'contact') {
             const isGroup = !!data.isGroup || (data.members !== undefined);
             const displayName = data.name || (isGroup ? 'Unnamed Group' : 'User');
+            const posClass = openDropdown.pos === 'up' ? 'pos-up' : 'pos-down';
 
             return (
-                <div className="wa-dropdown-menu contact-dropdown" onClick={(e) => e.stopPropagation()}>
+                <div className={`wa-dropdown-menu contact-dropdown ${posClass}`} onClick={(e) => e.stopPropagation()}>
                     {archivedChatIds.includes(id) ? (
                         <div className="wa-dropdown-item" onClick={() => handleUnarchiveChat(id, displayName)}>
-                            <Archive size={18} style={{ marginRight: 12 }} /> Unarchive chat
+                            <Archive size={18} style={{ marginRight: 12 }} /> {isGroup ? 'Unarchive group' : 'Unarchive chat'}
                         </div>
                     ) : (
                         <div className="wa-dropdown-item" onClick={() => handleArchiveChat(id, displayName)}>
-                            <Archive size={18} style={{ marginRight: 12 }} /> Archive chat
+                            <Archive size={18} style={{ marginRight: 12 }} /> {isGroup ? 'Archive group' : 'Archive chat'}
                         </div>
                     )}
                     {data.isMuted ? (
@@ -4410,7 +4502,7 @@ export default function Chat() {
                         </div>
                     )}
                     <div className="wa-dropdown-item" onClick={() => handleTogglePinChat(id)}>
-                        <Pin size={18} style={{ marginRight: 12, transform: data.isPinned ? 'rotate(45deg)' : 'none' }} /> {data.isPinned ? 'Unpin chat' : 'Pin chat'}
+                        <Pin size={18} style={{ marginRight: 12, transform: data.isPinned ? 'rotate(45deg)' : 'none' }} /> {data.isPinned ? (isGroup ? 'Unpin group' : 'Unpin chat') : (isGroup ? 'Pin group' : 'Pin chat')}
                     </div>
                     {!isGroup && (
                         <div className="wa-dropdown-item" onClick={() => handleMarkAsUnread(id)}>
@@ -4429,10 +4521,7 @@ export default function Chat() {
                         {data.isFavorite ? <HeartOff size={18} style={{ marginRight: 12 }} /> : <Heart size={18} style={{ marginRight: 12 }} />}
                         {data.isFavorite ? 'Remove favourite' : 'Add to favourites'}
                     </div>
-                    <div className="wa-dropdown-item"><XCircle size={18} style={{ marginRight: 12 }} /> Close chat</div>
-                    <div className="wa-dropdown-divider"></div>
-                    {!isGroup && <div className="wa-dropdown-item">Block</div>}
-                    {isGroup && <div className="wa-dropdown-item">Exit group</div>}
+
                     <div className="wa-dropdown-item delete" onClick={() => {
                         // Implement delete chat for group (exit then delete or just delete local)
                         if (isGroup) {
@@ -4687,13 +4776,15 @@ export default function Chat() {
                 style={{ top: chatContextMenu.y, left: chatContextMenu.x }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="wa-dropdown-item" onClick={() => {
-                    setIsForwardingMode(true);
-                    setIsChatSelectionMode(true);
-                    setChatContextMenu(null);
-                }}>
-                    <CheckSquare size={18} style={{ marginRight: 12 }} /> Select messages
-                </div>
+                {(!isForwardingMode && !isChatSelectionMode) && (
+                    <div className="wa-dropdown-item" onClick={() => {
+                        setIsForwardingMode(true);
+                        setIsChatSelectionMode(true);
+                        setChatContextMenu(null);
+                    }}>
+                        <CheckSquare size={18} style={{ marginRight: 12 }} /> Select messages
+                    </div>
+                )}
                 <div className="wa-dropdown-item" onClick={() => {
                     setSelectedUser(null);
                     setChatContextMenu(null);
@@ -5203,7 +5294,11 @@ export default function Chat() {
                                                 <span className="wa-chat-name">{displayName}</span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                                     <span className="wa-chat-time">{formatTime(item.lastMessage?.created_at || item.created_at)}</span>
-                                                    <div className="wa-dropdown-trigger" onClick={(e) => { e.stopPropagation(); setOpenDropdown({ type: 'contact', id: item._id }); }}>
+                                                    <div className="wa-dropdown-trigger" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const pos = e.clientY > window.innerHeight - 300 ? 'up' : 'down';
+                                                        setOpenDropdown({ type: 'contact', id: item._id, pos });
+                                                    }}>
                                                         <ChevronDown size={18} />
                                                     </div>
                                                 </div>
@@ -5226,6 +5321,7 @@ export default function Chat() {
                                                     )}
                                                 </span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {item.isFavorite && <Heart size={14} color="#8696a0" />}
                                                     {item.isMuted && <BellOff size={14} color="#8696a0" />}
                                                     {item.isPinned && <Pin size={14} color="#8696a0" style={{ transform: 'rotate(45deg)' }} />}
                                                     {item.unreadCount > 0 && <div className="wa-unread-badge">{item.unreadCount}</div>}
@@ -5253,7 +5349,7 @@ export default function Chat() {
                     zIndex: 100
                 }}
             />
-        </div>
+        </div >
     );
 
     const handleDownload = async (url, fileName) => {
@@ -5508,6 +5604,97 @@ export default function Chat() {
             </div>
         </div>
     );
+
+    const renderPinReplaceModal = () => {
+        if (!pinReplaceModal) return null;
+        const { isGroup, pinnedIds } = pinReplaceModal;
+        const pinnedItems = isGroup
+            ? groups.filter(g => pinnedIds.includes(g._id))
+            : users.filter(u => pinnedIds.includes(u._id));
+
+        return (
+            <div className="wa-mute-modal-overlay" onClick={() => setPinReplaceModal(null)}>
+                <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="wa-mute-modal-content">
+                        <div className="wa-mute-header-centered">
+                            <div className="wa-mute-icon-wrapper">
+                                <Pin size={28} color="#0D9FB7" />
+                            </div>
+                            <h3>Pin limit reached</h3>
+                        </div>
+                        <div className="wa-mute-body">
+                            <div className="wa-mute-description-centered">
+                                You have reached the limit of 5 pinned {isGroup ? 'groups' : 'contacts'}. Select one below to replace:
+                            </div>
+                            <div className="wa-pin-replace-list">
+                                {pinnedItems.map((item, idx) => {
+                                    const themeColor = '#0D9FB7';
+                                    const gradients = [
+                                        'linear-gradient(135deg, #0D9FB7 0%, #087a8d 100%)',
+                                        'linear-gradient(135deg, #26b5cc 0%, #0D9FB7 100%)',
+                                        'linear-gradient(135deg, #4dc9dc 0%, #0D9FB7 100%)',
+                                        'linear-gradient(135deg, #0D9FB7 0%, #065e6d 100%)',
+                                        'linear-gradient(135deg, #6fdced 0%, #0D9FB7 100%)',
+                                    ];
+                                    const gradient = gradients[idx % gradients.length];
+                                    const bgColor = '#f0f9fa';
+                                    const borderColor = '#ccecf1';
+
+                                    const displayName = item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim();
+                                    return (
+                                        <div
+                                            key={item._id}
+                                            className="wa-pin-replace-card"
+                                            onClick={() => handlePinReplace(item._id)}
+                                            style={{
+                                                background: bgColor,
+                                                border: `1.5px solid ${borderColor}`,
+                                                boxShadow: `0 2px 6px rgba(13, 159, 183, 0.1)`,
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = `0 6px 16px rgba(13, 159, 183, 0.2)`;
+                                                e.currentTarget.style.borderColor = themeColor;
+                                                e.currentTarget.style.background = '#fff';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = `0 2px 6px rgba(13, 159, 183, 0.1)`;
+                                                e.currentTarget.style.borderColor = borderColor;
+                                                e.currentTarget.style.background = bgColor;
+                                            }}
+                                        >
+                                            <div className="wa-pin-replace-avatar" style={{ background: gradient }}>
+                                                {(displayName || '?')[0].toUpperCase()}
+                                            </div>
+                                            <div className="wa-pin-replace-info">
+                                                <div className="wa-pin-replace-name">
+                                                    {displayName}
+                                                </div>
+                                                <div className="wa-pin-replace-hint">Tap to replace</div>
+                                            </div>
+                                            <svg className="wa-pin-replace-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="9 18 15 12 9 6"></polyline>
+                                            </svg>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="wa-mute-footer-centered">
+                            <button
+                                className="wa-mute-btn-cancel"
+                                onClick={() => setPinReplaceModal(null)}
+                                style={{ background: '#0D9FB7' }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
     const renderForwardModal = () => (
         <div className="wa-forward-modal-overlay">
             <div className="wa-forward-modal">
@@ -6069,8 +6256,13 @@ export default function Chat() {
                                     )}
                                     {/* Forward - Always show if we are in either mode since it's the "Forward" button */}
                                     <button
-                                        onClick={() => setIsForwardModalOpen(true)}
-                                        disabled={forwardSelectedMsgs.length === 0}
+                                        onClick={() => {
+                                            if (forwardSelectedMsgs.length === 0) {
+                                                setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+                                            } else {
+                                                setIsForwardModalOpen(true);
+                                            }
+                                        }}
                                         title="Forward messages"
                                         style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                                     >
@@ -7416,31 +7608,29 @@ export default function Chat() {
     };
 
     return (
-        <div className={`wa-app-container ${selectedUser ? 'chat-active' : 'list-active'}`}>
-            {renderLeftSidebar()}
-            {isSettingsOpen ? (
-                renderSettingsPanel()
-            ) : (
-                <>
-                    {renderLeftPanel()}
-                    {/* Right Side Panel (Main Chat + Overlays) */}
-                    <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', height: '100%' }}>
-                        {/* Main Chat always mounted to preserve scroll */}
-                        {renderMainChat()}
+        <>
+            <div className={`wa-app-container ${selectedUser ? 'chat-active' : 'list-active'}`}>
+                {renderLeftSidebar()}
+                {isSettingsOpen ? (
+                    renderSettingsPanel()
+                ) : (
+                    <>
+                        {renderLeftPanel()}
+                        {/* Right Side Panel (Main Chat + Overlays) */}
+                        <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', height: '100%' }}>
+                            {/* Main Chat always mounted to preserve scroll */}
+                            {renderMainChat()}
 
-                        {/* File Preview Overlay (Restricted to Chat Area) */}
-                        {file && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000, display: 'flex', flexDirection: 'column', background: '#e9edef' }}>
-                                {renderFilePreview()}
-                            </div>
-                        )}
-                    </div>
-                </>
-            )}
-            {infoMessage && renderMessageInfo()}
-            {/* Contact Info Panel at Root Level */}
-            {/* Moved inside renderMainChat for desktop side-by-side view */}
-
+                            {/* File Preview Overlay (Restricted to Chat Area) */}
+                            {file && (
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000, display: 'flex', flexDirection: 'column', background: '#e9edef' }}>
+                                    {renderFilePreview()}
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
 
             {snackbar && (
                 <Snackbar
@@ -7449,7 +7639,9 @@ export default function Chat() {
                 />
             )}
 
+            {infoMessage && renderMessageInfo()}
             {isMuteModalOpen && renderMuteModal()}
+            {pinReplaceModal && renderPinReplaceModal()}
             {isForwardModalOpen && renderForwardModal()}
 
             {/* Language Change Confirmation Modal */}
@@ -7618,7 +7810,7 @@ export default function Chat() {
                                 src={`https://www.youtube.com/embed/${getYouTubeVideoId(previewVideoUrl)}?autoplay=1`}
                                 title="YouTube video player"
                                 frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowFullScreen
                             ></iframe>
                         </div>
@@ -7627,6 +7819,6 @@ export default function Chat() {
             )}
             {renderChatContextMenu()}
             {renderCameraModals()}
-        </div>
+        </>
     );
 }

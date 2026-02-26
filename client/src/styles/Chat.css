@@ -640,6 +640,11 @@ html {
         /* Hide sidebar on mobile */
     }
 
+    .wa-dropdown-trigger {
+        opacity: 0.8 !important;
+        /* Always visible on mobile for touch access */
+    }
+
     .wa-left-panel {
         width: 100% !important;
         min-width: 0 !important;
@@ -679,6 +684,28 @@ html {
 
     .wa-chat-header .wa-avatar {
         flex-shrink: 0;
+    }
+
+    .wa-chat-header-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .wa-header-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .wa-header-status {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
 
     /* Full-screen panels on mobile */
@@ -763,8 +790,12 @@ html {
         white-space: nowrap;
     }
 
-    .wa-header-call-icon {
-        display: none !important;
+    .wa-mute-modal {
+        animation: waMobileSlideUp 0.3s ease-out !important;
+    }
+
+    .wa-mute-header-centered h3 {
+        font-size: 1.15rem !important;
     }
 }
 
@@ -1972,8 +2003,17 @@ html {
 }
 
 .contact-dropdown {
-    top: 40px;
     right: 15px;
+}
+
+.contact-dropdown.pos-up {
+    bottom: 40px !important;
+    top: auto !important;
+}
+
+.contact-dropdown.pos-down {
+    top: 40px !important;
+    bottom: auto !important;
 }
 
 @keyframes fadeIn {
@@ -3722,15 +3762,13 @@ html {
 /* Mute Modal Settings */
 .wa-mute-modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(11, 20, 26, 0.85);
+    inset: 0;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 5000;
+    z-index: 10000;
 }
 
 .wa-mute-modal {
@@ -3813,13 +3851,13 @@ html {
 }
 
 .wa-radio-circle-custom.selected {
-    border-color: #0EA5BE;
+    border-color: #0D9FB7;
 }
 
 .wa-radio-inner-custom {
     width: 10px;
     height: 10px;
-    background: #0EA5BE;
+    background: #0D9FB7;
     border-radius: 50%;
 }
 
@@ -3832,7 +3870,7 @@ html {
 }
 
 .wa-mute-btn-cancel {
-    background: #0EA5BE;
+    background: #0D9FB7;
     border: none;
     color: white;
     padding: 10px 24px;
@@ -3841,18 +3879,18 @@ html {
     font-size: 0.95rem;
     cursor: pointer;
     flex: 1;
-    box-shadow: 0 4px 6px rgba(14, 165, 190, 0.25);
+    box-shadow: 0 4px 6px rgba(13, 159, 183, 0.25);
     transition: all 0.2s;
 }
 
 .wa-mute-btn-cancel:hover {
     transform: translateY(-1px);
-    box-shadow: 0 7px 14px rgba(14, 165, 190, 0.3);
-    background: #0D95AB;
+    box-shadow: 0 7px 14px rgba(13, 159, 183, 0.3);
+    background: #0b8da3;
 }
 
 .wa-mute-btn-confirm {
-    background: #0EA5BE;
+    background: #0D9FB7;
     border: none;
     color: white;
     padding: 10px 24px;
@@ -3861,21 +3899,20 @@ html {
     font-size: 0.95rem;
     cursor: pointer;
     flex: 1;
-    box-shadow: 0 4px 6px rgba(14, 165, 190, 0.25);
+    box-shadow: 0 4px 6px rgba(13, 159, 183, 0.25);
     transition: all 0.2s;
 }
 
 .wa-mute-btn-confirm:hover {
     transform: translateY(-2px);
-    box-shadow: 0 7px 14px rgba(14, 165, 190, 0.3);
-    background: #0D95AB;
+    box-shadow: 0 7px 14px rgba(13, 159, 183, 0.3);
+    background: #0b8da3;
 }
 
 @keyframes waModalAppear {
     from {
-        transform: translateY(100%);
-        /* Slide up in mobile */
-        opacity: 1;
+        transform: translateY(20px);
+        opacity: 0;
     }
 
     to {
@@ -3884,34 +3921,130 @@ html {
     }
 }
 
+.wa-pin-replace-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wa-pin-replace-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wa-pin-replace-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(13, 159, 183, 0.2);
+}
+
+.wa-pin-replace-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.wa-pin-replace-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #111b21;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wa-pin-replace-hint {
+    font-size: 12px;
+    color: #0D9FB7;
+    margin-top: 2px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.wa-pin-replace-chevron {
+    opacity: 0.9;
+    flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+    .wa-pin-replace-list {
+        gap: 8px;
+    }
+
+    .wa-pin-replace-card {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .wa-pin-replace-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .wa-pin-replace-name {
+        font-size: 14px;
+    }
+
+    .wa-pin-replace-hint {
+        font-size: 11px;
+    }
+}
+
 @media (max-width: 480px) {
     .wa-mute-modal {
-        width: 100%;
-        max-width: none;
-        border-radius: 24px 24px 0 0;
-        position: fixed;
-        bottom: 0;
-        animation: waMobileSlideUp 0.3s ease-out;
+        width: 90%;
+        max-width: 400px;
+        border-radius: 20px;
+        margin: auto;
+        position: relative;
+        bottom: auto;
+        animation: waModalAppear 0.3s ease-out;
     }
 
     .wa-mute-modal-overlay {
-        align-items: flex-end;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .wa-mute-modal-content {
+        padding: 24px 20px;
+        gap: 16px;
+    }
+
+    .wa-mute-header-centered h3 {
+        font-size: 1.25rem;
+    }
+
+    .wa-mute-description-centered {
+        font-size: 0.95rem;
+        margin-bottom: 16px;
     }
 
     .wa-mute-footer-centered {
-        flex-direction: column-reverse;
+        flex-direction: row;
         gap: 12px;
-        padding-top: 10px;
+        padding-top: 5px;
     }
 
     .wa-mute-btn-cancel,
     .wa-mute-btn-confirm {
-        width: 100%;
-        text-align: center;
-        padding: 14px 0;
-        flex: none;
+        padding: 12px 0;
+        font-size: 0.9rem;
     }
-
 }
 
 @keyframes waMobileSlideUp {
