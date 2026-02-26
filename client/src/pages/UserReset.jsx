@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Lock, Eye, EyeOff, ArrowLeft, ShieldAlert } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
+import HumanVerification from '../components/HumanVerification';
 import Snackbar from '../components/Snackbar';
 import '../styles/Home.css';
 import '../styles/ConfirmModal.css';
@@ -36,6 +37,7 @@ export default function UserReset() {
     const [isExpired, setIsExpired] = useState(() => {
         return sessionStorage.getItem('reset_expired') === 'true';
     });
+    const [isHumanVerified, setIsHumanVerified] = useState(false);
     const [resetSuccessful, setResetSuccessful] = useState(false);
     const [passwordRequirements, setPasswordRequirements] = useState({
         minLength: false,
@@ -210,6 +212,11 @@ export default function UserReset() {
 
     const handleReset = async (e) => {
         e.preventDefault();
+
+        if (!isHumanVerified) {
+            setSnackbar({ open: true, message: 'Please complete the Human Verification first', type: 'warning' });
+            return;
+        }
 
         // Validation
         if (newPassword !== confirmPassword) {
@@ -536,6 +543,14 @@ export default function UserReset() {
                                         {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
                                 </div>
+                            </div>
+
+                            <div style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+                                <HumanVerification
+                                    onVerified={(status) => setIsHumanVerified(status)}
+                                    context="user_reset"
+                                    identifier={loginId}
+                                />
                             </div>
 
                             <button

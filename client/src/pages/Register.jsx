@@ -3,17 +3,24 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { UserPlus, Mail, Phone, User, Briefcase, ArrowLeft, Shield } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
+import HumanVerification from '../components/HumanVerification';
 import '../styles/Home.css';
 
 export default function Register() {
     const [formData, setFormData] = useState({ name: '', email: '', mobile: '', designation: '' });
     const [msg, setMsg] = useState('');
     const [error, setError] = useState('');
+    const [isHumanVerified, setIsHumanVerified] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setMsg('');
+
+        if (!isHumanVerified) {
+            setError('Please complete the Human Verification first.');
+            return;
+        }
 
         // Validations
         const nameRegex = /^[A-Za-z\s]+$/;
@@ -151,6 +158,13 @@ export default function Register() {
                                         className="input-neural"
                                     />
                                 </div>
+                            </div>
+
+                            <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                                <HumanVerification
+                                    onVerified={(status) => setIsHumanVerified(status)}
+                                    context="register"
+                                />
                             </div>
 
                             <button type="submit" className="btn-primary-neural" style={{ width: '100%', borderRadius: '1rem', border: 'none', fontWeight: '800', cursor: 'pointer' }}>
