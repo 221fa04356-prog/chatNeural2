@@ -5079,20 +5079,20 @@ html {
 }
 
 .wa-settings-btn-cancel {
-    background: #4f46e5;
-    color: white;
-    border: none;
+    background: transparent;
+    color: #a1a1aa;
+    border: 1px solid #27272a;
     height: 48px;
-    min-width: 160px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 0 24px;
     border-radius: 12px;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
+}
+
+.wa-settings-btn-text-mobile {
+    display: none;
 }
 
 .wa-settings-btn-cancel:hover {
@@ -5511,6 +5511,7 @@ html {
 @media (max-width: 768px) {
     .wa-settings-sidebar {
         width: 100%;
+        height: 100%;
         position: absolute;
         left: 0;
         top: 0;
@@ -5524,6 +5525,7 @@ html {
 
     .wa-settings-main {
         width: 100%;
+        height: 100%;
         position: absolute;
         left: 0;
         top: 0;
@@ -5543,7 +5545,24 @@ html {
     }
 
     .wa-settings-tab-title {
-        font-size: 24px;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+
+    .wa-settings-btn-text-desktop {
+        display: none;
+    }
+
+    .wa-settings-btn-text-mobile {
+        display: inline;
+    }
+
+    .wa-settings-btn-edit {
+        padding: 0 12px;
+        height: 36px;
     }
 
     .wa-settings-breadcrumb {
@@ -5623,6 +5642,31 @@ html {
 
     .wa-settings-section {
         padding: 24px 20px;
+    }
+
+    /* Terminate Button Top Right */
+    .wa-settings-sidebar-footer {
+        position: absolute;
+        top: 32px;
+        right: 24px;
+        padding: 0;
+        border: none;
+        z-index: 50;
+        width: auto;
+    }
+
+    .wa-settings-terminate-btn {
+        width: auto;
+        padding: 10px 16px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+
+    .wa-settings-terminate-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
     }
 }
 
@@ -5748,7 +5792,7 @@ html {
 }
 
 .wa-general-selected-check {
-    color: #22c55e;
+    color: #027EB5;
     flex-shrink: 0;
 }
 
@@ -5847,23 +5891,29 @@ html {
 }
 
 .wa-lang-confirm-cancel {
-    background: transparent;
+    background: #027EB5;
+    color: #ffffff;
     border: none;
-    color: #027EB5;
+    border-radius: 100px;
+    padding: 12px 22px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    padding: 10px 16px;
-    border-radius: 10px;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.15s;
+    white-space: nowrap;
 }
 
 .wa-lang-confirm-cancel:hover {
-    background: rgba(2, 126, 181, 0.08);
+    background: #026a99;
+    transform: translateY(-1px);
+}
+
+.wa-lang-confirm-cancel:active {
+    transform: scale(0.97);
 }
 
 .wa-lang-confirm-accept {
-    background: #22c55e;
+    background: #027EB5;
     color: white;
     border: none;
     border-radius: 100px;
@@ -5876,7 +5926,7 @@ html {
 }
 
 .wa-lang-confirm-accept:hover {
-    background: #16a34a;
+    background: #026a99;
     transform: translateY(-1px);
 }
 
