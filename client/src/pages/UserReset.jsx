@@ -140,9 +140,9 @@ export default function UserReset() {
                         border: '1px solid rgba(255, 255, 255, 0.4)'
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
                         <ShieldAlert size={32} color=" #0D9BB3" />
-                        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0D9BB3', margin: 0, letterSpacing: '-0.02em' }}>Link Expired</h2>
+                        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0D9BB3', margin: 0, letterSpacing: '-0.02em' }}>Link Expired</h2>
                     </div>
                     <p style={{ fontSize: '1rem', color: '#64748b', lineHeight: 1.6, marginBottom: '0' }}>
                         This password reset link has expired or is invalid. Please check your inbox for the most recent link.
@@ -342,12 +342,12 @@ export default function UserReset() {
             <div className="home-content-wrapper">
                 <div className="login-card-container fade-in-scale">
                     <div className="login-card" style={{ maxWidth: '410px', padding: '1.2rem 1.8rem' }}>
-                        <Link to="/" className="back-button" style={{ marginBottom: '0.8rem' }}>
+                        <Link to="/" className="back-button" style={{ marginBottom: '0.6rem' }}>
                             <ArrowLeft size={18} /> Back
                         </Link>
 
-                        <div className="login-header" style={{ marginBottom: '1.2rem' }}>
-                            <h2 className="login-title" style={{ fontSize: '1.6rem', marginBottom: '0.2rem' }}>Reset Here</h2>
+                        <div className="login-header" style={{ marginBottom: '1rem' }}>
+                            <h2 className="login-title" style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>Reset Here</h2>
                             <p className="login-subtitle">Enter your temporary password to create a new one</p>
                         </div>
 
@@ -545,7 +545,7 @@ export default function UserReset() {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+                            <div style={{ marginTop: '1rem', marginBottom: '1.2rem' }}>
                                 <HumanVerification
                                     onVerified={(status) => setIsHumanVerified(status)}
                                     context="user_reset"

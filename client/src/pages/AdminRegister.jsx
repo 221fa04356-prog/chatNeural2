@@ -75,6 +75,7 @@ export default function AdminRegister() {
                 <Snackbar
                     message={snackbar.message}
                     type={snackbar.type}
+                    senderName="Admin"
                     onClose={() => setSnackbar({ ...snackbar, open: false })}
                 />
             )}
@@ -83,7 +84,7 @@ export default function AdminRegister() {
                 <div className="login-card-container fade-in-scale">
                     {/* Added admin-compact class for specific height reduction */}
                     <div className="login-card compact admin-compact">
-                        <Link to="/" state={{ showLogin: true, showAdmin: true }} className="back-button" style={{ marginBottom: '1rem' }}>
+                        <Link to="/" state={{ showLogin: true, showAdmin: true }} className="back-button" style={{ marginBottom: '0.8rem' }}>
                             <ArrowLeft size={18} /> Back
                         </Link>
 
@@ -196,7 +197,7 @@ export default function AdminRegister() {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div style={{ marginTop: '1rem', marginBottom: '0.4rem' }}>
                                 <HumanVerification
                                     onVerified={(status) => setIsHumanVerified(status)}
                                     context="admin_register"

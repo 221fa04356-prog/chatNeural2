@@ -365,7 +365,7 @@ export default function Home() {
                                 </button>
 
                                 <div className="login-footer">
-                                    <button type="button" onClick={handleForgotPassword}>Forgot Password?</button>
+                                    <button type="button" onClick={() => isAdmin ? navigate('/admin-reset') : handleForgotPassword()}>Forgot Password?</button>
                                     <Link to={isAdmin ? "/admin-register" : "/register"} className="secondary-link">Create Account</Link>
                                 </div>
                             </form>

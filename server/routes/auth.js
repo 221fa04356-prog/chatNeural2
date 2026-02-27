@@ -241,9 +241,20 @@ router.post('/admin/register', async (req, res) => {
 router.post('/admin/reset', async (req, res) => {
     const { email, newPassword, secretKey } = req.body;
 
+    // Resolve name for UI popup
+    let adminName = 'Admin';
+    try {
+        if (email) {
+            const adminUser = await User.findOne({ email, role: 'admin' });
+            if (adminUser) adminName = adminUser.name;
+        }
+    } catch (e) {
+        console.log("Error looking up admin name", e);
+    }
+
     const MASTER_KEY = process.env.ADMIN_SECRET || 'neural_master_key';
     if (secretKey !== MASTER_KEY) {
-        return res.status(403).json({ error: 'Invalid Admin Secret Key' });
+        return res.status(403).json({ error: 'Invalid Admin Secret Key', senderName: adminName });
     }
 
     try {
@@ -263,11 +274,11 @@ router.post('/admin/reset', async (req, res) => {
             { password: hash, password_signature: signature }
         );
 
-        if (result.matchedCount === 0) return res.status(404).json({ error: 'Admin email not found' });
+        if (result.matchedCount === 0) return res.status(404).json({ error: 'Admin email not found', senderName: adminName });
 
-        res.json({ message: 'Password reset successful' });
+        res.json({ message: 'Password reset successful', senderName: adminName });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: err.message, senderName: adminName });
     }
 });
 
