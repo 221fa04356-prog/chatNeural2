@@ -20,6 +20,8 @@ export default function HumanVerification({ onVerified, context, identifier }) {
     const [otpInput, setOtpInput] = useState('');
     const [otpError, setOtpError] = useState('');
     const [isSendingCall, setIsSendingCall] = useState(false);
+    const [resendTimer, setResendTimer] = useState(0);
+    const [showHVSnackbar, setShowHVSnackbar] = useState(false);
 
     const [puzzleRotation, setPuzzleRotation] = useState(0);
     const [targetRotation, setTargetRotation] = useState(0);
@@ -54,6 +56,16 @@ export default function HumanVerification({ onVerified, context, identifier }) {
         }
     }, [isModalOpen]);
 
+    useEffect(() => {
+        let interval;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer(prev => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
+
     const handleCheckboxClick = () => {
         if (!isVerified) setIsModalOpen(true);
     };
@@ -62,6 +74,8 @@ export default function HumanVerification({ onVerified, context, identifier }) {
         setIsModalOpen(false);
         setActiveMethod(null);
         setCallSent(false);
+        setResendTimer(0);
+        setShowHVSnackbar(false);
     };
 
     const handleSuccess = () => {
@@ -99,7 +113,8 @@ export default function HumanVerification({ onVerified, context, identifier }) {
         const isRegistering = ['register', 'admin_register'].includes(context);
 
         if (isRegistering) {
-            if (!/^\d{10}$/.test(callPhoneInput)) {
+            const cleanPhone = callPhoneInput.replace(/\s/g, '');
+            if (!/^\d{10}$/.test(cleanPhone)) {
                 setOtpError('Please enter a strict 10-digit mobile number.');
                 return;
             }
@@ -118,7 +133,7 @@ export default function HumanVerification({ onVerified, context, identifier }) {
             const payload = {
                 context,
                 identifier: isRegistering ? null : identifier,
-                mobile: isRegistering ? callPhoneInput : null
+                mobile: isRegistering ? callPhoneInput.replace(/\s/g, '') : null
             };
 
             const res = await axios.post('/api/auth/send-call-otp', payload);
@@ -126,7 +141,9 @@ export default function HumanVerification({ onVerified, context, identifier }) {
             setCallMaskedNumber(res.data.maskedMobile);
             setCallSent(true);
             if (isResend) {
-                setOtpError('Resent the Verification call to +91 ' + res.data.maskedMobile);
+                setResendTimer(20);
+                setShowHVSnackbar(true);
+                setTimeout(() => setShowHVSnackbar(false), 5000); // Hide after 5 seconds
             }
         } catch (err) {
             setOtpError(err.response?.data?.error || 'Failed to send call');
@@ -140,8 +157,8 @@ export default function HumanVerification({ onVerified, context, identifier }) {
         try {
             const isRegistering = ['register', 'admin_register'].includes(context);
             const res = await axios.post('/api/auth/verify-call-otp', {
-                identifier: isRegistering ? callPhoneInput : identifier,
-                otp: otpInput
+                identifier: isRegistering ? callPhoneInput.replace(/\s/g, '') : identifier,
+                otp: otpInput.replace(/\s/g, '')
             });
             if (res.data.success) {
                 handleSuccess();
@@ -182,6 +199,11 @@ export default function HumanVerification({ onVerified, context, identifier }) {
 
             {isModalOpen && createPortal(
                 <div className="hv-modal-overlay fade-in">
+                    {showHVSnackbar && (
+                        <div className="hv-success-snackbar fade-in">
+                            <CheckCircle size={16} /> A new verification code has been sent to your registered mobile number
+                        </div>
+                    )}
                     <div className="hv-modal-content scale-in">
                         <button className="hv-modal-close" type="button" onClick={closeModal}>
                             <X size={20} />
@@ -251,7 +273,12 @@ export default function HumanVerification({ onVerified, context, identifier }) {
                                                     type="text"
                                                     placeholder="Enter 10 digit mobile"
                                                     value={callPhoneInput}
-                                                    onChange={e => setCallPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^\d\s]/g, '');
+                                                        if (val.replace(/\s/g, '').length <= 10) {
+                                                            setCallPhoneInput(val);
+                                                        }
+                                                    }}
                                                     className="hv-input hv-phone"
                                                 />
                                             </div>
@@ -276,8 +303,13 @@ export default function HumanVerification({ onVerified, context, identifier }) {
                                                 <p className="hv-call-msg">
                                                     You will be receiving a Verification call to +91 {callMaskedNumber}
                                                 </p>
-                                                <button type="button" className="hv-resend-link" onClick={() => sendCall(true)} disabled={isSendingCall}>
-                                                    Didn't Receive it?
+                                                <button
+                                                    type="button"
+                                                    className={`hv-resend-link ${resendTimer > 0 ? 'disabled-link' : ''}`}
+                                                    onClick={() => sendCall(true)}
+                                                    disabled={isSendingCall || resendTimer > 0}
+                                                >
+                                                    {resendTimer > 0 ? `Resend code via call in ${resendTimer} seconds` : `Still Didn't receive it?`}
                                                 </button>
                                             </div>
 
@@ -286,9 +318,13 @@ export default function HumanVerification({ onVerified, context, identifier }) {
                                                     type="text"
                                                     placeholder="Enter numerical OTP from call"
                                                     value={otpInput}
-                                                    onChange={e => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^\d\s]/g, '');
+                                                        if (val.replace(/\s/g, '').length <= 6) {
+                                                            setOtpInput(val);
+                                                        }
+                                                    }}
                                                     className="hv-input text-center text-lg tracking-widest"
-                                                    maxLength={6}
                                                 />
                                             </div>
                                             <button type="button" className="btn-primary-neural hv-submit-btn" onClick={verifyOtp}>Verify OTP</button>
