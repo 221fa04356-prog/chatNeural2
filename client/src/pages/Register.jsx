@@ -56,7 +56,7 @@ export default function Register() {
             <div className="home-content-wrapper">
                 <div className="login-card-container fade-in-scale">
                     <div className="login-card compact">
-                        <Link to="/" state={{ showLogin: true }} className="back-button" style={{ marginBottom: '1rem' }}>
+                        <Link to="/" state={{ showLogin: true }} className="back-button" style={{ marginBottom: '0.8rem' }}>
                             <ArrowLeft size={18} /> Back
                         </Link>
 
@@ -160,7 +160,7 @@ export default function Register() {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div style={{ marginTop: '1rem', marginBottom: '0.4rem' }}>
                                 <HumanVerification
                                     onVerified={(status) => setIsHumanVerified(status)}
                                     context="register"

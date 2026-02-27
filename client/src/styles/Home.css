@@ -88,8 +88,8 @@
 
 .login-card {
     width: 90%;
-    max-width: 380px;
-    padding: 3rem;
+    max-width: 420px;
+    padding: 2.5rem 2rem;
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(20px);
     border-radius: 2rem;
@@ -123,7 +123,7 @@
 
 .login-header {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.8rem;
 }
 
 .login-title {
@@ -131,7 +131,7 @@
     font-weight: 800;
     color: #0B8CA1;
     /* Theme Color */
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
     letter-spacing: -0.02em;
 }
 
@@ -143,7 +143,7 @@
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
 }
 
 .form-group-custom {
@@ -303,9 +303,76 @@
     }
 
     .login-card {
-        padding: 2rem;
+        padding: 1.5rem 1.25rem;
         width: 95%;
         /* Keep margins */
+    }
+
+    .login-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .login-title {
+        font-size: 1.8rem;
+    }
+
+    .login-form {
+        gap: 1rem;
+    }
+}
+
+/* Height-based Scaling Restrictions for Fixed View Auth Portals */
+
+/* Taller Forms (Register Pages) require earlier and stronger scaling */
+@media (max-height: 850px) {
+    .home-content-wrapper {
+        padding: 0.5rem;
+    }
+
+    .login-card.compact {
+        transform: scale(min(1, calc(100vh / 800px)));
+        transform-origin: center center;
+        margin: 0 auto;
+    }
+}
+
+@media (max-height: 750px) {
+    .home-content-wrapper {
+        padding: 0.5rem;
+    }
+
+    .login-card {
+        transform: scale(min(1, calc(100vh / 750px)));
+        /* Shrink Card Relative to Screen Height */
+        transform-origin: center center;
+        margin: 0 auto;
+    }
+
+    /* Ensure compact keeps its stronger scale curve */
+    .login-card.compact {
+        transform: scale(min(1, calc(100vh / 800px)));
+    }
+}
+
+@media (max-height: 600px) {
+    .login-card {
+        transform: scale(min(0.85, calc(100vh / 700px)));
+    }
+
+    .login-card.compact {
+        transform: scale(min(0.85, calc(100vh / 800px)));
+    }
+}
+
+@media (max-height: 500px) {
+
+    /* Extreme squish case, e.g. landscape phones */
+    .login-card {
+        transform: scale(min(0.70, calc(100vh / 650px)));
+    }
+
+    .login-card.compact {
+        transform: scale(min(0.70, calc(100vh / 800px)));
     }
 }
 
@@ -358,12 +425,12 @@
 
 .input-neural {
     width: 100%;
-    padding: 14px 14px 14px 44px;
+    padding: 16px 16px 16px 48px;
     border-radius: 1rem;
     border: 2px solid #F1F5F9;
     background: #F8FAFC;
     color: #1e293b;
-    font-size: 1rem;
+    font-size: 1.1rem;
     outline: none;
     transition: all 0.2s ease;
 }
@@ -403,8 +470,8 @@
 .login-card.compact {
     padding: 2.5rem 2.5rem;
     /* Increased vertical padding */
-    max-width: 380px;
-    /* Compressed width */
+    max-width: 420px;
+    /* Expanded width for larger text */
 }
 
 .login-card.compact .login-header {
@@ -427,15 +494,15 @@
 }
 
 .login-card.compact .form-group-custom label {
-    font-size: 0.85rem !important;
+    font-size: 0.95rem !important;
     margin-bottom: 0.4rem !important;
 }
 
 .login-card.compact .input-neural {
     padding: 12px 12px 12px 40px;
     /* Increased padding/height */
-    font-size: 0.95rem;
-    height: 44px;
+    font-size: 1.05rem;
+    height: 48px;
 }
 
 /* Adjust icon position for compact inputs */
@@ -473,8 +540,8 @@
 }
 
 .login-card.compact.admin-compact .login-form {
-    gap: 1.2rem;
-    /* Increased gap */
+    gap: 0.85rem;
+    /* Decreased gap specifically for admin */
 }
 
 .login-card.compact.admin-compact .form-group-custom label {
@@ -482,7 +549,14 @@
 }
 
 .login-card.compact.admin-compact .btn-primary-neural {
-    margin-top: 0.4rem !important;
+    margin-top: 0.2rem !important;
+}
+
+/* Specific tighter inputs for admin register to save height */
+.login-card.compact.admin-compact .input-neural {
+    height: 42px !important;
+    font-size: 1rem !important;
+    padding: 10px 12px 10px 40px !important;
 }
 
 /* Password Requirements Tooltip */

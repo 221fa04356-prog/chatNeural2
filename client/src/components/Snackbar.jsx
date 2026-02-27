@@ -65,7 +65,7 @@ const Snackbar = ({ message, senderName, senderAvatar, type = 'info', onClose, d
                                     <img src={senderAvatar} alt={senderName} />
                                 ) : (
                                     <div className="snackbar-initial-avatar">
-                                        {senderName ? senderName.charAt(0).toUpperCase() : '?'}
+                                        {senderName ? senderName.charAt(0).toUpperCase() : 'A'}
                                     </div>
                                 )}
                             </div>
@@ -75,7 +75,7 @@ const Snackbar = ({ message, senderName, senderAvatar, type = 'info', onClose, d
                     <div className="snackbar-content-text">
                         {variant === 'default' && (
                             <div className="snackbar-sender-name">
-                                {senderName || 'Unknown User'}
+                                {senderName || 'Admin'}
                             </div>
                         )}
                         <div className="snackbar-message-preview">{message}</div>
