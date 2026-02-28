@@ -19,6 +19,9 @@ const messageSchema = new mongoose.Schema({
         domain: { type: String }
     },
     is_pinned: { type: Boolean, default: false },
+    pinned_at: { type: Date, default: null },
+    pin_expires_at: { type: Date, default: null },
+    pinned_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     starred_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     is_deleted_by_admin: { type: Boolean, default: false },
     is_deleted_by_user: { type: Boolean, default: false },
