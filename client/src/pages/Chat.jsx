@@ -167,6 +167,9 @@ export default function Chat() {
     const [activeSettingsTab, setActiveSettingsTab] = useState(null);
     const [isSettingsEditing, setIsSettingsEditing] = useState(false);
     const [pinReplaceModal, setPinReplaceModal] = useState(null); // { newId, isGroup, pinnedIds }
+    const [pinMessageModal, setPinMessageModal] = useState(null);
+    const [pinMessageDuration, setPinMessageDuration] = useState('30 days');
+    const [currentPinnedIndex, setCurrentPinnedIndex] = useState(0);
 
     // --- General Settings State ---
     const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('neuChat_language') || 'British English, British English');
@@ -1192,6 +1195,15 @@ export default function Chat() {
             }
         };
 
+        const onMessagePinned = (data) => {
+            setMessages(prev => prev.map(msg =>
+                (msg._id === data.messageId || msg.id === data.messageId)
+                    ? { ...msg, is_pinned: data.is_pinned, pinned_at: data.pinned_at, pin_expires_at: data.pin_expires_at, pinned_by: data.pinned_by }
+                    : msg
+            ));
+            fetchP2PRequest(selectedUserRef.current?._id);
+        };
+
         const onMessageDeleted = (data) => {
             console.log('Socket: message_deleted', data);
             setMessages(prev => prev.map(msg =>
@@ -1247,6 +1259,7 @@ export default function Chat() {
         });
         socket.on('user_status_change', onStatusChange);
         socket.on('message_deleted', onMessageDeleted);
+        socket.on('message_pinned', onMessagePinned);
         socket.on('user_profile_updated', onUserProfileUpdated);
 
         const onForceLogout = () => {
@@ -1353,6 +1366,7 @@ export default function Chat() {
             socket.off('messages_unread', onMessagesUnread);
             socket.off('user_status_change', onStatusChange);
             socket.off('message_deleted', onMessageDeleted);
+            socket.off('message_pinned', onMessagePinned);
             socket.off('force_logout', onForceLogout);
             if (socket.connected) socket.disconnect();
         };
@@ -1769,6 +1783,38 @@ export default function Chat() {
         setSelectedUser(u);
         fetchP2PRequest(u._id);
         if (u.unreadCount > 0) markAsRead(u._id);
+    };
+
+    const handleTogglePinMessage = async (e) => {
+        if (e) e.preventDefault();
+        if (!pinMessageModal) return;
+        const msgId = pinMessageModal._id || pinMessageModal.id;
+        const isCurrentlyPinned = pinMessageModal.is_pinned;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`/api/chat/message/${msgId}/toggle`,
+                { action: 'pin', value: !isCurrentlyPinned, duration: pinMessageDuration },
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+
+            setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+            setPinMessageModal(null);
+            setOpenDropdown(null);
+        } catch (err) {
+            console.error("Pin toggle failed", err);
+            alert("Error: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const handleUnpinMessage = async (msgId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`/api/chat/message/${msgId}/toggle`,
+                { action: 'pin', value: false },
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+        } catch (err) { console.error("Unpin failed", err); }
     };
 
     const handleToggleStar = async (msgId, currentState) => {
@@ -3724,16 +3770,16 @@ export default function Chat() {
             </div>
         );
     }; const renderFilePreview = () => (
-        <div className="wa-file-preview-overlay" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#e9edef', position: 'relative' }}>
+        <div className="wa-file-preview-overlay" style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#e9edef', position: 'relative' }}>
             {/* Header */}
-            <div style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#3b6e9e', color: 'white' }}>
+            <div style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#3b6e9e', color: 'white', flexShrink: 0 }}>
                 <button onClick={() => setFile(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex' }}>
                     <ArrowLeft size={24} />
                 </button>
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', padding: 20 }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', padding: 20 }}>
                 {file && file.type.startsWith('image/') ? (
                     <img src={URL.createObjectURL(file)} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} />
                 ) : (
@@ -4754,7 +4800,18 @@ export default function Chat() {
                             }}>
                                 <Forward size={18} style={{ marginRight: 12 }} /> Forward
                             </div>
-                            <div className="wa-dropdown-item"><Pin size={18} style={{ marginRight: 12 }} /> Pin</div>
+                            <div className="wa-dropdown-item" onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdown(null);
+                                if (data.is_pinned) {
+                                    handleUnpinMessage(id);
+                                } else {
+                                    setPinMessageModal(data);
+                                    setPinMessageDuration('30 days');
+                                }
+                            }}>
+                                <Pin size={18} style={{ marginRight: 12, transform: data.is_pinned ? 'rotate(45deg)' : 'none' }} /> {data.is_pinned ? 'Unpin' : 'Pin'}
+                            </div>
 
                             <div className="wa-dropdown-item" onClick={() => handleToggleStar(id, data.is_starred)}>
                                 <Star size={18} style={{ marginRight: 12 }} fill={data.is_starred ? "#8696a0" : "none"} /> {data.is_starred ? 'Unstar' : 'Star'}
@@ -6256,6 +6313,76 @@ export default function Chat() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Pinned Messages Banner */}
+                        {(() => {
+                            const pinnedMessages = messages.filter(m => m.is_pinned && !m.is_deleted_by_admin && !m.is_deleted_by_user).sort((a, b) => new Date(b.pinned_at) - new Date(a.pinned_at));
+                            if (pinnedMessages.length === 0) return null;
+                            const safeIndex = currentPinnedIndex >= pinnedMessages.length ? 0 : currentPinnedIndex;
+                            const msg = pinnedMessages[safeIndex];
+
+                            let previewContent = null;
+                            const isExcel = msg.type === 'file' && msg.fileName && (msg.fileName.toLowerCase().endsWith('.xlsx') || msg.fileName.toLowerCase().endsWith('.xls') || msg.fileName.toLowerCase().endsWith('.csv'));
+                            const youtubeId = (msg.type === 'text' || !msg.type) && getYouTubeVideoId(msg.content) ? getYouTubeVideoId(msg.content) : null;
+
+                            if (msg.type === 'image' || msg.type === 'video') {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                        {msg.type === 'image' ? <img src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned" /> : <video src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    </div>
+                                );
+                            } else if (isExcel) {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 10 }}>
+                                        XLSX
+                                    </div>
+                                );
+                            } else if (youtubeId || (msg.link_preview && msg.link_preview.image)) {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                        <img src={msg.link_preview?.image || `https://img.youtube.com/vi/${youtubeId}/default.jpg`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned link" />
+                                    </div>
+                                );
+                            } else if (msg.type === 'file') {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <FileText size={20} color="#54656f" />
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="wa-pinned-messages-banner" style={{ background: 'white', padding: '8px 16px', borderBottom: '1px solid #d1d7db', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                                    onClick={() => {
+                                        navigateToMessage(msg);
+                                        setCurrentPinnedIndex((safeIndex + 1) % pinnedMessages.length);
+                                    }}>
+
+                                    {pinnedMessages.length > 1 && (
+                                        <div style={{ marginRight: 12, display: 'flex', flexDirection: 'column', gap: 4, height: 36, justifyContent: 'center' }}>
+                                            {Array.from({ length: pinnedMessages.length }).map((_, i) => (
+                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#008069' : '#d1d7db' }} />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 16, justifyContent: 'center' }}>
+                                        <Pin size={18} color="#8696a0" />
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                                        <span style={{ fontWeight: 500, fontSize: 13, color: '#111b21', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                            {(msg.user_id === user.id || msg.user_id === user._id) ? 'You' : (selectedUser?.name || 'Contact')}
+                                        </span>
+                                        <span style={{ fontSize: 13, color: '#54656f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {msg.content || (msg.type === 'image' ? 'Photo' : msg.type === 'file' ? 'Document' : msg.type === 'video' ? 'Video' : 'Message')}
+                                        </span>
+                                    </div>
+
+                                    {previewContent}
+                                </div>
+                            );
+                        })()}
 
                         {/* Messages */}
                         <div
@@ -8269,6 +8396,47 @@ export default function Chat() {
             )}
             {renderChatContextMenu()}
             {renderCameraModals()}
+
+            {pinMessageModal && (
+                <div className="wa-mute-modal-overlay" onClick={() => setPinMessageModal(null)}>
+                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="wa-mute-modal-content">
+                            <div className="wa-mute-header-centered">
+                                <div className="wa-mute-icon-wrapper">
+                                    <Pin size={28} color="#0EA5BE" />
+                                </div>
+                                <h3>Pin this message in the chat?</h3>
+                            </div>
+
+                            <div className="wa-mute-body">
+                                <div className="wa-mute-description-centered">
+                                    Choose how long your message stays pinned. You can unpin at any time.
+                                </div>
+
+                                <div className="wa-mute-options-spaced">
+                                    {['24 hours', '7 days', '30 days'].map((dur) => (
+                                        <div
+                                            key={dur}
+                                            className="wa-mute-option-item"
+                                            onClick={() => setPinMessageDuration(dur)}
+                                        >
+                                            <div className={`wa-radio-circle-custom ${pinMessageDuration === dur ? 'selected' : ''}`}>
+                                                {pinMessageDuration === dur && <div className="wa-radio-inner-custom" />}
+                                            </div>
+                                            <span>{dur}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="wa-mute-footer-centered">
+                                <button className="wa-mute-btn-cancel" onClick={() => setPinMessageModal(null)}>Cancel</button>
+                                <button className="wa-mute-btn-confirm" onClick={handleTogglePinMessage}>Pin</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

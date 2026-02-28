@@ -830,7 +830,7 @@ router.post('/send', authenticateToken, (req, res, next) => {
 
 // Toggle Pin/Star - Secured with Auth for Personalized Star
 router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
-    const { action, value } = req.body; // action: 'pin' or 'star'
+    const { action, value, duration } = req.body; // action: 'pin' or 'star', duration: '8 hours', '1 week', 'Always'
     const userId = req.user.id;
 
     try {
@@ -838,7 +838,65 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
         if (!msg) return res.status(404).json({ error: 'Message not found' });
 
         if (action === 'pin') {
-            msg.is_pinned = value;
+            if (value) {
+                const expiresAt = duration === '24 hours' ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+                    : duration === '7 days' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                        : duration === '30 days' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            : null;
+
+                const user1 = msg.user_id;
+                const user2 = msg.receiver_id;
+
+                if (user2) {
+                    const pinnedMsgs = await Message.find({
+                        $or: [
+                            { user_id: user1, receiver_id: user2 },
+                            { user_id: user2, receiver_id: user1 }
+                        ],
+                        is_pinned: true
+                    }).sort({ pinned_at: 1 });
+
+                    const now = new Date();
+                    const activePinned = [];
+                    for (let p of pinnedMsgs) {
+                        if (p.pin_expires_at && p.pin_expires_at < now) {
+                            p.is_pinned = false;
+                            p.pinned_at = null;
+                            p.pin_expires_at = null;
+                            await p.save();
+                            if (req.io) {
+                                [user1.toString(), user2.toString()].forEach(pId => {
+                                    req.io.to(pId).emit('message_pinned', { messageId: p._id, is_pinned: false });
+                                });
+                            }
+                        } else {
+                            activePinned.push(p);
+                        }
+                    }
+
+                    if (activePinned.length >= 5) {
+                        const oldest = activePinned[0];
+                        oldest.is_pinned = false;
+                        oldest.pinned_at = null;
+                        oldest.pin_expires_at = null;
+                        await oldest.save();
+                        if (req.io) {
+                            [user1.toString(), user2.toString()].forEach(pId => {
+                                req.io.to(pId).emit('message_pinned', { messageId: oldest._id, is_pinned: false });
+                            });
+                        }
+                    }
+                }
+
+                msg.is_pinned = true;
+                msg.pinned_at = new Date();
+                msg.pin_expires_at = expiresAt;
+                msg.pinned_by = userId;
+            } else {
+                msg.is_pinned = false;
+                msg.pinned_at = null;
+                msg.pin_expires_at = null;
+            }
         } else if (action === 'star') {
             const index = msg.starred_by.indexOf(userId);
             if (value && index === -1) {
@@ -849,6 +907,21 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
         }
 
         await msg.save();
+
+        if (req.io && action === 'pin') {
+            const participants = [msg.user_id.toString()];
+            if (msg.receiver_id) participants.push(msg.receiver_id.toString());
+
+            participants.forEach(pId => {
+                req.io.to(pId).emit('message_pinned', {
+                    messageId: msg._id,
+                    is_pinned: msg.is_pinned,
+                    pinned_at: msg.pinned_at,
+                    pin_expires_at: msg.pin_expires_at,
+                    pinned_by: msg.pinned_by
+                });
+            });
+        }
 
         const msgObj = msg.toObject();
         msgObj.is_starred = msg.starred_by.includes(userId);
