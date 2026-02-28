@@ -55,6 +55,30 @@ export default function Chat() {
     const [file, setFile] = useState(null);
     const fileInputRef = useRef(null);
 
+    // --- Voice Recording State ---
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingPaused, setRecordingPaused] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef(null);
+    const audioStreamRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
+    const [isViewOnce, setIsViewOnce] = useState(false);
+    const canvasRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const animationFrameRef = useRef(null);
+    const recordingPausedRef = useRef(false);
+    const [isReviewPlaying, setIsReviewPlaying] = useState(false);
+    const [previewTime, setPreviewTime] = useState(0);
+    const previewTimerRef = useRef(null);
+    const previewTimeRef = useRef(0);
+    const recordingTimeRef = useRef(0);
+    const isReviewPlayingRef = useRef(false);
+    const audioWaveHistoryRef = useRef([]);
+    const audioPreviewRef = useRef(null);
+    const [showViewOnceModal, setShowViewOnceModal] = useState(false);
+
     // --- UI States ---
     const [view, setView] = useState('chats'); // 'chats' | 'profile' | 'status' etc.
     const [isProfileOpen, setIsProfileOpen] = useState(false); // Controls the "Profile Drawer" overlay
@@ -2091,6 +2115,288 @@ export default function Chat() {
                 setSnackbar({ message: 'Only JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, and Video files are allowed.', type: 'error', variant: 'system' });
                 e.target.value = ''; // Reset input
             }
+        }
+    };
+
+    const formatRecordingTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStreamRef.current = stream;
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+            audioWaveHistoryRef.current = [];
+            recordingTimeRef.current = 0;
+            setIsViewOnce(false);
+
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioContext();
+                audioContextRef.current = audioCtx;
+                const source = audioCtx.createMediaStreamSource(stream);
+                const analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64;
+                source.connect(analyser);
+                analyserRef.current = analyser;
+
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                const draw = () => {
+                    if (!analyserRef.current || !canvasRef.current) return;
+                    animationFrameRef.current = requestAnimationFrame(draw);
+
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    const barWidth = 3;
+                    const gap = 2;
+                    const numBars = Math.floor(canvas.width / (barWidth + gap));
+
+                    if (audioWaveHistoryRef.current.length === 0) {
+                        const style = getComputedStyle(document.body);
+                        const c = style.getPropertyValue('--primary').trim();
+                        window.themePrimaryColor = c ? c : '#23D2EF';
+                    }
+
+                    if (recordingPausedRef.current && !isReviewPlayingRef.current) {
+                        for (let i = 0; i < numBars; i++) {
+                            ctx.fillStyle = '#8696a0';
+                            ctx.beginPath();
+                            ctx.roundRect((barWidth + gap) * i, (canvas.height - 2) / 2, barWidth, 2, 2);
+                            ctx.fill();
+                        }
+                    } else {
+                        analyserRef.current.getByteFrequencyData(dataArray);
+                        for (let i = 0; i < numBars; i++) {
+                            const dataIndex = Math.floor(i * (bufferLength / numBars));
+                            let value = dataArray[dataIndex];
+
+                            // Noise gate and exponential scaling for a snappy, synchronous EQ response
+                            let noiseThreshold = 10;
+                            let voiceValue = Math.max(0, value - noiseThreshold);
+                            let normalized = voiceValue / (255 - noiseThreshold);
+                            let barHeight = Math.max(2, Math.pow(normalized, 1.5) * canvas.height * 2.2);
+                            barHeight = Math.min(barHeight, canvas.height);
+
+                            ctx.fillStyle = isReviewPlayingRef.current ? window.themePrimaryColor : '#8696a0';
+                            ctx.beginPath();
+                            ctx.roundRect((barWidth + gap) * i, (canvas.height - barHeight) / 2, barWidth, barHeight, 2);
+                            ctx.fill();
+                        }
+                    }
+                };
+
+                // Wait for React to render the canvas before starting the draw loop
+                setTimeout(() => {
+                    if (canvasRef.current) {
+                        draw();
+                    }
+                }, 100);
+            } catch (e) {
+                console.error('Visualizer error:', e);
+            }
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.start(100);
+            setIsRecording(true);
+            setRecordingPaused(false); recordingPausedRef.current = false;
+            recordingPausedRef.current = false;
+            setRecordingTime(0);
+
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime((prevTime) => {
+                    recordingTimeRef.current = prevTime + 1;
+                    return prevTime + 1;
+                });
+            }, 1000);
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            setSnackbar({ message: 'Microphone permission denied.', type: 'error', variant: 'system' });
+        }
+    };
+
+    const pauseRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.requestData(); // trigger ondataavailable to get the chunks so far
+            mediaRecorderRef.current.pause();
+            setRecordingPaused(true); recordingPausedRef.current = true;
+            clearInterval(recordingTimerRef.current);
+        }
+    };
+
+    const playReview = () => {
+        if (audioPreviewRef.current) {
+            audioPreviewRef.current.pause();
+        }
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const blobUrl = URL.createObjectURL(audioBlob);
+        if (!audioPreviewRef.current) {
+            audioPreviewRef.current = new Audio();
+            try {
+                if (audioContextRef.current && analyserRef.current) {
+                    const source = audioContextRef.current.createMediaElementSource(audioPreviewRef.current);
+                    source.connect(analyserRef.current);
+                    source.connect(audioContextRef.current.destination);
+                }
+            } catch (err) {
+                console.error("Audio route error:", err);
+            }
+        }
+        audioPreviewRef.current.src = blobUrl;
+        audioPreviewRef.current.onended = () => {
+            setIsReviewPlaying(false);
+            isReviewPlayingRef.current = false;
+            if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+            setPreviewTime(0);
+            previewTimeRef.current = 0;
+        };
+        audioPreviewRef.current.play();
+        setIsReviewPlaying(true);
+        isReviewPlayingRef.current = true;
+        setPreviewTime(0);
+        previewTimeRef.current = 0;
+        if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+        previewTimerRef.current = setInterval(() => {
+            if (audioPreviewRef.current) {
+                setPreviewTime(Math.floor(audioPreviewRef.current.currentTime));
+                previewTimeRef.current = audioPreviewRef.current.currentTime;
+            }
+        }, 50);
+    };
+
+    const pauseReview = () => {
+        if (audioPreviewRef.current) {
+            audioPreviewRef.current.pause();
+        }
+        setIsReviewPlaying(false);
+        isReviewPlayingRef.current = false;
+        if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+    };
+
+    const resumeRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+            mediaRecorderRef.current.resume();
+            setRecordingPaused(false); recordingPausedRef.current = false;
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime((prevTime) => {
+                    recordingTimeRef.current = prevTime + 1;
+                    return prevTime + 1;
+                });
+            }, 1000);
+        }
+    };
+
+    const cancelRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        if (audioContextRef.current) { audioContextRef.current.close().catch(() => { }); audioContextRef.current = null; }
+        setIsRecording(false);
+        setRecordingPaused(false); recordingPausedRef.current = false;
+        setRecordingTime(0);
+        clearInterval(recordingTimerRef.current);
+        if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+        if (audioPreviewRef.current) audioPreviewRef.current.pause();
+        setPreviewTime(0);
+        previewTimeRef.current = 0;
+        setIsReviewPlaying(false);
+        isReviewPlayingRef.current = false;
+        audioChunksRef.current = [];
+    };
+
+    const stopAndSendRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.onstop = async () => {
+                if (audioStreamRef.current) {
+                    audioStreamRef.current.getTracks().forEach(track => track.stop());
+                }
+                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                if (audioContextRef.current) { audioContextRef.current.close().catch(() => { }); audioContextRef.current = null; }
+
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const audioFile = new File([audioBlob], 'voice_message.webm', { type: 'audio/webm' });
+                const blobUrl = URL.createObjectURL(audioBlob);
+
+                const tempId = Date.now();
+                const tempMsg = {
+                    id: tempId,
+                    _id: tempId,
+                    sender_id: user.id || user._id,
+                    receiver_id: selectedUser._id,
+                    role: 'user',
+                    content: '',
+                    type: 'audio',
+                    file_path: blobUrl,
+                    fileName: 'Voice message',
+                    fileSize: audioBlob.size,
+                    duration: recordingTime,
+                    is_view_once: isViewOnce,
+                    created_at: new Date(),
+                    is_read: false
+                };
+
+                setMessages(prev => [...prev, tempMsg]);
+
+                setIsRecording(false);
+                setRecordingPaused(false); recordingPausedRef.current = false;
+                setRecordingTime(0);
+                setIsViewOnce(false); // Reset the toggle back to normal state
+                clearInterval(recordingTimerRef.current);
+                if (previewTimerRef.current) clearInterval(previewTimerRef.current);
+                if (audioPreviewRef.current) audioPreviewRef.current.pause();
+                setPreviewTime(0);
+                setIsReviewPlaying(false);
+                audioChunksRef.current = [];
+                setTimeout(scrollToBottom, 50);
+
+                try {
+                    const formData = new FormData();
+                    formData.append('userId', user.id || user._id);
+                    formData.append('toUserId', selectedUser._id);
+                    formData.append('type', 'audio');
+                    formData.append('file', audioFile);
+                    formData.append('duration', tempMsg.duration); // optional duration
+                    formData.append('is_view_once', isViewOnce); // optional view once flag
+
+                    if (!socket.connected) socket.connect();
+
+                    const token = localStorage.getItem('token');
+                    const res = await axios.post('/api/chat/send', formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    const sentMsg = res.data.message;
+                    setMessages(prev => prev.map(m => m.id === tempId ? { ...sentMsg, is_sent: true } : m));
+
+                    if (socket.connected) {
+                        socket.emit('send_message', sentMsg);
+                    }
+                } catch (error) {
+                    console.error('Failed to send voice message:', error);
+                    setSnackbar({ message: 'Failed to send voice message', type: 'error', variant: 'system' });
+                }
+            };
+            mediaRecorderRef.current.stop();
         }
     };
 
@@ -5141,7 +5447,7 @@ export default function Chat() {
                             <div className="wa-menu-item" onClick={() => { setIsArchivedChatsOpen(true); setShowMenu(false); }} style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
                                 <Archive size={18} style={{ marginRight: 12, flexShrink: 0 }} />
                                 <span style={{ flex: 1 }}>{t('chat_list.archived')}</span>
-                                {totalUnreadArchived > 0 && <span style={{ background: '#25d366', color: '#111b21', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '600', marginLeft: 8, flexShrink: 0 }}>{totalUnreadArchived}</span>}
+                                {totalUnreadArchived > 0 && <span style={{ background: 'var(--primary, #23D2EF)', color: '#111b21', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '600', marginLeft: 8, flexShrink: 0 }}>{totalUnreadArchived}</span>}
                             </div>
                         </div>
                     )}
@@ -6164,6 +6470,41 @@ export default function Chat() {
                                                                 </div>
                                                             )}
 
+                                                            {/* Audio Rendering */}
+                                                            {msg.type === 'audio' && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
+                                                                <div className="wa-msg-audio-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px', minWidth: '220px' }}>
+                                                                    <div className="wa-audio-avatar" style={{ position: 'relative' }}>
+                                                                        <img src={isMe ? (userData.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256") : (selectedUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256")} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                                                        <div style={{ position: 'absolute', bottom: -2, right: -2, background: 'white', borderRadius: '50%', padding: 2 }}>
+                                                                            <Mic size={12} color={isMe ? "#53bdeb" : "var(--primary, #23D2EF)"} />
+                                                                        </div>
+                                                                    </div>
+                                                                    <button onClick={(e) => {
+                                                                        if (isForwardingMode) return;
+                                                                        e.stopPropagation();
+                                                                        const audio = new Audio(msg.file_path);
+                                                                        audio.play();
+                                                                    }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#8696a0' }}>
+                                                                        <Play size={24} fill="#8696a0" />
+                                                                    </button>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div className="wa-recording-waves" style={{ marginLeft: 0, height: 16 }}>
+                                                                            <span className="wa-wave" style={{ height: "20%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "50%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "80%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "40%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "70%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "30%", background: "#8696a0" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "60%", background: "#8696a0" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "40%", background: "#8696a0" }}></span>
+                                                                            <span className="wa-wave" style={{ height: "80%", background: "#8696a0" }}></span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: 11, color: '#667781', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+                                                                            <span>{formatRecordingTime(msg.duration || 0)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                             {/* Link Preview Card */}
                                                             {msg.link_preview && msg.link_preview.title && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
                                                                 <div
@@ -6366,57 +6707,143 @@ export default function Chat() {
                                     )}
 
                                     <div className="wa-input-pill">
-                                        <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
-                                                <Paperclip size={22} color="#54656f" />
-                                            </button>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                style={{ display: 'none' }}
-                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
-                                                onChange={handleFileSelect}
-                                            />
-                                            <button className="wa-nav-icon-btn">
-                                                <Smile size={22} color="#54656f" />
-                                            </button>
-                                        </div>
+                                        {!isRecording && (
+                                            <div className="wa-footer-left-icons">
+                                                <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                                    <Paperclip size={22} color="#54656f" />
+                                                </button>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    style={{ display: 'none' }}
+                                                    accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
+                                                    onChange={handleFileSelect}
+                                                />
+                                                <button className="wa-nav-icon-btn">
+                                                    <Smile size={22} color="#54656f" />
+                                                </button>
+                                            </div>
+                                        )}
 
-                                        <div className="wa-input-area">
-                                            {file && (
-                                                <div className="wa-file-preview-badge">
-                                                    {file.name.substring(0, 15)}...
-                                                    <button onClick={() => setFile(null)}>×</button>
+                                        {isRecording ? (
+                                            <div className="wa-recording-ui" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                                <div style={{ flex: 1 }}></div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <button className="wa-nav-icon-btn" style={{ padding: '0px', width: 'auto', marginRight: '24px' }} onClick={cancelRecording} title="Cancel">
+                                                        <Trash2 size={24} color="#8696a0" />
+                                                    </button>
+
+                                                    <div className="wa-recording-dot-wrap" style={{ marginRight: '32px' }}>
+                                                        {recordingPaused ? (
+                                                            <>
+                                                                <button
+                                                                    className="wa-nav-icon-btn tooltip-wrapper"
+                                                                    style={{ padding: '0px', width: 'auto', marginRight: '16px', background: 'transparent' }}
+                                                                    onClick={isReviewPlaying ? pauseReview : playReview}
+                                                                    data-tooltip={isReviewPlaying ? "Pause" : "Play"}
+                                                                >
+                                                                    {isReviewPlaying ? (
+                                                                        <svg viewBox="0 0 24 24" width="24" height="24" fill="#8696a0"><path d="M9 16h2V8H9v8zm4-8v8h2V8h-2z"></path></svg>
+                                                                    ) : (
+                                                                        <svg viewBox="0 0 24 24" width="24" height="24" fill="#8696a0"><path d="M8 5v14l11-7z"></path></svg>
+                                                                    )}
+                                                                </button>
+
+                                                                <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--primary, #23D2EF)', marginRight: '4px' }}></div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="wa-recording-red-dot pulse"></div>
+                                                                <span className="wa-recording-time">{formatRecordingTime(recordingTime)}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="wa-recording-waves" style={{ marginRight: '16px' }}>
+                                                        <canvas ref={canvasRef} className="wa-audio-canvas" width="140" height="28"></canvas>
+                                                    </div>
+
+                                                    {recordingPaused && (
+                                                        <span className="wa-recording-time" style={{ marginRight: '24px', minWidth: '40px', color: '#8696a0' }}>
+                                                            {isReviewPlaying ? formatRecordingTime(previewTime) : formatRecordingTime(recordingTime)}
+                                                        </span>
+                                                    )}
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                        {!recordingPaused ? (
+                                                            <button className="wa-record-action-btn pause tooltip-wrapper" onClick={pauseRecording} data-tooltip="Pause recording" style={{ background: 'transparent' }}>
+                                                                <svg viewBox="5 5 14 14" width="28" height="28" fill="#ef697a"><path d="M9 16h2V8H9v8zm4-8v8h2V8h-2z"></path></svg>
+                                                            </button>
+                                                        ) : (
+                                                            <button className="wa-record-action-btn resume tooltip-wrapper" onClick={resumeRecording} data-tooltip="Resume recording" style={{ background: 'transparent' }}>
+                                                                <Mic size={24} color="#ef697a" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsViewOnce(!isViewOnce);
+                                                                setSnackbar({ message: !isViewOnce ? "Voice message set to view once" : "Voice message view once removed", type: 'info', variant: 'system' });
+                                                            }}
+                                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            title="View once"
+                                                        >
+                                                            <div style={{
+                                                                width: 24, height: 24, borderRadius: '50%', border: `1.5px dashed ${isViewOnce ? 'var(--primary, #23D2EF)' : '#8696a0'}`,
+                                                                backgroundColor: isViewOnce ? 'var(--primary, #23D2EF)' : 'transparent',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                transition: 'all 0.2s',
+                                                            }}>
+                                                                <span style={{ fontSize: 11, fontWeight: '700', color: isViewOnce ? '#111b21' : '#8696a0' }}>1</span>
+                                                            </div>
+                                                        </button>
+                                                        <button className="wa-send-btn-circle-inner recording" onClick={stopAndSendRecording}>
+                                                            <Send size={24} color="white" strokeWidth={2.5} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <textarea
-                                                className="wa-input-box"
-                                                placeholder={t('chat_window.input_placeholder')}
-                                                value={input}
-                                                onChange={(e) => setInput(e.target.value)}
-                                                onPaste={handlePaste}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleSend(e);
-                                                    }
-                                                }}
-                                                rows={1}
-                                                style={{ resize: 'none', overflowY: 'auto' }}
-                                            />
-                                        </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                                                <div className="wa-input-area">
+                                                    {file && (
+                                                        <div className="wa-file-preview-badge">
+                                                            {file.name.substring(0, 15)}...
+                                                            <button onClick={() => setFile(null)}>×</button>
+                                                        </div>
+                                                    )}
+                                                    <textarea
+                                                        className="wa-input-box"
+                                                        placeholder={t('chat_window.input_placeholder')}
+                                                        value={input}
+                                                        onChange={(e) => setInput(e.target.value)}
+                                                        onPaste={handlePaste}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleSend(e);
+                                                            }
+                                                        }}
+                                                        rows={1}
+                                                        style={{ resize: 'none', overflowY: 'auto' }}
+                                                    />
+                                                </div>
 
-                                        <div className="wa-footer-right-icons">
-                                            {(input.trim() || file) ? (
-                                                <button onClick={handleSend} className="wa-send-btn-circle-inner">
-                                                    <Send size={24} color="white" strokeWidth={2.5} />
-                                                </button>
-                                            ) : (
-                                                <button className="wa-nav-icon-btn-pill">
-                                                    <Mic size={22} color="#54656f" />
-                                                </button>
-                                            )}
-                                        </div>
+                                                <div className="wa-footer-right-icons">
+                                                    {(input.trim() || file) ? (
+                                                        <button onClick={handleSend} className="wa-send-btn-circle-inner">
+                                                            <Send size={24} color="white" strokeWidth={2.5} />
+                                                        </button>
+                                                    ) : (
+                                                        <div className="mic-wrapper" data-tooltip="Voice message">
+                                                            <button className="wa-nav-icon-btn-pill mic-hover" onClick={startRecording}>
+                                                                <Mic size={22} color="#54656f" className="mic-icon-svg" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
