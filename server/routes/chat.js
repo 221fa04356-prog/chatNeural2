@@ -128,15 +128,16 @@ const upload = multer({
             'image/jpeg', 'image/png', // Images
             'application/pdf',         // PDF
             'application/msword',      // .doc
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+            'audio/webm', 'audio/mp4', 'audio/mp3', 'audio/mpeg', 'audio/ogg' // Audio
         ];
         const ext = path.extname(file.originalname).toLowerCase();
-        const allowedExts = ['.jpg', '.jpeg', '.png', '.doc', '.docx', '.pdf'];
+        const allowedExts = ['.jpg', '.jpeg', '.png', '.doc', '.docx', '.pdf', '.webm', '.mp3', '.m4a', '.ogg'];
 
         if (allowedTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
             cb(null, true);
         } else {
-            cb(new Error('Invalid file type. Only JPG, PNG, PDF, and Word files are allowed.'));
+            cb(new Error('Invalid file type. Only JPG, PNG, PDF, Word, and Audio files are allowed.'));
         }
     }
 });
@@ -542,9 +543,15 @@ router.post('/send', authenticateToken, (req, res, next) => {
     let fileName = null;
     let fileSize = 0;
     let pageCount = 0;
+    let duration = req.body.duration ? parseInt(req.body.duration) : 0;
+    let is_view_once = req.body.is_view_once === 'true' || req.body.is_view_once === true;
 
     if (file) {
-        type = file.mimetype.startsWith('image/') ? 'image' : 'file';
+        if (req.body.type === 'audio' || file.mimetype.startsWith('audio/')) {
+            type = 'audio';
+        } else {
+            type = file.mimetype.startsWith('image/') ? 'image' : 'file';
+        }
         filePath = '/uploads/' + file.filename;
         fileName = file.originalname;
         fileSize = file.size;
@@ -612,7 +619,7 @@ router.post('/send', authenticateToken, (req, res, next) => {
                 type,
                 file_path: filePath,
                 link_preview: linkPreview,
-                fileName, fileSize, pageCount, // Metadata
+                fileName, fileSize, pageCount, duration, is_view_once, // Metadata
                 reply_to: reply_to || null,
 
                 is_flagged: !!isFlagged,
@@ -648,7 +655,7 @@ router.post('/send', authenticateToken, (req, res, next) => {
             content: content || '',
             type,
             file_path: filePath,
-            fileName, fileSize, pageCount, // Metadata
+            fileName, fileSize, pageCount, duration, // Metadata
             reply_to: reply_to || null,
 
             is_flagged: !!isFlagged,

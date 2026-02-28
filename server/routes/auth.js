@@ -478,7 +478,7 @@ router.post('/send-call-otp', async (req, res) => {
                 status: 'pending',
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
 
         // Setup Twilio

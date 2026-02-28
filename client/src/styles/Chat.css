@@ -6238,3 +6238,285 @@ html {
         text-align: center;
     }
 }
+
+/* Voice Recording UI */
+.mic-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.mic-wrapper:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 50px;
+    right: 0px;
+    background-color: #f0f2f5;
+    color: #111b21;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+}
+
+.wa-nav-icon-btn-pill.mic-hover {
+    transition: all 0.2s;
+    padding: 10px;
+    border-radius: 50%;
+}
+
+.wa-nav-icon-btn-pill.mic-hover:hover {
+    background-color: var(--primary, #23D2EF);
+    color: white;
+}
+
+.wa-nav-icon-btn-pill.mic-hover:hover .mic-icon-svg {
+    stroke: white;
+}
+
+.wa-recording-ui {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 10px;
+}
+
+.wa-recording-center {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    justify-content: flex-end;
+    padding-right: 16px;
+}
+
+.wa-recording-dot-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wa-recording-red-dot {
+    width: 10px;
+    height: 10px;
+    background-color: #ef697a;
+    border-radius: 50%;
+}
+
+.pulse {
+    animation: waPulse 1.5s infinite;
+}
+
+@keyframes waPulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(239, 105, 122, 0.7);
+    }
+
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(239, 105, 122, 0);
+    }
+
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(239, 105, 122, 0);
+    }
+}
+
+.wa-recording-time {
+    font-size: 14px;
+    color: #111b21;
+    font-weight: 500;
+}
+
+.wa-recording-time-paused {
+    font-size: 14px;
+    color: #111b21;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.wa-recording-waves {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+    margin-left: 10px;
+}
+
+.wa-wave {
+    width: 3px;
+    background-color: #8696a0;
+    border-radius: 2px;
+    transition: height 0.2s ease;
+}
+
+.wa-wave.anim {
+    animation: waveAnim 0.8s infinite alternate ease-in-out;
+}
+
+.wa-recording-waves .wa-wave:nth-child(even) {
+    animation-delay: 0.1s;
+}
+
+.wa-recording-waves .wa-wave:nth-child(3n) {
+    animation-delay: 0.3s;
+}
+
+.wa-recording-waves .wa-wave:nth-child(4n) {
+    animation-delay: 0.5s;
+}
+
+@keyframes waveAnim {
+    0% {
+        height: 10%;
+    }
+
+    100% {
+        height: 90%;
+    }
+}
+
+.wa-recording-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.wa-record-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+.wa-record-action-btn.pause {
+    background-color: rgba(239, 105, 122, 0.15);
+}
+
+.wa-record-action-btn.resume {
+    background-color: transparent;
+}
+
+.wa-recording-lock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tooltip-wrapper {
+    position: relative;
+}
+
+.tooltip-wrapper:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: -40px;
+    background-color: #f0f2f5;
+    color: #111b21;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 100;
+}
+
+.wa-send-btn-circle-inner.recording {
+    background-color: var(--primary, #23D2EF);
+}
+
+/* View Once Modal */
+.wa-view-once-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 20, 26, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.wa-view-once-modal-content {
+    background: #3b4a54;
+    /* Darker grey box */
+    padding: 30px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 17px 50px 0 rgba(11, 20, 26, .19), 0 12px 15px 0 rgba(11, 20, 26, .24);
+}
+
+
+.wa-input-pill.recording-active {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+[data-theme='dark'] .wa-input-pill.recording-active .wa-input-area {
+    background-color: #202c33 !important;
+}
+
+[data-theme='light'] .wa-input-pill.recording-active .wa-input-area {
+    background-color: #f0f2f5 !important;
+}
+
+.wa-input-area.recording-active-area {
+    transition: all 0.2s ease-in-out;
+}
+
+@media (max-width: 768px) {
+    .wa-recording-ui {
+        padding: 0 4px;
+        gap: 8px;
+    }
+
+    .wa-recording-center {
+        justify-content: flex-start;
+        padding-right: 0px;
+        gap: 6px;
+    }
+
+    .wa-audio-canvas {
+        width: 80px !important;
+    }
+
+    .wa-record-action-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .wa-record-action-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .wa-recording-time {
+        font-size: 12px;
+        margin-right: 8px !important;
+        min-width: 30px !important;
+    }
+
+    .wa-recording-right {
+        gap: 8px;
+    }
+
+    .wa-send-btn-circle-inner.recording {
+        width: 36px;
+        height: 36px;
+    }
+}
