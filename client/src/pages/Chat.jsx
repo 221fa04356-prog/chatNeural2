@@ -419,6 +419,50 @@ export default function Chat() {
         return String(sId) === String(myId);
     };
 
+    // Helper to highlight text and make links clickable
+    const renderContent = (content) => {
+        if (!content) return content;
+
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = String(content).split(urlRegex);
+
+        return parts.map((part, i) => {
+            // Check if part is a URL
+            if (urlRegex.test(part)) {
+                return (
+                    <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            color: '#027eb5',
+                            textDecoration: 'underline',
+                            cursor: 'pointer'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {part}
+                    </a>
+                );
+            }
+
+            // Apply search highlighting if needed
+            if (messageSearchQuery) {
+                const searchParts = part.split(new RegExp(`(${messageSearchQuery})`, 'gi'));
+                return searchParts.map((searchPart, j) =>
+                    searchPart.toLowerCase() === messageSearchQuery.toLowerCase() ? (
+                        <span key={`${i}-${j}`} style={{ background: '#ffef96', color: 'black' }}>{searchPart}</span>
+                    ) : (
+                        searchPart
+                    )
+                );
+            }
+
+            return part;
+        });
+    };
+
     // Helper function to convert image blob to PNG
     const convertToPng = (blob) => {
         return new Promise((resolve, reject) => {
@@ -6442,50 +6486,6 @@ export default function Chat() {
                                                 }
                                                 const isMe = (msg.sender_id === myId) || (msg.user_id === myId);
 
-                                                // Helper to highlight text and make links clickable
-                                                const renderContent = (content) => {
-                                                    if (!content) return content;
-
-                                                    const urlRegex = /(https?:\/\/[^\s]+)/g;
-                                                    const parts = content.split(urlRegex);
-
-                                                    return parts.map((part, i) => {
-                                                        // Check if part is a URL
-                                                        if (urlRegex.test(part)) {
-                                                            return (
-                                                                <a
-                                                                    key={i}
-                                                                    href={part}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    style={{
-                                                                        color: '#027eb5',
-                                                                        textDecoration: 'underline',
-                                                                        cursor: 'pointer'
-                                                                    }}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    {part}
-                                                                </a>
-                                                            );
-                                                        }
-
-                                                        // Apply search highlighting if needed
-                                                        if (messageSearchQuery) {
-                                                            const searchParts = part.split(new RegExp(`(${messageSearchQuery})`, 'gi'));
-                                                            return searchParts.map((searchPart, j) =>
-                                                                searchPart.toLowerCase() === messageSearchQuery.toLowerCase() ? (
-                                                                    <span key={`${i}-${j}`} style={{ background: '#ffef96', color: 'black' }}>{searchPart}</span>
-                                                                ) : (
-                                                                    searchPart
-                                                                )
-                                                            );
-                                                        }
-
-                                                        return part;
-                                                    });
-                                                };
-
                                                 return (
                                                     <div key={msg.id || msgIdx}
                                                         id={`msg-${msg._id}`}
@@ -7241,7 +7241,7 @@ export default function Chat() {
                                                                 </span>
                                                                 {isMe && (
                                                                     <div className="wa-msg-status">
-                                                                        <CheckCheck size={14} color="#53bdeb" />
+                                                                        <CheckCheck size={14} color="#8696a0" />
                                                                     </div>
                                                                 )}
                                                             </div>

@@ -19,11 +19,38 @@ import logo from '../assets/logo.png';
 import NeuralBackground from '../components/NeuralBackground';
 
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, coordinate, scrollRef }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
+        let shiftStyle = {};
+        if (scrollRef && scrollRef.current && coordinate) {
+            const scrollLeft = scrollRef.current.scrollLeft;
+            const containerWidth = scrollRef.current.clientWidth;
+            const scrollWidth = scrollRef.current.scrollWidth;
+            const tooltipX = coordinate.x;
+
+            const TOOLTIP_ESTIMATED_WIDTH = 220;
+            const RECHARTS_FLIP_THRESHOLD = 300; // If within 300px of SVG right, Recharts natively flips it
+
+            const isNearSvgRight = (scrollWidth - tooltipX) < RECHARTS_FLIP_THRESHOLD;
+            const isNearVisibleRight = (tooltipX - scrollLeft) > (containerWidth - TOOLTIP_ESTIMATED_WIDTH);
+
+            // Shift left if near the right edge of the visible window, but ONLY if Recharts isn't already flipping it
+            if (isNearVisibleRight && !isNearSvgRight) {
+                shiftStyle = { transform: 'translateX(calc(-100% - 30px))' };
+            }
+        }
+
         return (
-            <div style={{ background: '#fff', padding: '10px', borderRadius: '8px', boxShadow: '0 0 2rem rgba(0,0,0,0.1)', border: 'none' }}>
+            <div style={{
+                background: '#fff',
+                padding: '10px',
+                borderRadius: '8px',
+                boxShadow: '0 0 2rem rgba(0,0,0,0.1)',
+                border: 'none',
+                position: 'relative',
+                ...shiftStyle
+            }}>
                 <p style={{ margin: '0 0 5px', fontWeight: 'bold' }}>{label}</p>
                 <p style={{ margin: 0, color: '#0A7C8F' }}>Approved Users : {data.approved || 0}</p>
                 <p style={{ margin: 0, color: '#0FB5D0' }}>Pending Approvals : {data.pending || 0}</p>
@@ -1045,7 +1072,7 @@ export default function AdminDashboard() {
                                                             }}
                                                         />
                                                         <YAxis hide domain={[0, 'auto']} />
-                                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f6f9fc' }} />
+                                                        <Tooltip content={<CustomTooltip scrollRef={chartScrollRef} />} cursor={{ fill: '#f6f9fc' }} />
                                                         <Bar dataKey="maxVal" shape={<CustomBar />} legendType="none" tabIndex={-1} />
                                                     </BarChart>
                                                 </ResponsiveContainer>

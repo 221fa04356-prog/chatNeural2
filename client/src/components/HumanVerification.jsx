@@ -4,6 +4,21 @@ import axios from 'axios';
 import { Check, Phone, Image as ImageIcon, RefreshCw, Volume2, X, RefreshCcw, Send, CheckCircle } from 'lucide-react';
 import '../styles/HumanVerification.css';
 
+const PUZZLE_IMAGES = [
+    "https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?w=400&q=80",
+    "https://images.unsplash.com/photo-1506744626753-eda81846c498?w=400&q=80",
+    "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&q=80",
+    "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=400&q=80",
+    "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=400&q=80",
+    "https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=400&q=80",
+    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&q=80",
+    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&q=80",
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80",
+    "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=400&q=80",
+    "https://images.unsplash.com/photo-1434725039720-aaad6dd32dfe?w=400&q=80",
+    "https://images.unsplash.com/photo-1505765050516-f72dcac9c60e?w=400&q=80"
+];
+
 export default function HumanVerification({ onVerified, context, identifier }) {
     const [isVerified, setIsVerified] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,6 +41,7 @@ export default function HumanVerification({ onVerified, context, identifier }) {
     const [puzzleRotation, setPuzzleRotation] = useState(0);
     const [targetRotation, setTargetRotation] = useState(0);
     const [puzzleError, setPuzzleError] = useState('');
+    const [puzzleImageUrl, setPuzzleImageUrl] = useState(PUZZLE_IMAGES[0]);
 
     // --- Helper to Generate Random Strings/Rotations ---
     const generateCaptcha = () => {
@@ -46,6 +62,9 @@ export default function HumanVerification({ onVerified, context, identifier }) {
         setTargetRotation(0);
         setPuzzleRotation(offset);
         setPuzzleError('');
+
+        const randomIndex = Math.floor(Math.random() * PUZZLE_IMAGES.length);
+        setPuzzleImageUrl(PUZZLE_IMAGES[randomIndex]);
     };
 
     useEffect(() => {
@@ -169,17 +188,19 @@ export default function HumanVerification({ onVerified, context, identifier }) {
     };
 
     // --- Puzzle Operations ---
-    const rotateLeft = () => setPuzzleRotation(prev => (prev - 90) % 360);
-    const rotateRight = () => setPuzzleRotation(prev => (prev + 90) % 360);
+    const rotateLeft = () => setPuzzleRotation(prev => prev - 90);
+    const rotateRight = () => setPuzzleRotation(prev => prev + 90);
 
     const verifyPuzzle = () => {
         // Normalizing the rotation
         // e.g. -90 is 270. So modulo arithmetic to get absolute 0-359 range
         const normalized = ((puzzleRotation % 360) + 360) % 360;
+
         if (normalized === targetRotation) {
             handleSuccess();
         } else {
             setPuzzleError('Image is not correctly oriented. Please try again.');
+            generatePuzzle();
         }
     };
 
@@ -343,7 +364,7 @@ export default function HumanVerification({ onVerified, context, identifier }) {
                                         <div className="hv-puzzle-column">
                                             <p className="hv-column-title">Original Image</p>
                                             <div className="hv-puzzle-frame">
-                                                <img src="https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?w=400&q=80" alt="Reference" />
+                                                <img src={puzzleImageUrl} alt="Reference" />
                                             </div>
                                         </div>
 
@@ -351,7 +372,7 @@ export default function HumanVerification({ onVerified, context, identifier }) {
                                             <p className="hv-column-title">Jumbled Order</p>
                                             <div className="hv-puzzle-frame">
                                                 <img
-                                                    src="https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?w=400&q=80"
+                                                    src={puzzleImageUrl}
                                                     alt="Jumbled"
                                                     style={{ transform: `rotate(${puzzleRotation}deg)`, transition: 'transform 0.3s ease-out' }}
                                                 />
