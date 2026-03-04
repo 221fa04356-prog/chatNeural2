@@ -242,4 +242,68 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
     }
 });
 
+// Mark group messages as read
+router.post('/:groupId/messages/mark-read', authenticateToken, async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const userId = req.user.id;
+
+        const group = await Group.findById(groupId);
+        if (!group) return res.status(404).json({ error: 'Group not found' });
+        if (!group.members.map(m => m.toString()).includes(userId)) {
+            return res.status(403).json({ error: 'Not a group member' });
+        }
+
+        // Find unread group messages not sent by the current user
+        const messagesToUpdate = await GroupMessage.find({
+            group_id: groupId,
+            sender_id: { $ne: userId },
+            read_by: { $ne: userId },
+            is_read: false
+        });
+
+        if (messagesToUpdate.length > 0) {
+            const messageIds = messagesToUpdate.map(m => m._id);
+
+            await GroupMessage.updateMany(
+                { _id: { $in: messageIds } },
+                { $addToSet: { read_by: userId } }
+            );
+
+            // Now check if any of these messages have been read by ALL members (except the sender)
+            // Group members length minus 1 (the sender)
+            const requiredReads = group.members.length - 1;
+
+            if (requiredReads > 0) {
+                const updatedMessages = await GroupMessage.find({ _id: { $in: messageIds } });
+                const fullyReadMsgIds = updatedMessages
+                    .filter(m => m.read_by && m.read_by.length >= requiredReads)
+                    .map(m => m._id);
+
+                if (fullyReadMsgIds.length > 0) {
+                    await GroupMessage.updateMany(
+                        { _id: { $in: fullyReadMsgIds } },
+                        { $set: { is_read: true } }
+                    );
+
+                    // Notify group members that these messages are fully read
+                    if (req.io) {
+                        group.members.forEach(memberId => {
+                            req.io.to(memberId.toString()).emit('group_messages_read', {
+                                groupId,
+                                messageIds: fullyReadMsgIds,
+                                readerId: userId
+                            });
+                        });
+                    }
+                }
+            }
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

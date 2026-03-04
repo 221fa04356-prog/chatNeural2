@@ -13,6 +13,8 @@ const groupMessageSchema = new mongoose.Schema({
     is_view_once: { type: Boolean, default: false },
     is_system: { type: Boolean, default: false }, // For "You created this group" type messages
     starred_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    is_read: { type: Boolean, default: false },
     created_at: { type: Date, default: Date.now }
 }, {
     toJSON: { virtuals: true },
