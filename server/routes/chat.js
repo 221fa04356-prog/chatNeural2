@@ -134,10 +134,12 @@ const upload = multer({
         const ext = path.extname(file.originalname).toLowerCase();
         const allowedExts = ['.jpg', '.jpeg', '.png', '.doc', '.docx', '.pdf', '.webm', '.mp3', '.m4a', '.ogg'];
 
-        if (allowedTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
+        const isAllowedType = allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('audio/webm') || file.mimetype.startsWith('audio/mp4') || file.mimetype.startsWith('audio/ogg');
+
+        if (isAllowedType && allowedExts.includes(ext)) {
             cb(null, true);
         } else {
-            cb(new Error('Invalid file type. Only JPG, PNG, PDF, Word, and Audio files are allowed.'));
+            cb(new Error(`Invalid file type (${file.mimetype}, ext: ${ext}). Only JPG, PNG, PDF, Word, and Audio files are allowed.`));
         }
     }
 });

@@ -20,6 +20,7 @@ import { getTranslator, getLangCode } from '../utils/translations';
 
 import NeuralBackground from '../components/NeuralBackground';
 import ConfirmModal from '../components/ConfirmModal';
+import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 
 // --- Socket Link ---
 // --- Socket Link ---
@@ -2478,8 +2479,18 @@ export default function Chat() {
                     const sentMsg = res.data.message;
                     setMessages(prev => prev.map(m => m.id === tempId ? { ...sentMsg, is_sent: true } : m));
 
-                    if (socket.connected) {
-                        socket.emit('send_message', sentMsg);
+                    if (socket.connected && sentMsg) {
+                        socket.emit('send_message', {
+                            _id: sentMsg._id, // Pass server ID
+                            sender_id: user.id || user._id,
+                            receiverId: selectedUser._id,
+                            content: sentMsg.content || '',
+                            type: sentMsg.type,
+                            file_path: sentMsg.file_path,
+                            duration: sentMsg.duration,
+                            is_view_once: sentMsg.is_view_once,
+                            created_at: sentMsg.created_at
+                        });
                     }
                 } catch (error) {
                     console.error('Failed to send voice message:', error);
@@ -6599,38 +6610,13 @@ export default function Chat() {
 
                                                             {/* Audio Rendering */}
                                                             {msg.type === 'audio' && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
-                                                                <div className="wa-msg-audio-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px', minWidth: '220px' }}>
-                                                                    <div className="wa-audio-avatar" style={{ position: 'relative' }}>
-                                                                        <img src={isMe ? (userData.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256") : (selectedUser?.image || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256")} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                                                                        <div style={{ position: 'absolute', bottom: -2, right: -2, background: 'white', borderRadius: '50%', padding: 2 }}>
-                                                                            <Mic size={12} color={isMe ? "#53bdeb" : "var(--primary, #23D2EF)"} />
-                                                                        </div>
-                                                                    </div>
-                                                                    <button onClick={(e) => {
-                                                                        if (isForwardingMode) return;
-                                                                        e.stopPropagation();
-                                                                        const audio = new Audio(msg.file_path);
-                                                                        audio.play();
-                                                                    }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#8696a0' }}>
-                                                                        <Play size={24} fill="#8696a0" />
-                                                                    </button>
-                                                                    <div style={{ flex: 1 }}>
-                                                                        <div className="wa-recording-waves" style={{ marginLeft: 0, height: 16 }}>
-                                                                            <span className="wa-wave" style={{ height: "20%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "50%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "80%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "40%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "70%", background: isMe ? "#53bdeb" : "var(--primary, #23D2EF)" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "30%", background: "#8696a0" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "60%", background: "#8696a0" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "40%", background: "#8696a0" }}></span>
-                                                                            <span className="wa-wave" style={{ height: "80%", background: "#8696a0" }}></span>
-                                                                        </div>
-                                                                        <div style={{ fontSize: 11, color: '#667781', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-                                                                            <span>{formatRecordingTime(msg.duration || 0)}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                                <VoiceMessagePlayer
+                                                                    src={msg.file_path}
+                                                                    duration={msg.duration}
+                                                                    isMe={isMe}
+                                                                    userDataImage={userData.image}
+                                                                    selectedUserImage={selectedUser?.image}
+                                                                />
                                                             )}
                                                             {/* Link Preview Card */}
                                                             {msg.link_preview && msg.link_preview.title && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
