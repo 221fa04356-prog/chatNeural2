@@ -1284,6 +1284,10 @@ export default function Chat() {
             const currentSelectedGroup = selectedGroupRef?.current;
             const isCurrentGroup = currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId);
 
+            const myId = userRef.current?.id || userRef.current?._id;
+            const msgSenderId = data.message?.sender_id?._id || data.message?.sender_id;
+            const isMyOwnMessage = !!(myId && msgSenderId && String(myId) === String(msgSenderId));
+
             if (isCurrentGroup) {
                 setGroupMessages(prev => {
                     // Prevent duplicates
@@ -1291,12 +1295,20 @@ export default function Chat() {
                     return [...prev, data.message];
                 });
                 setTimeout(scrollToBottom, 50);
+
+                // Auto-mark as read since the user is in the group chat
+                const token = localStorage.getItem('token');
+                if (token && !isMyOwnMessage) {
+                    axios.post(`/api/groups/${data.groupId}/messages/mark-read`, {}, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).catch(err => console.error('Auto-mark read error:', err));
+                }
             } else {
                 // Check if group is muted
                 const mutedKey = `mutedChats_${userRef.current?.id || userRef.current?._id}`;
                 const mutedMap = JSON.parse(localStorage.getItem(mutedKey)) || {};
 
-                if (!mutedMap[data.groupId]) {
+                if (!mutedMap[data.groupId] && !isMyOwnMessage) {
                     // Show notification for group messages if not in that group
                     const senderName = data.message.sender_id?.name || 'Group Member';
                     const groupName = groups.find(g => g._id === data.groupId)?.name || 'Group';
@@ -1309,14 +1321,18 @@ export default function Chat() {
                         senderName: `${senderName} @ ${groupName}`,
                         message: previewText,
                         type: 'info',
-                        duration: 5000
+                        duration: 5000,
+                        onReply: (text) => {
+                            console.log(`[DEBUG] Snackbar onReply triggered for group. Target: ${data.groupId}, Text: ${text}`);
+                            handleGroupNotificationReply(text, data.groupId);
+                        }
                     });
                 }
             }
 
             setGroups(prev => prev.map(g => {
                 if (String(g._id) === String(data.groupId)) {
-                    const newUnread = isCurrentGroup ? 0 : (g.unreadCount || 0) + 1;
+                    const newUnread = (isCurrentGroup || isMyOwnMessage) ? (g.unreadCount || 0) : (g.unreadCount || 0) + 1;
                     return { ...g, lastMessage: data.message, unreadCount: newUnread };
                 }
                 return g;
@@ -1324,9 +1340,23 @@ export default function Chat() {
         };
         socket.on('group_message', onGroupMessage);
 
+        const onGroupMessagesRead = (data) => {
+            const currentSelectedGroup = selectedGroupRef?.current;
+            if (currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId)) {
+                setGroupMessages(prev => prev.map(msg => {
+                    if (data.messageIds && data.messageIds.includes(String(msg._id))) {
+                        return { ...msg, is_read: true };
+                    }
+                    return msg;
+                }));
+            }
+        };
+        socket.on('group_messages_read', onGroupMessagesRead);
+
         return () => {
             socket.off('group_created', onGroupCreated);
             socket.off('group_message', onGroupMessage);
+            socket.off('group_messages_read', onGroupMessagesRead);
             socket.off('connect', onConnect);
             socket.off('disconnect', onDisconnect);
             socket.off('connect_error', onConnectError);
@@ -1526,6 +1556,10 @@ export default function Chat() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setGroupMessages(res.data || []);
+            // Mark unread messages as read
+            await axios.post(`/api/groups/${groupId}/messages/mark-read`, {}, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
         } catch (err) {
             console.error('fetchGroupMessages error:', err);
         }
@@ -2268,17 +2302,6 @@ export default function Chat() {
         }
 
         try {
-            console.log('[DEBUG] Emitting send_message socket event...');
-            const socketData = {
-                senderId: senderId,
-                receiverId: targetUserId,
-                content: text,
-                type: 'text',
-                created_at: new Date().toISOString(),
-                reply_to: null // Notifications replies are direct
-            };
-            socket.emit('send_message', socketData);
-
             const formData = new FormData();
             formData.append('userId', senderId);
             formData.append('toUserId', targetUserId);
@@ -2293,6 +2316,19 @@ export default function Chat() {
                 }
             });
 
+            console.log('[DEBUG] Emitting send_message socket event...');
+            const sentMsg = res.data.message || res.data;
+            const socketData = {
+                _id: sentMsg._id, // Pass true server ID to ensure other side can mark-read accurately
+                senderId: senderId,
+                receiverId: targetUserId,
+                content: text,
+                type: 'text',
+                created_at: sentMsg.created_at || new Date().toISOString(),
+                reply_to: null
+            };
+            socket.emit('send_message', socketData);
+
             // Update local message with real server ID once received
             const stillOpenWithTarget = selectedUserRef.current && String(selectedUserRef.current._id) === String(targetUserId);
             if (stillOpenWithTarget && res.data.message) {
@@ -2301,6 +2337,55 @@ export default function Chat() {
         } catch (err) {
             console.error('[DEBUG] handleNotificationReply: Error sending message:', err);
             setSnackbar({ message: 'Failed to send reply', type: 'error' });
+        }
+    };
+
+    const handleGroupNotificationReply = async (text, targetGroupId) => {
+        if (!text.trim() || !targetGroupId) return;
+
+        const currentUser = userRef.current;
+        if (!currentUser || (!currentUser.id && !currentUser._id)) {
+            console.error("[DEBUG] handleGroupNotificationReply: User not authenticated.", currentUser);
+            return;
+        }
+
+        const senderId = currentUser.id || currentUser._id;
+        console.log(`[DEBUG] handleGroupNotificationReply: Sending reply. Text: "${text}", To Group: ${targetGroupId}, From: ${senderId}`);
+
+        const tempId = 'temp-' + Date.now();
+        const replyMsg = {
+            _id: tempId,
+            group_id: targetGroupId,
+            sender_id: { _id: senderId, name: currentUser.name || currentUser.firstName, avatar: currentUser.avatar },
+            role: 'user',
+            content: text,
+            type: 'text',
+            created_at: new Date(),
+            is_read: false
+        };
+
+        const isChatOpenWithTarget = selectedGroupRef?.current && String(selectedGroupRef.current._id) === String(targetGroupId);
+
+        if (isChatOpenWithTarget) {
+            setGroupMessages(prev => [...prev, replyMsg]);
+            setTimeout(scrollToBottom, 50);
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`/api/groups/${targetGroupId}/send`, { content: text, reply_to: '' }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (isChatOpenWithTarget) {
+                setGroupMessages(prev => prev.map(m => m._id === tempId ? (res.data.message || res.data) : m));
+            }
+        } catch (err) {
+            console.error("[DEBUG] handleGroupNotificationReply: Error sending message:", err);
+            setSnackbar({ message: 'Failed to send group reply', type: 'error' });
+            if (isChatOpenWithTarget) {
+                setGroupMessages(prev => prev.filter(m => m._id !== tempId));
+            }
         }
     };
 
@@ -6695,7 +6780,9 @@ export default function Chat() {
                                                                 </span>
                                                                 {isMe && (
                                                                     <div className="wa-msg-status">
-                                                                        <CheckCheck size={14} color="#53bdeb" />
+                                                                        {msg.is_read
+                                                                            ? <CheckCheck size={14} color="#53bdeb" />
+                                                                            : <CheckCheck size={14} color="#9ca3af" />}
                                                                     </div>
                                                                 )}
                                                             </div>
