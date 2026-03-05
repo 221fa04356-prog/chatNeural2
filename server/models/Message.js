@@ -41,4 +41,9 @@ const messageSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+// Add compound indexes for faster aggregation queries when pulling contact list
+messageSchema.index({ user_id: 1, receiver_id: 1 });
+messageSchema.index({ receiver_id: 1, user_id: 1 });
+messageSchema.index({ created_at: -1 });
+
 module.exports = mongoose.model('Message', messageSchema);

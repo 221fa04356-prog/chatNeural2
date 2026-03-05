@@ -200,7 +200,6 @@ export default function AIChatWidget() {
             const token = localStorage.getItem('token');
             await axios.post('/api/chat/send', formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
                     'Authorization': `Bearer ${token}`
                 }
             });

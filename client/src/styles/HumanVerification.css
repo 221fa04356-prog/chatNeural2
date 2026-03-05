@@ -561,6 +561,45 @@
     }
 }
 
+/* --- Success View --- */
+.hv-success-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    text-align: center;
+    min-height: 240px;
+}
+
+.hv-success-icon-wrapper {
+    margin-bottom: 24px;
+    background: #ecfdf5;
+    border-radius: 50%;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hv-success-icon {
+    color: #10b981;
+}
+
+.hv-success-view-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #047857;
+    margin-bottom: 12px;
+}
+
+.hv-success-view-subtitle {
+    font-size: 1rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 480px) {
     .hv-puzzle-grid {
