@@ -12,8 +12,22 @@ const VoiceMessagePlayer = ({ src, duration, isMe, userDataImage, selectedUserIm
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [totalDuration, setTotalDuration] = useState(duration || 0);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
     const audioRef = useRef(null);
     const progressRef = useRef(null);
+
+    const toggleSpeed = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        let newSpeed = 1;
+        if (playbackSpeed === 1) newSpeed = 1.5;
+        else if (playbackSpeed === 1.5) newSpeed = 2;
+        else newSpeed = 1;
+
+        setPlaybackSpeed(newSpeed);
+        if (audioRef.current) {
+            audioRef.current.playbackRate = newSpeed;
+        }
+    };
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -89,12 +103,33 @@ const VoiceMessagePlayer = ({ src, duration, isMe, userDataImage, selectedUserIm
         <div className="wa-msg-audio-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px', minWidth: '220px', maxWidth: '300px' }} onClick={e => e.stopPropagation()}>
             <audio ref={audioRef} src={src} preload="metadata" />
 
-            <div className="wa-audio-avatar" style={{ position: 'relative' }}>
-                <img src={isMe ? (userDataImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256") : (selectedUserImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256")} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                <div style={{ position: 'absolute', bottom: -2, right: -2, background: 'white', borderRadius: '50%', padding: 2 }}>
-                    <Mic size={12} color={isMe ? "#53bdeb" : "var(--primary, #23D2EF)"} />
+            {isPlaying || currentTime > 0 ? (
+                <div
+                    onClick={toggleSpeed}
+                    style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '20px',
+                        background: isMe ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)',
+                        color: isMe ? '#667781' : '#54656f',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    {playbackSpeed}x
                 </div>
-            </div>
+            ) : (
+                <div className="wa-audio-avatar" style={{ position: 'relative' }}>
+                    <img src={isMe ? (userDataImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256") : (selectedUserImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256")} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', bottom: -2, right: -2, background: 'white', borderRadius: '50%', padding: 2 }}>
+                        <Mic size={12} color={isMe ? "#53bdeb" : "var(--primary, #23D2EF)"} />
+                    </div>
+                </div>
+            )}
 
             <button
                 onClick={handlePlayPause}
