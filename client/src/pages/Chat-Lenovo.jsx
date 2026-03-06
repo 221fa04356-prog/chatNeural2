@@ -55,6 +55,10 @@ export default function Chat() {
     const [file, setFile] = useState(null);
     const fileInputRef = useRef(null);
 
+    // --- Attachment Menu State ---
+    const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+    const attachmentMenuRef = useRef(null);
+
     // --- UI States ---
     const [view, setView] = useState('chats'); // 'chats' | 'profile' | 'status' etc.
     const [isProfileOpen, setIsProfileOpen] = useState(false); // Controls the "Profile Drawer" overlay
@@ -371,6 +375,18 @@ export default function Chat() {
 
     const videoRef = useRef(null);
     const imageRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(e.target)) {
+                // If the click is on the paperclip button itself, ignore it (handled by button onClick)
+                if (e.target.closest('.wa-attachment-btn')) return;
+                setIsAttachmentMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const showPermissionToast = (message) => {
         const id = Date.now();
@@ -6459,8 +6475,8 @@ export default function Chat() {
                                     )}
 
                                     <div className="wa-input-pill">
-                                        <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                        <div className="wa-footer-left-icons wa-attachment-menu-container">
+                                            <button className="wa-nav-icon-btn wa-attachment-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Attachment">
                                                 <Paperclip size={22} color="#54656f" />
                                             </button>
                                             <input
@@ -6470,6 +6486,52 @@ export default function Chat() {
                                                 accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
                                                 onChange={handleFileSelect}
                                             />
+                                            {isAttachmentMenuOpen && (
+                                                <div className="wa-attachment-menu" ref={attachmentMenuRef}>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = ".doc,.docx,.pdf,.xls,.xlsx"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper document"><FileText size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Document</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Document</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper photos"><Image size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Photos & videos</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Photos</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*;capture=camera"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper camera"><Camera size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Camera</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Camera</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item desktop-only" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "audio/*"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper audio"><Mic size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Audio</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper location" style={{ backgroundColor: '#00e676', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>📍</div>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Location</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper contact"><UserIcon size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Contact</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Contact</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper poll"><List size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Poll</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Poll</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper event"><Calendar size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Event</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Event</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper payment" style={{ backgroundColor: '#00bfa5', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>₹</div>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Payment</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <button className="wa-nav-icon-btn">
                                                 <Smile size={22} color="#54656f" />
                                             </button>
@@ -6842,8 +6904,8 @@ export default function Chat() {
 
                                 <div className="wa-footer-inner">
                                     <div className="wa-input-pill">
-                                        <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                        <div className="wa-footer-left-icons wa-attachment-menu-container">
+                                            <button className="wa-nav-icon-btn wa-attachment-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Attachment">
                                                 <Plus size={22} color="#54656f" />
                                             </button>
                                             <input
@@ -6853,6 +6915,52 @@ export default function Chat() {
                                                 accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
                                                 onChange={handleFileSelect}
                                             />
+                                            {isAttachmentMenuOpen && (
+                                                <div className="wa-attachment-menu" ref={attachmentMenuRef}>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = ".doc,.docx,.pdf,.xls,.xlsx"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper document"><FileText size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Document</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Document</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper photos"><Image size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Photos & videos</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Photos</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*;capture=camera"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper camera"><Camera size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Camera</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Camera</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item desktop-only" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "audio/*"; fileInputRef.current.click(); } }}>
+                                                        <div className="wa-attachment-icon-wrapper audio"><Mic size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Audio</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper location" style={{ backgroundColor: '#00e676', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>📍</div>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Location</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper contact"><UserIcon size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Contact</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Contact</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper poll"><List size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Poll</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Poll</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper event"><Calendar size={20} /></div>
+                                                        <span className="wa-attachment-text wa-attachment-text-desktop">Event</span>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Event</span>
+                                                    </div>
+                                                    <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                        <div className="wa-attachment-icon-wrapper payment" style={{ backgroundColor: '#00bfa5', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>₹</div>
+                                                        <span className="wa-attachment-text wa-attachment-text-mobile">Payment</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <button className="wa-nav-icon-btn">
                                                 <Smile size={22} color="#54656f" />
                                             </button>

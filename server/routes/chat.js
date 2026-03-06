@@ -900,7 +900,7 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
                 msg.pin_expires_at = null;
             }
         } else if (action === 'star') {
-            const index = msg.starred_by.indexOf(userId);
+            const index = msg.starred_by.findIndex(id => String(id) === String(userId));
             if (value && index === -1) {
                 msg.starred_by.push(userId);
             } else if (!value && index > -1) {

@@ -2173,57 +2173,50 @@ html {
 
 /* --- Contact Info Panel Specifics --- */
 .wa-contact-info-panel {
-    background: white;
+    background: #f0f2f5 !important;
     z-index: 1200;
-    /* Higher than message search (1050) */
     display: flex;
     flex-direction: column;
 }
 
+.wa-contact-info-panel.group-view {
+    background: #f0f2f5 !important;
+}
+
 .wa-contact-info-header {
     height: 60px;
-    background: white;
+    background: white !important;
     display: flex;
     align-items: center;
-    /* ADD */
-    justify-content: space-between;
-    /* ADD THIS */
-    padding: 0 8px;
-    /* ADD */
+    padding: 0 16px;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #e9edef;
 }
 
 .wa-contact-info-close-btn {
     background: none;
     border: none;
     cursor: pointer;
-    margin-right: 0px;
     color: #54656f;
     display: flex;
     align-items: center;
     padding: 8px;
-    width: 80px;
-    /* adjust if needed */
-    justify-content: flex-start;
-    /* border-radius: 50%; Removed for text button */
+    width: 40px;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
 }
 
 .wa-contact-info-close-btn:hover {
-    background-color: transparent;
+    background-color: #f0f2f5;
 }
 
 .wa-contact-info-title {
     flex: 1;
-    font-size: 16px;
+    font-size: 19px;
     font-weight: 500;
     text-align: center;
     color: #3b4a54;
-}
-
-.wa-contact-info-header::after {
-    content: "";
-    width: 80px;
 }
 
 .wa-contact-info-edit-btn {
@@ -2231,11 +2224,10 @@ html {
     border: none;
     cursor: pointer;
     padding: 8px;
-    width: 80px;
-    /* same as Close */
+    width: 40px;
     display: flex;
-    justify-content: flex-end;
-    /* push text/icon to right edge */
+    justify-content: center;
+    align-items: center;
 }
 
 .wa-contact-info-content {
@@ -2243,30 +2235,29 @@ html {
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
-    padding-bottom: 40px;
 }
 
 .wa-contact-profile-section {
     background: white;
-    padding: 40px 0 30px;
+    padding: 28px 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    position: relative;
-    z-index: 1;
+    text-align: center;
 }
 
 .wa-contact-avatar-large {
-    width: 220px;
-    height: 220px;
+    width: 200px;
+    height: 200px;
     border-radius: 50%;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     overflow: hidden;
-    background-color: #dfe1e5;
+    background-color: #dfe5e7;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .wa-contact-avatar-large img {
@@ -2275,23 +2266,36 @@ html {
     object-fit: cover;
 }
 
+.wa-contact-name-large-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
 .wa-contact-name-large {
-    font-size: 22px;
+    font-size: 24px;
     color: #111b21;
-    font-weight: 400;
-    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.wa-group-edit-icon {
+    color: #8696a0;
+    cursor: pointer;
 }
 
 .wa-contact-phone-large {
     font-size: 16px;
     color: #667781;
-    margin-bottom: 20px;
 }
 
 .wa-contact-actions-row {
     display: flex;
-    gap: 30px;
-    margin-bottom: 10px;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 24px;
+    width: 100%;
 }
 
 .wa-contact-action-btn {
@@ -2300,19 +2304,17 @@ html {
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    min-width: 60px;
 }
 
 .wa-contact-action-btn span {
-    font-size: 14px;
+    font-size: 13px;
     color: #027EB5;
-    font-weight: 500;
 }
 
 .wa-action-icon-box {
     width: 44px;
     height: 44px;
-    border-radius: 50%;
+    border-radius: 12px;
     border: 1px solid #e9edef;
     display: flex;
     align-items: center;
@@ -2326,14 +2328,15 @@ html {
 }
 
 .wa-contact-section-divider {
-    height: 1px;
-    background: #e9edef;
-    margin: 0 30px;
+    height: 10px;
+    background: #f0f2f5;
+    border-top: 1px solid #e9edef;
+    border-bottom: 1px solid #e9edef;
 }
 
 .wa-contact-info-item {
     background: white;
-    padding: 14px 30px;
+    padding: 16px 30px;
 }
 
 .wa-contact-info-item.clickable {
@@ -2346,9 +2349,150 @@ html {
 }
 
 .wa-info-item-label {
+    font-size: 14px;
+    color: #667781;
+    margin-bottom: 8px;
+}
+
+.wa-info-item-value-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.wa-info-item-value {
+    font-size: 16px;
+    color: #111b21;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.wa-media-preview-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.wa-media-thumb {
+    width: 82px;
+    height: 82px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.wa-media-thumb.empty {
+    background: #f0f2f5;
+}
+
+.wa-contact-settings-list {
+    background: white;
+}
+
+.wa-setting-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 30px;
+    gap: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.wa-setting-item:hover {
+    background: #f0f2f5;
+}
+
+.wa-setting-text {
+    flex: 1;
+    font-size: 16px;
+    color: #111b21;
+}
+
+.wa-setting-subtext {
     font-size: 13px;
-    color: #54656f;
-    margin-bottom: 4px;
+    color: #667781;
+    margin-top: 2px;
+}
+
+.wa-member-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-common-group-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    gap: 12px;
+}
+
+.wa-group-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.wa-group-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-group-name {
+    font-size: 16px;
+    color: #111b21;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wa-group-admin-badge {
+    font-size: 11px;
+    color: #00a884;
+    border: 1px solid #00a884;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: auto;
+}
+
+.wa-group-members {
+    font-size: 14px;
+    color: #667781;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wa-contact-danger-zone {
+    background: white;
+}
+
+.wa-setting-item.danger:hover {
+    background: #fff5f5;
+}
+
+@media (max-width: 768px) {
+    .wa-contact-avatar-large {
+        width: 150px;
+        height: 150px;
+    }
+
+    .wa-contact-info-header {
+        background: #f0f2f5 !important;
+        border: none;
+    }
+
+    .wa-contact-name-large {
+        font-size: 20px;
+    }
+
+    .wa-contact-info-item,
+    .wa-setting-item {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
 }
 
 .wa-info-item-value {
@@ -6518,5 +6662,233 @@ html {
     .wa-send-btn-circle-inner.recording {
         width: 36px;
         height: 36px;
+    }
+}
+
+/* --- Attachment Menu --- */
+.wa-attachment-menu-container {
+    position: relative;
+}
+
+.wa-attachment-menu {
+    position: absolute;
+    bottom: 60px;
+    left: 20px;
+    background: #233138;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px;
+    width: 220px;
+    z-index: 1000;
+    transform-origin: bottom left;
+    animation: scaleIn 0.2s ease-out;
+}
+
+.wa-attachment-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    color: #e9edef;
+    font-size: 15px;
+    gap: 16px;
+}
+
+.wa-attachment-item:hover {
+    background-color: #111b21;
+    border-radius: 8px;
+    padding-left: 8px;
+    margin-left: -8px;
+    padding-right: 8px;
+    margin-right: -8px;
+}
+
+.wa-attachment-icon-wrapper {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wa-attachment-icon-wrapper svg {
+    color: white;
+    /* In desktop they are colored, no wait */
+}
+
+/* Colors for the icons based on WhatsApp theme */
+.wa-attachment-icon-wrapper.document {
+    color: #7f66ff;
+}
+
+.wa-attachment-icon-wrapper.photos {
+    color: #007bfc;
+}
+
+.wa-attachment-icon-wrapper.camera {
+    color: #ff2e74;
+}
+
+.wa-attachment-icon-wrapper.audio {
+    color: #ff7102;
+}
+
+.wa-attachment-icon-wrapper.contact {
+    color: #009de2;
+}
+
+.wa-attachment-icon-wrapper.poll {
+    color: #00bfa5;
+}
+
+.wa-attachment-icon-wrapper.event {
+    color: #00e676;
+}
+
+.wa-attachment-icon-wrapper.location {
+    color: #00e676;
+}
+
+.wa-attachment-icon-wrapper.payment {
+    color: #00bfa5;
+}
+
+/* Mobile Only / Desktop Only classes */
+.wa-attachment-item.mobile-only {
+    display: none;
+}
+
+.wa-attachment-text {
+    flex: 1;
+}
+
+.wa-attachment-text-desktop {
+    display: inline;
+}
+
+.wa-attachment-text-mobile {
+    display: none;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 768px) {
+    .wa-attachment-menu {
+        bottom: 70px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 16px;
+        background: #ffffff;
+        border-radius: 20px;
+        justify-content: space-around;
+        gap: 12px;
+    }
+
+    .wa-attachment-item {
+        flex-direction: column;
+        padding: 0;
+        width: 70px;
+        color: #3b4a54;
+        font-size: 13px;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .wa-attachment-item:hover {
+        background-color: transparent;
+        padding: 0;
+        margin: 0;
+        border-radius: 0;
+    }
+
+    .wa-attachment-icon-wrapper {
+        width: 52px;
+        height: 52px;
+        /* create colored backgrounds for mobile */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .wa-attachment-icon-wrapper.document {
+        background-color: #7f66ff;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.photos {
+        background-color: #007bfc;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.camera {
+        background-color: #ff2e74;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.audio {
+        background-color: #ff7102;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.contact {
+        background-color: #009de2;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.poll {
+        background-color: #00bfa5;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.event {
+        background-color: #00e676;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.location {
+        background-color: #00e676;
+        color: white;
+    }
+
+    .wa-attachment-icon-wrapper.payment {
+        background-color: #00bfa5;
+        color: white;
+    }
+
+    .wa-attachment-text-desktop {
+        display: none;
+    }
+
+    .wa-attachment-text-mobile {
+        display: block;
+        width: 100%;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .wa-attachment-item.mobile-only {
+        display: flex;
+    }
+
+    .wa-attachment-item.desktop-only {
+        display: none;
     }
 }

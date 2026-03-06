@@ -12,6 +12,10 @@ const groupMessageSchema = new mongoose.Schema({
     duration: { type: Number }, // Optional, for Audio
     is_view_once: { type: Boolean, default: false },
     is_system: { type: Boolean, default: false }, // For "You created this group" type messages
+    is_pinned: { type: Boolean, default: false },
+    pinned_at: { type: Date },
+    pin_expires_at: { type: Date },
+    pinned_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     starred_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     is_read: { type: Boolean, default: false },
