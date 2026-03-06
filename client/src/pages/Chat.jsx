@@ -56,6 +56,10 @@ export default function Chat() {
     const [file, setFile] = useState(null);
     const fileInputRef = useRef(null);
 
+    // --- Attachment Menu State ---
+    const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+    const attachmentMenuRef = useRef(null);
+
     // --- Voice Recording State ---
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPaused, setRecordingPaused] = useState(false);
@@ -427,6 +431,18 @@ export default function Chat() {
         const sId = msg.sender_id?._id || msg.sender_id || msg.user_id;
         return String(sId) === String(myId);
     };
+
+    // Listen for clicks outside the attachment menu
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(e.target)) {
+                if (e.target.closest('.wa-attachment-btn')) return;
+                setIsAttachmentMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Helper to highlight text and make links clickable
     const renderContent = (content) => {
@@ -1249,12 +1265,18 @@ export default function Chat() {
         };
 
         const onMessagePinned = (data) => {
-            setMessages(prev => prev.map(msg =>
-                (msg._id === data.messageId || msg.id === data.messageId)
-                    ? { ...msg, is_pinned: data.is_pinned, pinned_at: data.pinned_at, pin_expires_at: data.pin_expires_at, pinned_by: data.pinned_by }
-                    : msg
-            ));
-            fetchP2PRequest(selectedUserRef.current?._id);
+            const updateMsg = msg => (msg._id === data.messageId || msg.id === data.messageId)
+                ? { ...msg, is_pinned: data.is_pinned, pinned_at: data.pinned_at, pin_expires_at: data.pin_expires_at, pinned_by: data.pinned_by }
+                : msg;
+
+            setMessages(prev => prev.map(updateMsg));
+            setGroupMessages(prev => prev.map(updateMsg));
+
+            if (data.isGroup && data.groupId) {
+                fetchGroupMessages(data.groupId);
+            } else {
+                fetchP2PRequest(selectedUserRef.current?._id);
+            }
         };
 
         const onMessageDeleted = (data) => {
@@ -1879,12 +1901,14 @@ export default function Chat() {
         const isCurrentlyPinned = pinMessageModal.is_pinned;
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post(`/api/chat/message/${msgId}/toggle`,
+            const endpoint = selectedGroup ? `/api/groups/message/${msgId}/toggle` : `/api/chat/message/${msgId}/toggle`;
+            const res = await axios.post(endpoint,
                 { action: 'pin', value: !isCurrentlyPinned, duration: pinMessageDuration },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
             setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+            setGroupMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
             setPinMessageModal(null);
             setOpenDropdown(null);
         } catch (err) {
@@ -1896,23 +1920,26 @@ export default function Chat() {
     const handleUnpinMessage = async (msgId) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post(`/api/chat/message/${msgId}/toggle`,
+            const endpoint = selectedGroup ? `/api/groups/message/${msgId}/toggle` : `/api/chat/message/${msgId}/toggle`;
+            const res = await axios.post(endpoint,
                 { action: 'pin', value: false },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+            setGroupMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
         } catch (err) { console.error("Unpin failed", err); }
     };
 
     const handleToggleStar = async (msgId, currentState) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.post(`/api/chat/message/${msgId}/toggle`,
+            const endpoint = selectedGroup ? `/api/groups/message/${msgId}/toggle` : `/api/chat/message/${msgId}/toggle`;
+            await axios.post(endpoint,
                 { action: 'star', value: !currentState },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-            setMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
-            setGroupMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
+            setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, is_starred: !currentState } : m));
+            setGroupMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, is_starred: !currentState } : m));
             setSnackbar({ message: `Message ${!currentState ? 'starred' : 'unstarred'}`, type: 'success', variant: 'system', onAction: () => handleToggleStar(msgId, !currentState), actionLabel: 'Undo' });
             setOpenDropdown(null);
         } catch (err) { console.error("Star toggle failed", err); }
@@ -4049,153 +4076,141 @@ export default function Chat() {
         const displaySubtext = isGroup ? `${activeTarget.members?.length || 0} members` : (activeTarget.mobile || 'Available');
 
         return (
-            <div className={`wa-contact-info-panel ${isContactInfoOpen ? 'active' : ''}`}>
+            <div className={`wa-contact-info-panel ${isContactInfoOpen ? 'active' : ''} ${isGroup ? 'group-view' : ''}`}>
                 <div className="wa-contact-info-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', borderBottom: '1px solid #e9edef', background: 'white' }}>
-
                     <button className="wa-contact-info-close-btn" onClick={() => setIsContactInfoOpen(false)} style={{ position: 'absolute', left: 16, zIndex: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
+                        <X size={24} color="#54656f" />
                     </button>
 
-                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 22, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
-                        {isGroup ? t('contact_info.group_title') : t('contact_info.title')}
+                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 19, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
+                        {isGroup ? t('contact_info.group_title') || 'Group info' : t('contact_info.title') || 'Contact info'}
                     </span>
 
-                    <button
-                        className="wa-contact-info-edit-btn"
-                        style={{ position: 'absolute', right: 16, zIndex: 10, background: 'none', border: 'none', cursor: 'pointer' }}
-                        onClick={() => {
-                            const names = (selectedUser.name || '').split(' ');
-                            setEditFirstName(names[0] || '');
-                            setEditLastName(names.slice(1).join(' ') || '');
-                            setEditPhone(selectedUser.mobile || '');
-                            setIsEditContactOpen(true);
-                        }}
-                    >
-                        <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>Edit</span>
-                    </button>
+                    {!isGroup && (
+                        <button
+                            className="wa-contact-info-edit-btn"
+                            style={{ position: 'absolute', right: 16, zIndex: 10, background: 'none', border: 'none', cursor: 'pointer' }}
+                            onClick={() => {
+                                const names = (selectedUser.name || '').split(' ');
+                                setEditFirstName(names[0] || '');
+                                setEditLastName(names.slice(1).join(' ') || '');
+                                setEditPhone(selectedUser.mobile || '');
+                                setIsEditContactOpen(true);
+                            }}
+                        >
+                            <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>Edit</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="wa-contact-info-content">
-                    {/* Pattern Background */}
-                    <div className="wa-contact-info-bg"></div>
-
                     <div className="wa-contact-profile-section">
-                        <div className="wa-contact-avatar-large" style={{ background: '#dfe5e7' }}>
+                        <div className="wa-contact-avatar-large" style={{ background: '#dfe5e7', cursor: 'pointer' }}>
                             {displayPhoto ? (
                                 <img src={displayPhoto} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                             ) : (
-                                <span style={{ fontSize: 40, color: '#54656f' }}>
-                                    {displayName.charAt(0).toUpperCase()}
-                                </span>
+                                isGroup ? <Camera size={80} color="#8696a0" /> : (
+                                    <span style={{ fontSize: 80, color: '#54656f' }}>
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </span>
+                                )
                             )}
                         </div>
-                        <div className="wa-contact-name-large">{displayName}</div>
-                        <div className="wa-contact-phone-large">{displaySubtext}</div>
+                        <div className="wa-contact-name-large-container">
+                            <div className="wa-contact-name-large">{displayName}</div>
+                            {isGroup && <Pencil size={18} className="wa-group-edit-icon" />}
+                        </div>
+                        <div className="wa-contact-phone-large" style={{ marginTop: 4 }}>{displaySubtext}</div>
 
                         {/* Action Buttons */}
                         <div className="wa-contact-actions-row">
-                            <div className="wa-contact-action-btn" onClick={() => {
-                                setIsContactInfoOpen(false); // Close contact info
-                                setIsMessageSearchOpen(true); // Open search sidebar
-                                searchSource.current = 'contact_info'; // Set source
-                                // Search query for selectedUser is already handled by renderSearchSidebar logic using selectedUser
-                            }}>
-                                <div className="wa-action-icon-box"><Search size={20} color="#027EB5" /></div>
-                                <span>Search</span>
-                            </div>
-                            <div className="wa-contact-action-btn">
-                                <div className="wa-action-icon-box"><Video size={20} color="#027EB5" /></div>
-                                <span>Video</span>
-                            </div>
-                            <div className="wa-contact-action-btn">
-                                <div className="wa-action-icon-box"><Phone size={20} color="#027EB5" /></div>
-                                <span>Voice</span>
-                            </div>
+                            {isGroup ? (
+                                <>
+                                    <div className="wa-contact-action-btn">
+                                        <div className="wa-action-icon-box"><Phone size={20} color="#027EB5" /></div>
+                                        <span>Audio</span>
+                                    </div>
+                                    <div className="wa-contact-action-btn">
+                                        <div className="wa-action-icon-box"><Video size={20} color="#027EB5" /></div>
+                                        <span>Video</span>
+                                    </div>
+                                    <div className="wa-contact-action-btn" onClick={() => {
+                                        setIsContactInfoOpen(false);
+                                        setIsMessageSearchOpen(true);
+                                        searchSource.current = 'contact_info';
+                                    }}>
+                                        <div className="wa-action-icon-box"><Search size={20} color="#027EB5" /></div>
+                                        <span>Search</span>
+                                    </div>
+                                    <div className="wa-contact-action-btn">
+                                        <div className="wa-action-icon-box"><UserPlus size={20} color="#027EB5" /></div>
+                                        <span>Add</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="wa-contact-action-btn">
+                                        <div className="wa-action-icon-box"><Phone size={20} color="#027EB5" /></div>
+                                        <span>Audio</span>
+                                    </div>
+                                    <div className="wa-contact-action-btn">
+                                        <div className="wa-action-icon-box"><Video size={20} color="#027EB5" /></div>
+                                        <span>Video</span>
+                                    </div>
+                                    <div className="wa-contact-action-btn" onClick={() => {
+                                        setIsContactInfoOpen(false);
+                                        setIsMessageSearchOpen(true);
+                                        searchSource.current = 'contact_info';
+                                    }}>
+                                        <div className="wa-action-icon-box"><Search size={20} color="#027EB5" /></div>
+                                        <span>Search</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
                     <div className="wa-contact-section-divider"></div>
 
-                    {/* About Section */}
+                    {/* About / Description Section */}
                     <div className="wa-contact-info-item">
-                        <div className="wa-info-item-label">{t('profile_drawer.about_label')}</div>
-                        <div className="wa-info-item-value">{activeTarget.about || 'Available'}</div>
+                        <div className="wa-info-item-label">{isGroup ? 'Group description' : t('profile_drawer.about_label')}</div>
+                        <div className="wa-info-item-value-container">
+                            <div className="wa-info-item-value" style={{ color: isGroup && !activeTarget.description ? '#027EB5' : '#111b21', cursor: isGroup ? 'pointer' : 'default' }}>
+                                {isGroup ? (activeTarget.description || 'Add group description') : (activeTarget.about || 'Available')}
+                            </div>
+                            {isGroup && <Pencil size={16} color="#8696a0" />}
+                        </div>
                     </div>
 
                     <div className="wa-contact-section-divider"></div>
 
                     {/* Media, Links, Docs */}
                     <div className="wa-contact-info-item clickable" onClick={() => setIsSharedMediaOpen(true)}>
-                        <div className="wa-info-item-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                <span className="wa-info-item-text">{t('contact_info.media_links_docs')}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <span className="wa-info-item-count">
-                                        {(activeTarget.mediaCount || 0) + (activeTarget.linkCount || 0) + (activeTarget.docCount || 0)}
-                                    </span>
-                                    <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#667781' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <Image size={14} /> <span>{activeTarget.mediaCount || 0} Media</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <LinkIcon size={14} /> <span>{activeTarget.linkCount || 0} Links</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <FileText size={14} /> <span>{activeTarget.docCount || 0} Docs</span>
-                                </div>
+                        <div className="wa-info-item-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
+                            <span className="wa-info-item-text">Media, links and docs</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span className="wa-info-item-count">
+                                    {(activeTarget.mediaCount || 0) + (activeTarget.linkCount || 0) + (activeTarget.docCount || 0)}
+                                </span>
+                                <ChevronRight size={18} color="#8696a0" />
                             </div>
                         </div>
                         <div className="wa-media-preview-row">
                             {(() => {
                                 const chatMsgs = isGroup ? groupMessages : messages;
-                                const activeMsgs = chatMsgs.filter(m => !m.is_deleted_by_user && !m.is_deleted_by_admin);
-
-                                // Prioritize: Images > Links > Docs
-                                const images = chatMsgs.filter(m => m.type === 'image' || m.type === 'video').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                                const links = chatMsgs.filter(m => (m.link_preview && m.link_preview.url) && m.type !== 'image' && m.type !== 'video').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                                const docs = chatMsgs.filter(m => m.type === 'file').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-                                const previewItems = [...images, ...links, ...docs].slice(0, 4);
+                                const images = chatMsgs.filter(m => (m.type === 'image' || m.type === 'video') && m.file_path).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                                const previewItems = images.slice(0, 3);
 
                                 return (
                                     <>
-                                        {previewItems.map((m, i) => {
-                                            if (m.type === 'image' || m.type === 'video') {
-                                                return (
-                                                    <div key={i} className="wa-media-thumb" onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
-                                                        <img src={m.file_path} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                                                    </div>
-                                                );
-                                            }
-                                            if (m.type === 'file') {
-                                                return (
-                                                    <div key={i} className="wa-media-thumb" style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
-                                                        <FileText size={24} color="#8696a0" />
-                                                        <div style={{ fontSize: 10, color: '#667781', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {m.fileName || 'Doc'}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-                                            // Link
-                                            if (m.link_preview && m.link_preview.image) {
-                                                return (
-                                                    <div key={i} className="wa-media-thumb" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview.url, '_blank'); }}>
-                                                        <img src={m.link_preview.image} alt="link" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                                                    </div>
-                                                );
-                                            }
-                                            return (
-                                                <div key={i} className="wa-media-thumb" style={{ background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url, '_blank'); }}>
-                                                    <LinkIcon size={24} color="#8696a0" />
-                                                </div>
-                                            );
-                                        })}
-                                        {[...Array(Math.max(0, 4 - previewItems.length))].map((_, i) => (
-                                            <div key={`empty-${i}`} className="wa-media-thumb" style={{ background: '#f0f2f5', flexShrink: 0 }}></div>
+                                        {previewItems.map((m, i) => (
+                                            <div key={i} className="wa-media-thumb" onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                                                <img src={m.file_path} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                                            </div>
+                                        ))}
+                                        {[...Array(Math.max(0, 3 - previewItems.length))].map((_, i) => (
+                                            <div key={`empty-${i}`} className="wa-media-thumb empty" style={{ background: '#f0f2f5', flexShrink: 0, borderRadius: 8 }}></div>
                                         ))}
                                     </>
                                 );
@@ -4212,29 +4227,29 @@ export default function Chat() {
                             setIsStarredMessagesOpen(true);
                         }}>
                             <div className="wa-setting-icon"><Star size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">{t('contact_info.starred_messages')}</div>
-                            <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                            <div className="wa-setting-text">Starred messages</div>
+                            <ChevronRight size={18} color="#8696a0" />
                         </div>
                         <div className="wa-setting-item clickable" onClick={() => {
                             setIsContactInfoOpen(false);
                             setIsNotificationSettingsOpen(true);
                         }}>
                             <div className="wa-setting-icon"><BellOff size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">{t('contact_info.mute_notifications')}</div>
-                            <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                            <div className="wa-setting-text">Mute notifications</div>
+                            <ChevronRight size={18} color="#8696a0" />
                         </div>
-                        <div className="wa-setting-item">
+                        <div className="wa-setting-item clickable">
                             <div className="wa-setting-icon"><CircleDashed size={20} color="#54656f" /></div>
                             <div className="wa-setting-text">
-                                <div>{t('contact_info.disappearing_messages')}</div>
+                                <div>Disappearing messages</div>
                                 <div className="wa-setting-subtext">Off</div>
                             </div>
-                            <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                            <ChevronRight size={18} color="#8696a0" />
                         </div>
-                        <div className="wa-setting-item">
+                        <div className="wa-setting-item clickable">
                             <div className="wa-setting-icon"><Lock size={20} color="#54656f" /></div>
                             <div className="wa-setting-text">
-                                <div>{t('contact_info.encryption')}</div>
+                                <div>Encryption</div>
                                 <div className="wa-setting-subtext">Messages are end-to-end encrypted. Click to verify.</div>
                             </div>
                         </div>
@@ -4242,49 +4257,85 @@ export default function Chat() {
 
                     <div className="wa-contact-section-divider"></div>
 
-                    {/* Group specific: Members or common groups */}
                     {isGroup ? (
-                        <div className="wa-contact-info-item">
-                            <div className="wa-info-item-label" style={{ marginBottom: 15 }}>{activeTarget.members?.length || 0} members</div>
-                            <div className="wa-member-list">
-                                {activeTarget.members?.map(m => (
-                                    <div key={m._id} className="wa-common-group-item">
-                                        <div className="wa-group-avatar" style={{ background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {m.image ? <img src={m.image} alt="mem" style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : <span>{m.name?.charAt(0)}</span>}
+                        <>
+                            <div className="wa-contact-info-item">
+                                <div className="wa-info-item-label" style={{ marginBottom: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span>{activeTarget.members?.length || 0} members</span>
+                                    <Search size={18} color="#8696a0" style={{ cursor: 'pointer' }} />
+                                </div>
+                                <div className="wa-member-list">
+                                    <div className="wa-common-group-item clickable" style={{ marginBottom: 12 }}>
+                                        <div className="wa-group-avatar" style={{ background: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <UserPlus size={20} color="white" />
                                         </div>
                                         <div className="wa-group-info">
-                                            <div className="wa-group-name">{m.name} {m._id === user.id ? '(You)' : ''}</div>
-                                            <div className="wa-group-members">{m.about || 'Available'}</div>
+                                            <div className="wa-group-name" style={{ color: '#111b21', fontWeight: 500 }}>Add member</div>
                                         </div>
                                     </div>
-                                ))}
+                                    {activeTarget.members?.map(m => (
+                                        <div key={m._id} className="wa-common-group-item clickable">
+                                            <div className="wa-group-avatar" style={{ background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {m.image ? <img src={m.image} alt="mem" style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : (
+                                                    <span style={{ fontSize: 16 }}>{m.name?.charAt(0).toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                            <div className="wa-group-info">
+                                                <div className="wa-group-name">
+                                                    {m.name} {String(m._id) === String(user.id || user._id) ? '(You)' : ''}
+                                                    {String(m._id) === String(activeTarget.admin?._id || activeTarget.admin) && (
+                                                        <span className="wa-group-admin-badge">Group Admin</span>
+                                                    )}
+                                                </div>
+                                                <div className="wa-group-members">{m.about || 'Available'}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                            <div className="wa-contact-section-divider"></div>
+                        </>
                     ) : (
-                        <div className="wa-contact-info-item">
-                            <div className="wa-info-item-label" style={{ marginBottom: 15 }}>Groups in common</div>
-                            <div style={{ color: '#8696a0', fontSize: 13, padding: '10px 0' }}>No groups in common</div>
-                        </div>
+                        <>
+                            <div className="wa-contact-info-item">
+                                <div className="wa-info-item-label" style={{ marginBottom: 15 }}>Groups in common</div>
+                                <div style={{ color: '#8696a0', fontSize: 13, padding: '10px 0' }}>No groups in common</div>
+                            </div>
+                            <div className="wa-contact-section-divider"></div>
+                        </>
                     )}
 
-                    <div className="wa-contact-section-divider"></div>
-
-                    {/* Block / Report / Exit */}
                     <div className="wa-contact-danger-zone">
+                        {isGroup && (
+                            <>
+                                <div className="wa-setting-item clickable">
+                                    <div className="wa-setting-icon"><Heart size={20} color="#54656f" /></div>
+                                    <div className="wa-setting-text">Add to favourites</div>
+                                </div>
+                                <div className="wa-setting-item clickable">
+                                    <div className="wa-setting-icon"><List size={20} color="#54656f" /></div>
+                                    <div className="wa-setting-text">Add to list</div>
+                                </div>
+                                <div className="wa-setting-item clickable">
+                                    <div className="wa-setting-icon"><Minus size={20} color="#ea0038" /></div>
+                                    <div className="wa-setting-text" style={{ color: '#ea0038' }}>Clear chat</div>
+                                </div>
+                            </>
+                        )}
                         {isGroup ? (
-                            <div className="wa-setting-item danger" onClick={() => { /* Exit Logic */ }}>
-                                <div className="wa-setting-icon"><XCircle size={20} color="#e53935" /></div>
-                                <div className="wa-setting-text">{t('contact_info.exit_group')}</div>
+                            <div className="wa-setting-item danger clickable" onClick={() => { /* Exit Logic */ }}>
+                                <div className="wa-setting-icon"><LogOut size={20} color="#ea0038" /></div>
+                                <div className="wa-setting-text" style={{ color: '#ea0038' }}>Exit group</div>
                             </div>
                         ) : (
-                            <div className="wa-setting-item danger">
-                                <div className="wa-setting-icon"><HeartOff size={20} color="#e53935" /></div>
-                                <div className="wa-setting-text">{t('contact_info.block', { name: displayName })}</div>
+                            <div className="wa-setting-item danger clickable">
+                                <div className="wa-setting-icon"><HeartOff size={20} color="#ea0038" /></div>
+                                <div className="wa-setting-text" style={{ color: '#ea0038' }}>Block {displayName}</div>
                             </div>
                         )}
-                        <div className="wa-setting-item danger">
-                            <div className="wa-setting-icon"><ThumbsDown size={20} color="#e53935" /></div>
-                            <div className="wa-setting-text">{isGroup ? t('contact_info.report_group') : t('contact_info.report', { name: displayName })}</div>
+                        <div className="wa-setting-item danger clickable">
+                            <div className="wa-setting-icon"><ThumbsDown size={20} color="#ea0038" /></div>
+                            <div className="wa-setting-text" style={{ color: '#ea0038' }}>{isGroup ? 'Report group' : `Report ${displayName}`}</div>
                         </div>
                     </div>
 
@@ -5960,6 +6011,7 @@ export default function Chat() {
 
     const handleBackToChatList = () => {
         setSelectedUser(null);
+        setSelectedGroup(null);
         setInput('');
         setFile(null);
         setTypingLinkPreview(null);
@@ -6442,13 +6494,13 @@ export default function Chat() {
                                     <ArrowLeft size={24} />
                                 </button>
 
-                                <div className="wa-chat-header-user" onClick={() => setIsContactInfoOpen(true)}>
-                                    <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10 }}>
+                                <div className="wa-chat-header-user" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minWidth: 0, flex: 1 }} onClick={() => setIsContactInfoOpen(true)}>
+                                    <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10, flexShrink: 0 }}>
                                         <span style={{ fontSize: 16 }}>{selectedUser.name?.charAt(0).toUpperCase()}</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 'bold', fontSize: 16 }}>{selectedUser.name}</span>
-                                        <span style={{ fontSize: 12, color: '#667781' }}>{renderUserStatus(selectedUser)}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                        <span style={{ fontWeight: 'bold', fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUser.name}</span>
+                                        <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderUserStatus(selectedUser)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -6923,8 +6975,11 @@ export default function Chat() {
 
                                     <div className="wa-input-pill">
                                         {!isRecording && (
-                                            <div className="wa-footer-left-icons">
-                                                <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                            <div className="wa-footer-left-icons wa-attachment-menu-container">
+                                                <button className="wa-nav-icon-btn wa-plus-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Menu">
+                                                    <Plus size={24} color="#54656f" />
+                                                </button>
+                                                <button className="wa-nav-icon-btn wa-attachment-btn" onClick={() => { if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"; fileInputRef.current.click(); } }} title="Attach">
                                                     <Paperclip size={22} color="#54656f" />
                                                 </button>
                                                 <input
@@ -6934,6 +6989,48 @@ export default function Chat() {
                                                     accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
                                                     onChange={handleFileSelect}
                                                 />
+                                                {isAttachmentMenuOpen && (
+                                                    <div className="wa-attachment-menu" ref={attachmentMenuRef}>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper document"><FileText size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Document</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Document</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper photos"><Image size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Photos & videos</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Photos</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*;capture=camera"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper camera"><Camera size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Camera</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Camera</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item desktop-only" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "audio/*"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper audio"><Mic size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Audio</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper location" style={{ backgroundColor: '#00e676', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>📍</div>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Location</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper contact"><UserIcon size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Contact</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Contact</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper poll"><List size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Poll</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Poll</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper event"><Calendar size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Event</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Event</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <button className="wa-nav-icon-btn">
                                                     <Smile size={22} color="#54656f" />
                                                 </button>
@@ -7067,31 +7164,30 @@ export default function Chat() {
                 ) : selectedGroup ? (
                     <>
                         <div className="wa-chat-header" style={{ background: 'white' }}>
-                            <div className="wa-chat-header-user">
+                            <div className="wa-chat-header-user-container" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }} onClick={() => setIsContactInfoOpen(true)}>
                                 {/* Mobile Back Button */}
                                 <button
                                     className="wa-nav-icon-btn mobile-back-btn"
-                                    onClick={() => setSelectedGroup(null)}
+                                    onClick={(e) => { e.stopPropagation(); handleBackToChatList(); }}
+                                    style={{ marginRight: 8 }}
                                 >
                                     <ArrowLeft size={24} />
                                 </button>
 
-                                <div className="wa-chat-header-user" onClick={() => { /* In future could open group info */ }}>
-                                    <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10, background: '#dfe5e7' }}>
-                                        {selectedGroup.icon ? (
-                                            <img src={selectedGroup.icon} alt="group" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <Camera size={22} color="#8696a0" />
-                                        )}
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 500, fontSize: 16, color: '#111b21' }}>
-                                            {selectedGroup.name || 'Unnamed Group'}
-                                        </span>
-                                        <span style={{ fontSize: 12, color: '#667781' }}>
-                                            {selectedGroup.members?.map(m => m.name).join(', ')}
-                                        </span>
-                                    </div>
+                                <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10, background: '#dfe5e7' }}>
+                                    {selectedGroup.icon ? (
+                                        <img src={selectedGroup.icon} alt="group" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <Camera size={22} color="#8696a0" />
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                    <span style={{ fontWeight: 500, fontSize: 16, color: '#111b21', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {selectedGroup.name || 'Unnamed Group'}
+                                    </span>
+                                    <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {selectedGroup.members?.map(m => m.name).join(', ')}
+                                    </span>
                                 </div>
                             </div>
                             <div className="wa-header-icons">
@@ -7111,6 +7207,68 @@ export default function Chat() {
                                 </button>
                                 <button className="wa-nav-icon-btn"><MoreVertical size={20} /></button>
                             </div>
+                            {/* Group Pinned Messages Banner */}
+                            {(() => {
+                                const pinnedMessages = groupMessages.filter(m => m.is_pinned && !m.is_deleted_by_admin && !m.is_deleted_by_user).sort((a, b) => new Date(b.pinned_at) - new Date(a.pinned_at));
+                                if (pinnedMessages.length === 0) return null;
+                                const safeIndex = currentPinnedIndex >= pinnedMessages.length ? 0 : currentPinnedIndex;
+                                const msg = pinnedMessages[safeIndex];
+
+                                let previewContent = null;
+                                const youtubeId = (msg.type === 'text' || !msg.type) && getYouTubeVideoId(msg.content) ? getYouTubeVideoId(msg.content) : null;
+
+                                if (msg.type === 'image' || msg.type === 'video') {
+                                    previewContent = (
+                                        <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                            {msg.type === 'image' ? <img src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned" /> : <video src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                        </div>
+                                    );
+                                } else if (youtubeId || (msg.link_preview && msg.link_preview.image)) {
+                                    previewContent = (
+                                        <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                            <img src={msg.link_preview?.image || `https://img.youtube.com/vi/${youtubeId}/default.jpg`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned link" />
+                                        </div>
+                                    );
+                                } else if (msg.type === 'file') {
+                                    previewContent = (
+                                        <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <FileText size={20} color="#54656f" />
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="wa-pinned-messages-banner" style={{ background: 'white', padding: '8px 16px', borderBottom: '1px solid #d1d7db', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                                        onClick={() => {
+                                            chatMessagesRef.current?.querySelector(`#msg-${msg._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            setCurrentPinnedIndex((safeIndex + 1) % pinnedMessages.length);
+                                        }}>
+
+                                        {pinnedMessages.length > 1 && (
+                                            <div style={{ marginRight: 12, display: 'flex', flexDirection: 'column', gap: 4, height: 36, justifyContent: 'center' }}>
+                                                {Array.from({ length: pinnedMessages.length }).map((_, i) => (
+                                                    <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#008069' : '#d1d7db' }} />
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', marginRight: 16, justifyContent: 'center' }}>
+                                            <Pin size={18} color="#8696a0" />
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                                            <span style={{ fontWeight: 500, fontSize: 13, color: '#111b21', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                                {isMeMsg(msg) ? 'You' : (msg.sender_id?.name || 'Member')}
+                                            </span>
+                                            <span style={{ fontSize: 13, color: '#54656f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {msg.content || (msg.type === 'image' ? 'Photo' : msg.type === 'file' ? 'Document' : msg.type === 'video' ? 'Video' : 'Message')}
+                                            </span>
+                                        </div>
+
+                                        {previewContent}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Group Messages Area */}
@@ -7327,6 +7485,7 @@ export default function Chat() {
                                                                 <span className="wa-timestamp">
                                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                                                 </span>
+                                                                {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginLeft: 3 }} />}
                                                                 {isMe && (
                                                                     <div className="wa-msg-status">
                                                                         {msg.is_read
@@ -7347,75 +7506,199 @@ export default function Chat() {
                             <div ref={bottomRef} />
                         </div>
 
-                        {/* Group Input */}
-                        <div className="wa-footer-wrapper">
-                            {renderGrammarBar()}
-                            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
-                                {/* Typing Link Preview */}
-                                {typingLinkPreview && typingLinkPreview.title && (
-                                    <div className="wa-typing-link-preview">
-                                        <div className="wa-typing-preview-header" style={{ justifyContent: 'flex-end' }}>
-                                            <X size={16} style={{ cursor: 'pointer', color: '#667781' }} onClick={() => setTypingLinkPreview(null)} />
-                                        </div>
-                                        <div className="wa-typing-preview-card">
-                                            {typingLinkPreview.image && <img src={typingLinkPreview.image} alt={typingLinkPreview.title} className="wa-typing-preview-image" />}
-                                            <div className="wa-typing-preview-text">
-                                                <div className="wa-typing-preview-title">{typingLinkPreview.title}</div>
-                                                {typingLinkPreview.description && <div className="wa-typing-preview-description">{typingLinkPreview.description}</div>}
-                                                <div className="wa-typing-preview-domain"><span>{typingLinkPreview.domain}</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {replyingTo && (
-                                    <div className="wa-reply-preview-container">
-                                        <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                                            <div className="wa-reply-preview-header">
-                                                <span className="wa-reply-preview-name">
-                                                    {isMeMsg(replyingTo) ? 'You' : (replyingTo.sender_id?.name || 'User')}
-                                                </span>
-                                            </div>
-                                            <div className="wa-reply-preview-content">
-                                                {replyingTo.type === 'image' ? '📷 Photo' : (replyingTo.type === 'file' ? '📄 File' : replyingTo.content)}
-                                            </div>
-                                        </div>
-                                        {replyingTo.type === 'image' && replyingTo.file_path && (
-                                            <div className="wa-reply-preview-thumb">
-                                                <img src={replyingTo.file_path} alt="thumbnail" />
-                                            </div>
-                                        )}
-                                        <X size={16} className="wa-reply-preview-close" onClick={() => setReplyingTo(null)} />
-                                    </div>
-                                )}
-
-                                <div className="wa-footer-inner">
-                                    <div className="wa-input-pill">
-                                        <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
-                                                <Plus size={22} color="#54656f" />
+                        {/* Group Forward Bottom Bar */}
+                        {isForwardingMode ? (
+                            <div className="wa-forward-bottom-bar">
+                                <div className="wa-forward-left-group">
+                                    <button className="wa-forward-cancel-btn" onClick={() => {
+                                        setIsForwardingMode(false);
+                                        setIsChatSelectionMode(false);
+                                        setForwardSelectedMsgs([]);
+                                    }}>
+                                        <X size={24} />
+                                    </button>
+                                    <span className="wa-forward-count">{forwardSelectedMsgs.length} selected</span>
+                                </div>
+                                <div className="wa-selection-actions">
+                                    {isChatSelectionMode && (
+                                        <>
+                                            <button onClick={handleChatSelectionBulkStar} title="Star messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Star size={24} color="#ffffff" />
                                             </button>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                style={{ display: 'none' }}
-                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
-                                                onChange={handleFileSelect}
-                                            />
-                                            <button className="wa-nav-icon-btn">
-                                                <Smile size={22} color="#54656f" />
+                                            <button onClick={handleChatSelectionBulkDelete} title="Delete messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Trash2 size={24} color="#ffffff" />
                                             </button>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (forwardSelectedMsgs.length === 0) {
+                                                setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+                                            } else {
+                                                setIsForwardModalOpen(true);
+                                            }
+                                        }}
+                                        title="Forward messages"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        <Forward size={24} color="#ffffff" />
+                                    </button>
+                                    {isChatSelectionMode && (
+                                        <>
+                                            <button onClick={handleChatSelectionBulkCopy} title="Copy messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Copy size={24} color="#ffffff" />
+                                            </button>
+                                            {forwardSelectedMsgs.some(m => m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'audio') && (
+                                                <button onClick={handleChatSelectionBulkDownload} title="Download media" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                    <Download size={24} color="#ffffff" />
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            /* Group Input */
+                            <div className="wa-footer-wrapper">
+                                {renderGrammarBar()}
+                                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
+                                    {/* Typing Link Preview */}
+                                    {typingLinkPreview && typingLinkPreview.title && (
+                                        <div className="wa-typing-link-preview">
+                                            <div className="wa-typing-preview-header" style={{ justifyContent: 'flex-end' }}>
+                                                <X size={16} style={{ cursor: 'pointer', color: '#667781' }} onClick={() => setTypingLinkPreview(null)} />
+                                            </div>
+                                            <div className="wa-typing-preview-card">
+                                                {typingLinkPreview.image && <img src={typingLinkPreview.image} alt={typingLinkPreview.title} className="wa-typing-preview-image" />}
+                                                <div className="wa-typing-preview-text">
+                                                    <div className="wa-typing-preview-title">{typingLinkPreview.title}</div>
+                                                    {typingLinkPreview.description && <div className="wa-typing-preview-description">{typingLinkPreview.description}</div>}
+                                                    <div className="wa-typing-preview-domain"><span>{typingLinkPreview.domain}</span></div>
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
 
-                                        <div className="wa-input-area">
-                                            <textarea
-                                                className="wa-input-box"
-                                                placeholder="Type a message"
-                                                value={groupInput}
-                                                onChange={(e) => setGroupInput(e.target.value)}
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
+                                    {replyingTo && (
+                                        <div className="wa-reply-preview-container">
+                                            <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+                                                <div className="wa-reply-preview-header">
+                                                    <span className="wa-reply-preview-name">
+                                                        {isMeMsg(replyingTo) ? 'You' : (replyingTo.sender_id?.name || 'User')}
+                                                    </span>
+                                                </div>
+                                                <div className="wa-reply-preview-content">
+                                                    {replyingTo.type === 'image' ? '📷 Photo' : (replyingTo.type === 'file' ? '📄 File' : replyingTo.content)}
+                                                </div>
+                                            </div>
+                                            {replyingTo.type === 'image' && replyingTo.file_path && (
+                                                <div className="wa-reply-preview-thumb">
+                                                    <img src={replyingTo.file_path} alt="thumbnail" />
+                                                </div>
+                                            )}
+                                            <X size={16} className="wa-reply-preview-close" onClick={() => setReplyingTo(null)} />
+                                        </div>
+                                    )}
+
+                                    <div className="wa-footer-inner">
+                                        <div className="wa-input-pill">
+                                            <div className="wa-footer-left-icons wa-attachment-menu-container">
+                                                <button className="wa-nav-icon-btn wa-attachment-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Attachment">
+                                                    <Plus size={22} color="#54656f" />
+                                                </button>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    style={{ display: 'none' }}
+                                                    accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
+                                                    onChange={handleFileSelect}
+                                                />
+                                                {isAttachmentMenuOpen && (
+                                                    <div className="wa-attachment-menu" ref={attachmentMenuRef}>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = ".doc,.docx,.pdf,.xls,.xlsx"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper document"><FileText size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Document</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Document</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*,video/*"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper photos"><Image size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Photos & videos</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Photos</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "image/*;capture=camera"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper camera"><Camera size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Camera</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Camera</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item desktop-only" onClick={() => { setIsAttachmentMenuOpen(false); if (fileInputRef.current) { fileInputRef.current.accept = "audio/*"; fileInputRef.current.click(); } }}>
+                                                            <div className="wa-attachment-icon-wrapper audio"><Mic size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Audio</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper location" style={{ backgroundColor: '#00e676', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>📍</div>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Location</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper contact"><UserIcon size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Contact</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Contact</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper poll"><List size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Poll</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Poll</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper event"><Calendar size={20} /></div>
+                                                            <span className="wa-attachment-text wa-attachment-text-desktop">Event</span>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Event</span>
+                                                        </div>
+                                                        <div className="wa-attachment-item mobile-only" onClick={() => setIsAttachmentMenuOpen(false)}>
+                                                            <div className="wa-attachment-icon-wrapper payment" style={{ backgroundColor: '#00bfa5', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>₹</div>
+                                                            <span className="wa-attachment-text wa-attachment-text-mobile">Payment</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <button className="wa-nav-icon-btn">
+                                                    <Smile size={22} color="#54656f" />
+                                                </button>
+                                            </div>
+
+                                            <div className="wa-input-area">
+                                                <textarea
+                                                    className="wa-input-box"
+                                                    placeholder="Type a message"
+                                                    value={groupInput}
+                                                    onChange={(e) => setGroupInput(e.target.value)}
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            if (!groupInput.trim()) return;
+                                                            const text = groupInput;
+                                                            setGroupInput('');
+                                                            const replyId = replyingTo?._id || replyingTo?.id;
+                                                            setReplyingTo(null);
+                                                            try {
+                                                                const token = localStorage.getItem('token');
+                                                                const res = await axios.post(`/api/groups/${selectedGroup._id}/send`, { content: text, reply_to: replyId }, {
+                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                });
+                                                                setGroupMessages(prev => {
+                                                                    if (prev.find(m => m._id === res.data.message?._id)) return prev;
+                                                                    return [...prev, res.data.message];
+                                                                });
+                                                                setTimeout(scrollToBottom, 50);
+                                                            } catch (err) { console.error('Group send failed', err); }
+                                                        }
+                                                    }}
+                                                    rows={1}
+                                                    style={{ resize: 'none', overflowY: 'auto' }}
+                                                />
+                                            </div>
+
+                                            <div className="wa-footer-right-icons">
+                                                {groupInput.trim() ? (
+                                                    <button className="wa-send-btn-circle-inner" onClick={async () => {
                                                         if (!groupInput.trim()) return;
                                                         const text = groupInput;
                                                         setGroupInput('');
@@ -7430,47 +7713,22 @@ export default function Chat() {
                                                                 if (prev.find(m => m._id === res.data.message?._id)) return prev;
                                                                 return [...prev, res.data.message];
                                                             });
-                                                            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+                                                            setTimeout(scrollToBottom, 50);
                                                         } catch (err) { console.error('Group send failed', err); }
-                                                    }
-                                                }}
-                                                rows={1}
-                                                style={{ resize: 'none', overflowY: 'auto' }}
-                                            />
-                                        </div>
-
-                                        <div className="wa-footer-right-icons">
-                                            {groupInput.trim() ? (
-                                                <button className="wa-send-btn-circle-inner" onClick={async () => {
-                                                    if (!groupInput.trim()) return;
-                                                    const text = groupInput;
-                                                    setGroupInput('');
-                                                    const replyId = replyingTo?._id || replyingTo?.id;
-                                                    setReplyingTo(null);
-                                                    try {
-                                                        const token = localStorage.getItem('token');
-                                                        const res = await axios.post(`/api/groups/${selectedGroup._id}/send`, { content: text, reply_to: replyId }, {
-                                                            headers: { 'Authorization': `Bearer ${token}` }
-                                                        });
-                                                        setGroupMessages(prev => {
-                                                            if (prev.find(m => m._id === res.data.message?._id)) return prev;
-                                                            return [...prev, res.data.message];
-                                                        });
-                                                        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-                                                    } catch (err) { console.error('Group send failed', err); }
-                                                }}>
-                                                    <Send size={24} color="white" strokeWidth={2.5} />
-                                                </button>
-                                            ) : (
-                                                <button className="wa-nav-icon-btn-pill">
-                                                    <Mic size={22} color="#54656f" />
-                                                </button>
-                                            )}
+                                                    }}>
+                                                        <Send size={24} color="white" strokeWidth={2.5} />
+                                                    </button>
+                                                ) : (
+                                                    <button className="wa-nav-icon-btn-pill">
+                                                        <Mic size={22} color="#54656f" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 ) : (
                     <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', color: '#41525d' }}>
@@ -8276,7 +8534,7 @@ export default function Chat() {
 
     return (
         <>
-            <div className={`wa-app-container ${selectedUser ? 'chat-active' : 'list-active'}`}>
+            <div className={`wa-app-container ${(selectedUser || selectedGroup) ? 'chat-active' : 'list-active'}`}>
                 {renderLeftSidebar()}
                 {isSettingsOpen ? (
                     renderSettingsPanel()

@@ -142,7 +142,13 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
             .populate('sender_id', 'name _id')
             .sort({ created_at: 1 });
 
-        res.json(messages);
+        const enriched = messages.map(msg => {
+            const msgObj = msg.toObject();
+            msgObj.is_starred = (msg.starred_by || []).some(id => String(id) === String(userId));
+            return msgObj;
+        });
+
+        res.json(enriched);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -227,16 +233,69 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
 
         if (action === 'star') {
             if (!msg.starred_by) msg.starred_by = [];
-            const index = msg.starred_by.indexOf(userId);
+            const index = msg.starred_by.findIndex(id => String(id) === String(userId));
             if (value && index === -1) {
                 msg.starred_by.push(userId);
             } else if (!value && index > -1) {
                 msg.starred_by.splice(index, 1);
             }
+        } else if (action === 'pin') {
+            if (value) {
+                const { duration } = req.body;
+                const expiresAt = duration === '24 hours' ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+                    : duration === '7 days' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                        : duration === '30 days' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            : null;
+
+                // Limit of 5 pinned messages per group? (Same as P2P maybe)
+                const pinnedCount = await GroupMessage.countDocuments({ group_id: msg.group_id, is_pinned: true });
+                if (pinnedCount >= 5) {
+                    const oldest = await GroupMessage.findOne({ group_id: msg.group_id, is_pinned: true }).sort({ pinned_at: 1 });
+                    if (oldest) {
+                        oldest.is_pinned = false;
+                        oldest.pinned_at = null;
+                        oldest.pin_expires_at = null;
+                        await oldest.save();
+                    }
+                }
+
+                msg.is_pinned = true;
+                msg.pinned_at = new Date();
+                msg.pin_expires_at = expiresAt;
+                msg.pinned_by = userId;
+            } else {
+                msg.is_pinned = false;
+                msg.pinned_at = null;
+                msg.pin_expires_at = null;
+            }
+
+            // Emit update to group members
+            if (req.io) {
+                const group = await Group.findById(msg.group_id);
+                if (group) {
+                    group.members.forEach(mId => {
+                        req.io.to(mId.toString()).emit('message_pinned', {
+                            messageId: msg._id,
+                            is_pinned: msg.is_pinned,
+                            pinned_at: msg.pinned_at,
+                            pin_expires_at: msg.pin_expires_at,
+                            pinned_by: msg.pinned_by,
+                            isGroup: true,
+                            groupId: group._id
+                        });
+                    });
+                }
+            }
         }
 
         await msg.save();
-        res.json({ status: 'success', is_starred: msg.starred_by.includes(userId) });
+        res.json({
+            status: 'success',
+            is_starred: (msg.starred_by || []).some(id => String(id) === String(userId)),
+            is_pinned: msg.is_pinned,
+            pinned_at: msg.pinned_at,
+            pin_expires_at: msg.pin_expires_at
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
