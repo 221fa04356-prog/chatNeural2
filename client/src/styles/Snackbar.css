@@ -1,0 +1,263 @@
+/* Main Container */
+.snackbar-container {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Base Card Style */
+.snackbar-card {
+    background: #f0f2f5;
+    width: 340px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideInCard 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    color: #111b21;
+}
+
+/* Header - Branded */
+.snackbar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px 4px 16px;
+}
+
+.snackbar-app-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.snackbar-app-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+}
+
+.snackbar-app-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #54656f;
+}
+
+.snackbar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8696a0;
+}
+
+.snackbar-close-icon,
+.snackbar-more-icon {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.snackbar-close-icon:hover {
+    color: #111b21;
+}
+
+/* Body Layout */
+.snackbar-body {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px 18px 16px;
+    gap: 14px;
+}
+
+/* Avatar - ONLY for default */
+.snackbar-avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+}
+
+.snackbar-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.snackbar-initial-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #dfe5e7;
+    color: #54656f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+/* Content Text */
+.snackbar-content-text {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 44px;
+    /* Align with avatar height */
+}
+
+.snackbar-sender-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: #111b21;
+    margin-bottom: 2px;
+}
+
+.snackbar-message-preview {
+    font-size: 14px;
+    color: #54656f;
+    line-height: 1.4;
+}
+
+/* Action Button (Undo/Action) */
+.snackbar-action-btn {
+    color: #027EB5;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: auto;
+    white-space: nowrap;
+    padding-bottom: 0;
+}
+
+.snackbar-action-btn:hover {
+    text-decoration: underline;
+}
+
+/* System Variant Overrides (Archive case) */
+.snackbar-card.system .snackbar-body {
+    padding-top: 8px;
+    padding-bottom: 20px;
+}
+
+.snackbar-card.system .snackbar-message-preview {
+    color: #111b21;
+    font-size: 15px;
+}
+
+/* Simple/Dark Toast fallbacks */
+.snackbar-card.dark-toast {
+    background: #111b21;
+    color: white;
+    width: auto;
+    min-width: 280px;
+    border-radius: 4px;
+}
+
+.snackbar-card.dark-toast .snackbar-message-preview {
+    color: white;
+}
+
+/* Footer (Reply Input) */
+.snackbar-footer {
+    padding: 0 12px 12px 12px;
+}
+
+.snackbar-reply-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    /* Align bottom to handle growing text area */
+}
+
+.snackbar-reply-input {
+    flex: 1;
+    /* Take up all available space */
+    width: 100%;
+    /* Force width */
+    min-width: 0;
+    /* consistent flex sizing */
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 13px;
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s;
+    font-family: inherit;
+    resize: none;
+    /* Disable manual resize */
+    min-height: 34px;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.snackbar-reply-input:focus {
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+    border-color: rgba(0, 120, 212, 0.6);
+}
+
+.snackbar-send-btn {
+    flex: 0 0 auto;
+    /* Do not grow */
+    width: auto;
+    background: #f3f3f3;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    padding: 8px 16px;
+    /* slightly more padding for visible click area */
+    height: 36px;
+    /* Match minimal input height */
+    font-size: 13px;
+    color: #444;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.snackbar-send-btn:hover:not(:disabled) {
+    background: #ebebeb;
+}
+
+.snackbar-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .snackbar-container {
+        top: 20px;
+        bottom: auto;
+        left: 20px;
+        right: 20px;
+        align-items: center;
+    }
+
+    .snackbar-card {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@keyframes slideInCard {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
