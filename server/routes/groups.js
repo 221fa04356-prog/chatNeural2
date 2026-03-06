@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Group = require('../models/Group');
 const GroupMessage = require('../models/GroupMessage');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'neural_secret_77';
 
@@ -110,9 +111,19 @@ router.get('/my-groups', authenticateToken, async (req, res) => {
                 .populate('sender_id', 'name')
                 .lean();
 
+            // Calculate unread count for current user
+            const userIdObj = new mongoose.Types.ObjectId(userId);
+            const unreadCount = await GroupMessage.countDocuments({
+                group_id: g._id,
+                sender_id: { $ne: userIdObj },
+                read_by: { $ne: userIdObj },
+                is_system: { $ne: true }
+            });
+
             return {
                 ...g.toObject(),
                 lastMessage: lastMsg,
+                unreadCount,
                 isGroup: true,
                 isFavorite: userFavorites.some(favId => String(favId) === String(g._id))
             };
@@ -151,9 +162,9 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
 // POST /api/groups/:groupId/send - Send a message to a group
 router.post('/:groupId/send', authenticateToken, async (req, res) => {
     try {
-        const { groupId } = req.params;
-        const { content } = req.body;
+        const { content, type, file_path, fileName, fileSize, duration, isForwarded, forward_count } = req.body;
         const senderId = req.user.id;
+        const groupId = req.params.groupId;
 
         const group = await Group.findById(groupId);
         if (!group) return res.status(404).json({ error: 'Group not found' });
@@ -165,7 +176,13 @@ router.post('/:groupId/send', authenticateToken, async (req, res) => {
             group_id: groupId,
             sender_id: senderId,
             content: content || '',
-            type: 'text'
+            type: type || 'text',
+            file_path: file_path || null,
+            fileName: fileName || null,
+            fileSize: fileSize || 0,
+            duration: duration || 0,
+            is_forwarded: isForwarded === true || isForwarded === 'true',
+            forward_count: forward_count || 0
         });
 
         const populated = await GroupMessage.findById(msg._id)
@@ -255,10 +272,11 @@ router.post('/:groupId/messages/mark-read', authenticateToken, async (req, res) 
         }
 
         // Find unread group messages not sent by the current user
+        const userIdObj = new mongoose.Types.ObjectId(userId);
         const messagesToUpdate = await GroupMessage.find({
             group_id: groupId,
-            sender_id: { $ne: userId },
-            read_by: { $ne: userId },
+            sender_id: { $ne: userIdObj },
+            read_by: { $ne: userIdObj },
             is_read: false
         });
 
