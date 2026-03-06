@@ -236,6 +236,14 @@ export default function Chat() {
 
     const [browserScale, setBrowserScale] = useState(1);
 
+    // --- Utility Functions ---
+    const formatDuration = (seconds) => {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
     useEffect(() => {
         const handleResize = () => {
             // Detect current browser zoom level relative to baseline
@@ -1390,7 +1398,7 @@ export default function Chat() {
                     if (prev.find(m => m._id === data.message?._id)) return prev;
                     return [...prev, data.message];
                 });
-                setTimeout(scrollToBottom, 50);
+                setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
 
                 // Auto-mark as read since the user is in the group chat
                 const token = localStorage.getItem('token');
@@ -2516,7 +2524,7 @@ export default function Chat() {
                 setPreviewTime(0);
                 setIsReviewPlaying(false);
                 audioChunksRef.current = [];
-                setTimeout(scrollToBottom, 50);
+                setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
 
                 try {
                     const formData = new FormData();
@@ -2532,7 +2540,6 @@ export default function Chat() {
                     const token = localStorage.getItem('token');
                     const res = await axios.post('/api/chat/send', formData, {
                         headers: {
-                            'Content-Type': 'multipart/form-data',
                             'Authorization': `Bearer ${token}`
                         }
                     });
@@ -2555,7 +2562,11 @@ export default function Chat() {
                     }
                 } catch (error) {
                     console.error('Failed to send voice message:', error);
+                    if (error.response) {
+                        console.error('Server responded with:', error.response.status, error.response.data);
+                    }
                     setSnackbar({ message: 'Failed to send voice message', type: 'error', variant: 'system' });
+                    setMessages(prev => prev.filter(m => m.id !== tempId));
                 }
             };
             mediaRecorderRef.current.stop();
@@ -2610,7 +2621,6 @@ export default function Chat() {
             const token = localStorage.getItem('token');
             const res = await axios.post('/api/chat/send', formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
                     'Authorization': `Bearer ${token}`
                 }
             });
@@ -2643,11 +2653,9 @@ export default function Chat() {
     };
 
     const logout = () => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        localStorage.removeItem('lastActiveChat'); // Clear active chat state
-        window.dispatchEvent(new Event('authChange'));
-        window.location.href = '/';
+        // Redirect to Home with a logout parameter. 
+        // We clear the storage ON the home page to prevent a flash of unauthenticated content here.
+        window.location.href = '/?logout=true';
     };
 
     const saveProfileField = async (field) => {
@@ -2794,7 +2802,7 @@ export default function Chat() {
 
         if (isChatOpenWithTarget) {
             setGroupMessages(prev => [...prev, replyMsg]);
-            setTimeout(scrollToBottom, 50);
+            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
         }
 
         try {
@@ -5879,9 +5887,18 @@ export default function Chat() {
                                                             {String(item.lastMessage.sender_id) === String(user.id || user._id) ? 'You deleted this message' : 'This message was deleted'}
                                                         </span>
                                                     ) : (
-                                                        item.lastMessage?.type === 'image' ? (isGroup ? '📷 Photo' : '📷 Image') :
-                                                            item.lastMessage?.type === 'file' ? '📄 File' :
-                                                                renderHighlightedContent(item.lastMessage?.content || (item.lastMessage?.is_system ? `${item.lastMessage.sender_id?.name || 'Someone'} ${item.lastMessage.content}` : 'No messages'))
+                                                        item.lastMessage?.type === 'audio' ? (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                {String(item.lastMessage.sender_id) === String(user.id || user._id) && (
+                                                                    item.unreadCount === 0 ? <CheckCheck size={14} color="#53bdeb" /> : <Check size={14} color="#8696a0" />
+                                                                )}
+                                                                <Mic size={14} color={item.unreadCount === 0 && String(item.lastMessage.sender_id) === String(user.id || user._id) ? "#53bdeb" : "#00a884"} />
+                                                                {item.lastMessage.duration ? formatDuration(item.lastMessage.duration) : 'Voice message'}
+                                                            </span>
+                                                        ) :
+                                                            item.lastMessage?.type === 'image' ? (isGroup ? '📷 Photo' : '📷 Image') :
+                                                                item.lastMessage?.type === 'file' ? '📄 File' :
+                                                                    renderHighlightedContent(item.lastMessage?.content || (item.lastMessage?.is_system ? `${item.lastMessage.sender_id?.name || 'Someone'} ${item.lastMessage.content}` : 'No messages'))
                                                     )}
                                                 </span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

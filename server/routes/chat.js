@@ -194,7 +194,7 @@ router.get('/users', authenticateToken, async (req, res) => {
                     { user_id: u._id, receiver_id: currentUserId }
                 ],
                 deleted_for: { $ne: currentUserId }
-            }).sort({ created_at: -1 }).select('content created_at type sender_id is_deleted_by_admin is_deleted_by_user').lean();
+            }).sort({ created_at: -1 }).select('content created_at type sender_id duration is_deleted_by_admin is_deleted_by_user').lean();
 
             // 2. Get Unread Count
             const unreadCount = await Message.countDocuments({

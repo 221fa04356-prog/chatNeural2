@@ -41,6 +41,16 @@ export default function Home() {
 
         // Handle Query Param-based navigation (for email links)
         const params = new URLSearchParams(location.search);
+        // Handle Logout param from Chat
+        if (params.get('logout') === 'true') {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('lastActiveChat');
+            sessionStorage.clear();
+            // Remove the param from URL for a clean look
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         if (params.get('showLogin') === 'true') {
             setShowLoginForm(true);
             if (params.get('role') === 'admin') setIsAdmin(true);
