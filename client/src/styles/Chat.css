@@ -6499,3 +6499,94 @@ html {
         height: 36px;
     }
 }
+
+/* Attachment Menu Styles */
+.wa-attachment-menu {
+    position: absolute;
+    bottom: 58px;
+    left: 0;
+    background: #233138;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    padding: 8px 0;
+    width: 220px;
+    animation: fadeIn 0.15s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-attachment-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    color: #d1d7db;
+    transition: background 0.2s;
+}
+
+.wa-attachment-item:hover {
+    background: #182229;
+}
+
+.wa-attachment-item-icon {
+    margin-right: 12px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wa-attachment-label {
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .wa-attachment-menu {
+        position: fixed;
+        width: calc(100% - 20px) !important;
+        left: 10px !important;
+        right: 10px !important;
+        bottom: 74px !important;
+        background: #fdfdfd;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 24px 12px !important;
+        gap: 20px 10px !important;
+        border-radius: 20px;
+        box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
+        flex-direction: row;
+    }
+
+    .wa-attachment-item {
+        flex-direction: column;
+        padding: 0;
+        text-align: center;
+        gap: 8px;
+    }
+
+    .wa-attachment-item:hover {
+        background: transparent;
+    }
+
+    .wa-attachment-label {
+        font-size: 13px;
+        color: #54656f;
+    }
+
+    .wa-attachment-item-icon {
+        margin-right: 0;
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+    }
+
+    .wa-attachment-item-icon svg {
+        width: 24px;
+        height: 24px;
+    }
+}
