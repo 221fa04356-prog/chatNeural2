@@ -837,7 +837,10 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     try {
-        const msg = await Message.findById(req.params.id);
+        let msg = await Message.findById(req.params.id);
+        if (!msg) {
+            msg = await GroupMessage.findById(req.params.id);
+        }
         if (!msg) return res.status(404).json({ error: 'Message not found' });
 
         if (action === 'pin') {
@@ -901,7 +904,8 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
                 msg.pin_expires_at = null;
             }
         } else if (action === 'star') {
-            const index = msg.starred_by.indexOf(userId);
+            if (!msg.starred_by) msg.starred_by = [];
+            const index = msg.starred_by.findIndex(id => String(id) === String(userId));
             if (value && index === -1) {
                 msg.starred_by.push(userId);
             } else if (!value && index > -1) {
@@ -927,7 +931,7 @@ router.post('/message/:id/toggle', authenticateToken, async (req, res) => {
         }
 
         const msgObj = msg.toObject();
-        msgObj.is_starred = msg.starred_by.includes(userId);
+        msgObj.is_starred = (msg.starred_by || []).some(id => String(id) === String(userId));
         res.json(msgObj);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1033,14 +1037,22 @@ router.post('/messages/bulk-delete', authenticateToken, async (req, res) => {
                     continue;
                 }
 
-                const msg = await Message.findById(id);
+                let msg = await Message.findById(id);
+                let isGroup = false;
+                if (!msg) {
+                    msg = await GroupMessage.findById(id);
+                    isGroup = true;
+                }
+
                 if (!msg) continue;
 
                 let updated = false;
+                const ownerId = isGroup ? msg.sender_id.toString() : msg.user_id.toString();
+
                 if (userRole === 'admin') {
                     msg.is_deleted_by_admin = true;
                     updated = true;
-                } else if (msg.user_id.toString() === userId) {
+                } else if (ownerId === userId) {
                     if (mode === 'me') {
                         if (!msg.deleted_for.includes(userId)) {
                             msg.deleted_for.push(userId);
@@ -1061,10 +1073,18 @@ router.post('/messages/bulk-delete', authenticateToken, async (req, res) => {
                             updated = true;
                         }
                     }
-                } else if (msg.receiver_id && msg.receiver_id.toString() === userId) {
+                } else if (!isGroup && msg.receiver_id && msg.receiver_id.toString() === userId) {
                     if (!msg.deleted_for.includes(userId)) {
                         msg.deleted_for.push(userId);
                         updated = true;
+                    }
+                } else if (isGroup) {
+                    // For group messages, if I'm not the sender, I can only delete for "me"
+                    if (mode === 'me') {
+                        if (!msg.deleted_for.includes(userId)) {
+                            msg.deleted_for.push(userId);
+                            updated = true;
+                        }
                     }
                 }
 

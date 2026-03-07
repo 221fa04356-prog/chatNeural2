@@ -112,6 +112,7 @@ export default function Chat() {
     const [typingLinkPreview, setTypingLinkPreview] = useState(null); // For typing preview overlay
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [msgToDelete, setMsgToDelete] = useState(null);
+    const [adminConfirmModal, setAdminConfirmModal] = useState(null); // { type: 'add'|'remove', member: Object }
     const selectedUserRef = useRef(null);
     const userRef = useRef(user);
     const searchSource = useRef('chat_header'); // 'chat_header' | 'contact_info'
@@ -157,9 +158,11 @@ export default function Chat() {
     const [unstarTarget, setUnstarTarget] = useState('current'); // 'current' or 'global'
     const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
     const [showUnreadBanner, setShowUnreadBanner] = useState(true);
+    const [showGroupMenu, setShowGroupMenu] = useState(false);
     const starredMenuRef = useRef(null);
     const globalStarredMenuRef = useRef(null);
     const filtersRef = useRef(null);
+    const groupMenuRef = useRef(null);
 
     // --- Mute State ---
     const [isMuteModalOpen, setIsMuteModalOpen] = useState(false);
@@ -285,6 +288,37 @@ export default function Chat() {
             }
         }
     }, [selectedFontSize, browserScale]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setSelectedUser(null);
+                setSelectedGroup(null);
+                if (selectedUserRef) selectedUserRef.current = null;
+                if (selectedGroupRef) selectedGroupRef.current = null;
+                setIsForwardingMode(false);
+                setIsChatSelectionMode(false);
+                setForwardSelectedMsgs([]);
+                setOpenDropdown(null);
+                setChatContextMenu(null);
+                setIsProfileOpen(false);
+                setIsNewChatOpen(false);
+                setIsNewGroupOpen(false);
+                setIsArchivedChatsOpen(false);
+                setIsGlobalStarredOpen(false);
+                setIsContactInfoOpen(false);
+                setIsMessageSearchOpen(false);
+                setIsStarredMessagesOpen(false);
+                setIsSharedMediaOpen(false);
+                setIsEditContactOpen(false);
+                setIsNotificationSettingsOpen(false);
+                setFile(null);
+                setReplyingTo(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleFontSizeChange = (size) => {
         setSelectedFontSize(size);
@@ -825,7 +859,8 @@ export default function Chat() {
                 { action: 'star', value: !allStarred },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             )));
-            setMessages(prev => prev.map(m => ids.includes(m._id) ? { ...m, is_starred: !allStarred } : m));
+            setMessages(prev => prev.map(m => ids.some(id => String(id) === String(m._id) || String(id) === String(m.id)) ? { ...m, is_starred: !allStarred } : m));
+            setGroupMessages(prev => prev.map(m => ids.some(id => String(id) === String(m._id) || String(id) === String(m.id)) ? { ...m, is_starred: !allStarred } : m));
             setSnackbar({ message: `Messages ${allStarred ? 'unstarred' : 'starred'}`, type: 'success', variant: 'system' });
             setIsForwardingMode(false);
             setIsChatSelectionMode(false);
@@ -1365,16 +1400,20 @@ export default function Chat() {
 
         // Listen for new group messages
         const onGroupMessage = (data) => {
+            console.log('[DEBUG] group_message received:', data);
             const currentSelectedGroup = selectedGroupRef?.current;
-            const isCurrentGroup = currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId);
+            // Only consider it 'current' if we have an active selection AND we are looking at the chat
+            const isCurrentGroup = !!(currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId));
 
-            const myId = userRef.current?.id || userRef.current?._id;
+            const myId = userRef.current?.id || userRef.current?._id || user?.id || user?._id;
             const msgSenderId = data.message?.sender_id?._id || data.message?.sender_id;
+
             const isMyOwnMessage = !!(myId && msgSenderId && String(myId) === String(msgSenderId));
+
+            console.log(`[DEBUG] Group Message Evaluation: Group: ${data.groupId}, Sender: ${msgSenderId}, Me: ${myId}, isCurrent: ${isCurrentGroup}, isMine: ${isMyOwnMessage}`);
 
             if (isCurrentGroup) {
                 setGroupMessages(prev => {
-                    // Prevent duplicates
                     if (prev.find(m => m._id === data.message?._id)) return prev;
                     return [...prev, data.message];
                 });
@@ -1388,14 +1427,13 @@ export default function Chat() {
                     }).catch(err => console.error('Auto-mark read error:', err));
                 }
             } else {
-                // Check if group is muted
-                const mutedKey = `mutedChats_${userRef.current?.id || userRef.current?._id}`;
+                // Not in group, show notification if not muted and not me
+                const mutedKey = `mutedChats_${myId}`;
                 const mutedMap = JSON.parse(localStorage.getItem(mutedKey)) || {};
 
                 if (!mutedMap[data.groupId] && !isMyOwnMessage) {
-                    // Show notification for group messages if not in that group
                     const senderName = data.message.sender_id?.name || 'Group Member';
-                    const groupName = groups.find(g => g._id === data.groupId)?.name || 'Group';
+                    const groupName = groupsRef.current?.find(g => String(g._id) === String(data.groupId))?.name || 'Group';
 
                     let previewText = data.message.content || 'Sent a message';
                     if (data.message.type === 'image') previewText = '📷 Image';
@@ -1406,17 +1444,18 @@ export default function Chat() {
                         message: previewText,
                         type: 'info',
                         duration: 5000,
-                        onReply: (text) => {
-                            console.log(`[DEBUG] Snackbar onReply triggered for group. Target: ${data.groupId}, Text: ${text}`);
-                            handleGroupNotificationReply(text, data.groupId);
-                        }
+                        onReply: (text) => handleGroupNotificationReply(text, data.groupId)
                     });
                 }
             }
 
+            // Update the sidebar list
             setGroups(prev => prev.map(g => {
                 if (String(g._id) === String(data.groupId)) {
-                    const newUnread = (isCurrentGroup || isMyOwnMessage) ? (g.unreadCount || 0) : (g.unreadCount || 0) + 1;
+                    const currentUnread = g.unreadCount || 0;
+                    // Sender NEVER gets unread. Receiver gets +1 if not in chat.
+                    const newUnread = (isCurrentGroup || isMyOwnMessage) ? (isCurrentGroup ? 0 : currentUnread) : (currentUnread + 1);
+                    console.log(`[DEBUG] Final Unread for ${g.name || g._id}: ${newUnread} (base was ${currentUnread})`);
                     return { ...g, lastMessage: data.message, unreadCount: newUnread };
                 }
                 return g;
@@ -1543,6 +1582,18 @@ export default function Chat() {
 
     useEffect(() => {
         const handleClickOutside = (e) => {
+            if (groupMenuRef.current && !groupMenuRef.current.contains(e.target)) {
+                setShowGroupMenu(false);
+            }
+        };
+        if (showGroupMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showGroupMenu]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
             if (groupIconMenuRef.current && !groupIconMenuRef.current.contains(e.target)) {
                 setIsGroupIconMenuOpen(false);
             }
@@ -1640,7 +1691,12 @@ export default function Chat() {
             const res = await axios.get(`/api/groups/${groupId}/messages`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setGroupMessages(res.data || []);
+            const currentUserId = userData?._id || userData?.id || user?.id || user?._id;
+            const enriched = (res.data || []).map(m => ({
+                ...m,
+                is_starred: (m.starred_by || []).some(id => String(id) === String(currentUserId))
+            }));
+            setGroupMessages(enriched);
             // Mark unread messages as read
             await axios.post(`/api/groups/${groupId}/messages/mark-read`, {}, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -1887,6 +1943,7 @@ export default function Chat() {
             );
 
             setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+            setGroupMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
             setPinMessageModal(null);
             setOpenDropdown(null);
         } catch (err) {
@@ -1903,6 +1960,7 @@ export default function Chat() {
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             setMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
+            setGroupMessages(prev => prev.map(m => (m._id === msgId || m.id === msgId) ? { ...m, ...res.data } : m));
         } catch (err) { console.error("Unpin failed", err); }
     };
 
@@ -1913,8 +1971,8 @@ export default function Chat() {
                 { action: 'star', value: !currentState },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-            setMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
-            setGroupMessages(prev => prev.map(m => m._id === msgId ? { ...m, is_starred: !currentState } : m));
+            setMessages(prev => prev.map(m => (String(m._id) === String(msgId) || String(m.id) === String(msgId)) ? { ...m, is_starred: !currentState } : m));
+            setGroupMessages(prev => prev.map(m => (String(m._id) === String(msgId) || String(m.id) === String(msgId)) ? { ...m, is_starred: !currentState } : m));
             setSnackbar({ message: `Message ${!currentState ? 'starred' : 'unstarred'}`, type: 'success', variant: 'system', onAction: () => handleToggleStar(msgId, !currentState), actionLabel: 'Undo' });
             setOpenDropdown(null);
         } catch (err) { console.error("Star toggle failed", err); }
@@ -1987,7 +2045,7 @@ export default function Chat() {
         });
 
         // Close chat if it was open
-        if ((selectedUser && selectedUser._id === id) || (selectedGroup && selectedGroup._id === id)) {
+        if ((selectedUser && String(selectedUser._id || selectedUser.id) === String(id)) || (selectedGroup && String(selectedGroup._id || selectedGroup.id) === String(id))) {
             handleBackToChatList();
         }
     };
@@ -3451,6 +3509,7 @@ export default function Chat() {
                                     key={item._id}
                                     className="wa-user-item"
                                     onClick={() => {
+                                        setIsArchivedChatsOpen(false);
                                         if (isGroup) {
                                             setSelectedGroup(item);
                                             setSelectedUser(null);
@@ -4082,9 +4141,278 @@ export default function Chat() {
         if (!activeTarget) return null;
 
         const isGroup = !!selectedGroup;
-        const displayName = activeTarget.name || (isGroup ? 'Group' : 'User');
-        const displayPhoto = isGroup ? activeTarget.icon : (activeTarget.image || null);
-        const displaySubtext = isGroup ? `${activeTarget.members?.length || 0} members` : (activeTarget.mobile || 'Available');
+
+        if (isGroup) {
+            const displayName = activeTarget.name || 'Group';
+            const displayPhoto = activeTarget.icon;
+            const membersCount = activeTarget.members?.length || 0;
+            const createdAt = activeTarget.created_at || new Date().toISOString();
+            const creatorName = activeTarget.creatorName || (activeTarget.members && activeTarget.members.length > 0 ? activeTarget.members[0].name : 'Group Admin');
+
+            const isDark = false;
+            const bgColor = '#ffffff';
+            const itemBgColor = '#ffffff';
+            const headerBgColor = '#ffffff';
+            const textColor = '#3b4a54';
+            const subTextColor = '#667781';
+            const dividerColor = '#f0f2f5';
+            const thinDivider = '1px solid #e9edef';
+            const thickDivider = `8px solid ${dividerColor}`;
+
+            return (
+                <div className={`wa-contact-info-panel wa-group-info ${isContactInfoOpen ? 'active' : ''}`} style={{ background: bgColor, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                    <div className="wa-contact-info-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', padding: '0 16px', background: headerBgColor, color: textColor, flexShrink: 0 }}>
+                        <button className="wa-contact-info-close-btn" onClick={() => setIsContactInfoOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 24, padding: '0 8px' }}>
+                            <span style={{ fontSize: 16, color: '#027EB5', fontWeight: 500 }}>Close</span>
+                            <span style={{ fontSize: 16, fontWeight: 500, color: textColor, whiteSpace: 'nowrap' }}>Group info</span>
+                        </button>
+                    </div>
+
+                    <div className="wa-contact-info-content" style={{ flex: 1, overflowY: 'auto', background: bgColor, paddingBottom: 40, height: 'calc(100% - 60px)' }}>
+                        <div style={{ background: itemBgColor, padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div className="wa-contact-avatar-large" style={{ width: 200, height: 200, borderRadius: '50%', marginBottom: 20, overflow: 'hidden', background: '#dfe5e7', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                {displayPhoto ? (
+                                    <img src={displayPhoto} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <span style={{ fontSize: 80, color: '#54656f' }}>
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                                <span style={{ fontSize: 24, color: textColor, fontWeight: 400 }}>{displayName}</span>
+                                <Pencil size={20} color={isDark ? '#aebac1' : '#54656f'} style={{ cursor: 'pointer' }} />
+                            </div>
+                            <div style={{ fontSize: 16, color: subTextColor, marginTop: 8 }}>
+                                Group · <span style={{ color: '#027EB5' }}>{membersCount} members</span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 12, marginTop: 24, width: '100%', justifyContent: 'center' }}>
+                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid #e9edef', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160 }} onClick={() => { setIsContactInfoOpen(false); /* open add members modal */ }}>
+                                    <UserPlus size={24} color="#027EB5" />
+                                    <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Add</span>
+                                </div>
+                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid #e9edef', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160 }} onClick={() => { setIsContactInfoOpen(false); setIsMessageSearchOpen(true); searchSource.current = 'contact_info'; }}>
+                                    <Search size={24} color="#027EB5" />
+                                    <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Search</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ width: '100%', borderBottom: thinDivider }}></div>
+
+                        <div style={{ background: itemBgColor, padding: '14px 30px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                                <span style={{ color: '#027EB5', fontSize: 15 }}>Add group description</span>
+                                <Pencil size={20} color={'#54656f'} />
+                            </div>
+                            <div style={{ color: subTextColor, fontSize: 14, marginTop: 12, lineHeight: 1.4 }}>
+                                Group created by {creatorName}, on {formatDateForInfo(createdAt)} at {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        </div>
+
+                        <div style={{ width: '100%', borderBottom: thickDivider }}></div>
+
+                        <div style={{ background: itemBgColor }}>
+                            <div className="clickable" onClick={() => setIsSharedMediaOpen(true)} style={{ padding: '14px 30px', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: textColor, fontSize: 16 }}>Media, links and docs</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ color: subTextColor, fontSize: 15 }}>{(activeTarget.mediaCount || 0) + (activeTarget.linkCount || 0) + (activeTarget.docCount || 0)}</span>
+                                        <ChevronRight size={20} color={subTextColor} />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, color: subTextColor, fontSize: 14 }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Image size={16} /> {activeTarget.mediaCount || 0} Media</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><LinkIcon size={16} /> {activeTarget.linkCount || 0} Links</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={16} /> {activeTarget.docCount || 0} Docs</span>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '0 30px 14px 30px', display: 'flex', gap: 6, overflowX: 'auto' }}>
+                                {(() => {
+                                    const chatMsgs = groupMessages;
+                                    const activeMsgs = chatMsgs.filter(m => !m.is_deleted_by_user && !m.is_deleted_by_admin);
+
+                                    // Prioritize: Images > Links > Docs
+                                    const images = chatMsgs.filter(m => m.type === 'image' || m.type === 'video').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                                    const links = chatMsgs.filter(m => (m.link_preview && m.link_preview.url) && m.type !== 'image' && m.type !== 'video').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                                    const docs = chatMsgs.filter(m => m.type === 'file').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                                    const previewItems = [...images, ...links, ...docs].slice(0, 4);
+
+                                    return (
+                                        <>
+                                            {previewItems.map((m, i) => {
+                                                if (m.type === 'image' || m.type === 'video') {
+                                                    return (
+                                                        <div key={i} onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: '#f0f2f5' }}>
+                                                            <img src={m.file_path} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </div>
+                                                    );
+                                                }
+                                                if (m.type === 'file') {
+                                                    return (
+                                                        <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
+                                                            <FileText size={20} color="#8696a0" />
+                                                            <div style={{ fontSize: 9, color: '#667781', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {m.fileName || 'Doc'}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                // Link
+                                                if (m.link_preview && m.link_preview.image) {
+                                                    return (
+                                                        <div key={i} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: '#f0f2f5' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview.url, '_blank'); }}>
+                                                            <img src={m.link_preview.image} alt="link" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url, '_blank'); }}>
+                                                        <LinkIcon size={24} color="#8696a0" />
+                                                    </div>
+                                                );
+                                            })}
+                                            {[...Array(Math.max(0, 4 - previewItems.length))].map((_, i) => (
+                                                <div key={`empty-${i}`} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', flexShrink: 0 }}></div>
+                                            ))}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
+                        <div style={{ width: '100%', borderBottom: thickDivider }}></div>
+
+                        <div style={{ background: itemBgColor }}>
+                            <div className="clickable" onClick={() => { setIsContactInfoOpen(false); setIsStarredMessagesOpen(true); }} style={{ padding: '14px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                    <Star size={24} color={subTextColor} />
+                                    <span style={{ color: textColor, fontSize: 16 }}>Starred messages</span>
+                                </div>
+                                <ChevronRight size={20} color={subTextColor} />
+                            </div>
+                            <div className="clickable" onClick={() => { setIsContactInfoOpen(false); setIsNotificationSettingsOpen(true); }} style={{ padding: '14px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                    <Bell size={24} color={subTextColor} />
+                                    <span style={{ color: textColor, fontSize: 16 }}>Notification settings</span>
+                                </div>
+                                <ChevronRight size={20} color={subTextColor} />
+                            </div>
+                        </div>
+
+                        <div style={{ width: '100%', borderBottom: thickDivider }}></div>
+
+                        <div style={{ background: itemBgColor, padding: '14px 0' }}>
+                            <div style={{ padding: '0 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                <span style={{ color: subTextColor, fontSize: 14, fontWeight: 500 }}>{membersCount} members</span>
+                                <Search size={20} color={subTextColor} style={{ cursor: 'pointer' }} />
+                            </div>
+
+                            <div style={{ padding: '0 30px', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, cursor: 'pointer' }}>
+                                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#027EB5', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+                                    <UserPlus size={20} color="#ffffff" />
+                                </div>
+                                <span style={{ color: textColor, fontSize: 16, fontWeight: 400 }}>Add member</span>
+                            </div>
+                            <div style={{ padding: '0 30px', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, cursor: 'pointer' }}>
+                                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#027EB5', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+                                    <LinkIcon size={20} color="#ffffff" />
+                                </div>
+                                <span style={{ color: textColor, fontSize: 16, fontWeight: 400 }}>Invite to group via link</span>
+                            </div>
+
+                            <div className="wa-member-list">
+                                {activeTarget.members?.map(m => {
+                                    const isMe = String(m._id) === String(user.id || user._id);
+                                    let phoneValue = m.mobile ? `+${m.mobile}` : '';
+                                    if (phoneValue.includes('91') && phoneValue.length <= 13) {
+                                        phoneValue = `+91 ${phoneValue.replace('+91', '').substring(0, 5)} ${phoneValue.replace('+91', '').substring(5)}`;
+                                    } else if (!phoneValue.startsWith('+') && m.mobile) phoneValue = `+91 ${m.mobile}`;
+
+                                    const isGroupAdmin = String(m._id) === String(activeTarget.creator_id) ||
+                                        String(m._id) === String(activeTarget.creatorId) ||
+                                        m.name === creatorName ||
+                                        m.isAdmin ||
+                                        (isMe && creatorName === user.name) ||
+                                        (isMe && String(user.id || user._id) === String(activeTarget.creator_id || activeTarget.creatorId));
+
+                                    return (
+                                        <div key={m._id} className="wa-setting-item clickable" style={{ display: 'flex', alignItems: 'center', padding: '12px 30px', cursor: 'pointer', justifyContent: 'space-between' }}
+                                            onClick={(e) => {
+                                                if (!isGroupAdmin) {
+                                                    setAdminConfirmModal({ type: 'add', member: m });
+                                                }
+                                            }}
+                                            onContextMenu={(e) => {
+                                                e.preventDefault();
+                                                if (isGroupAdmin && m.name !== activeTarget.creatorName) {
+                                                    setAdminConfirmModal({ type: 'remove', member: m });
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dfe5e7', overflow: 'hidden', flexShrink: 0 }}>
+                                                    {m.image ? <img src={m.image} alt="mem" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#54656f', fontSize: 18 }}>{m.name?.charAt(0)}</span>}
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <span style={{ color: textColor, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        {isMe ? 'You' : m.name}
+                                                        {(m.name === 'Kiki' || m.name === 'Kothi') && <span style={{ fontSize: 14 }}>{m.name === 'Kiki' ? '🙄' : '🐒'}</span>}
+                                                    </span>
+                                                    <span style={{ color: subTextColor, fontSize: 14 }}>{m.about || (isMe ? 'Available' : 'Hey there! I am using WhatsApp.')}</span>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                                {isGroupAdmin && <div style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: 'none', color: '#027EB5', background: '#e6f2f7', fontWeight: 500 }}>Group admin</div>}
+                                                {!isMe && phoneValue && <span style={{ color: subTextColor, fontSize: 13 }}>{phoneValue}</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div style={{ width: '100%', borderBottom: thickDivider }}></div>
+
+                        <div style={{ background: itemBgColor, padding: '14px 0' }}>
+                            <div className="wa-setting-item clickable" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center' }}>
+                                <span style={{ color: '#027EB5', fontSize: 16, width: '100%' }}>View past members</span>
+                            </div>
+                            <div className="wa-setting-item clickable" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24 }}>
+                                <Heart size={24} color={subTextColor} />
+                                <span style={{ color: textColor, fontSize: 16, width: '100%' }}>Add to favourites</span>
+                            </div>
+                            <div className="wa-setting-item clickable" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24 }}>
+                                <List size={24} color={subTextColor} />
+                                <span style={{ color: textColor, fontSize: 16, width: '100%' }}>Add to list</span>
+                            </div>
+                            <div className="wa-setting-item clickable danger" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24, cursor: 'pointer' }}>
+                                <Minus size={24} color="#f15c6d" />
+                                <span style={{ color: '#f15c6d', fontSize: 16, width: '100%' }}>Clear chat</span>
+                            </div>
+                            <div className="wa-setting-item clickable danger" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24, cursor: 'pointer' }} onClick={() => { /* Exit logic */ }}>
+                                <LogOut size={24} color="#f15c6d" />
+                                <span style={{ color: '#f15c6d', fontSize: 16, width: '100%' }}>Exit group</span>
+                            </div>
+                            <div className="wa-setting-item clickable danger" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24, cursor: 'pointer' }}>
+                                <ThumbsDown size={24} color="#f15c6d" />
+                                <span style={{ color: '#f15c6d', fontSize: 16, width: '100%' }}>Report group</span>
+                            </div>
+                        </div>
+
+                        <div style={{ height: 40, background: bgColor }}></div>
+                    </div>
+                </div>
+            );
+        }
+
+        const displayName = activeTarget.name || 'User';
+        const displayPhoto = activeTarget.image || null;
+        const displaySubtext = activeTarget.mobile || 'Available';
 
         return (
             <div className={`wa-contact-info-panel ${isContactInfoOpen ? 'active' : ''}`}>
@@ -4979,7 +5307,9 @@ export default function Chat() {
     const renderDropdownMenu = (type, id, data) => {
         if (!data) return null; // Safety check to prevent black screen
         if (!openDropdown || openDropdown.type !== type || openDropdown.id !== id) return null;
-        const isMe = isMeMsg(data);
+
+        const myId = user.id || user._id;
+        const isMe = String(data.sender_id?._id || data.sender_id || data.user_id) === String(myId);
 
         // Calculate positioning logic for fixed menu (centered horizontally in viewport)
         const menuWidth = 250;
@@ -5008,6 +5338,7 @@ export default function Chat() {
             left: left,
             zIndex: 3000 // Very high
         };
+
 
         if (type === 'msg') {
             const currentUserId = user.id || user._id;
@@ -5421,6 +5752,9 @@ export default function Chat() {
                 )}
                 <div className="wa-dropdown-item" onClick={() => {
                     setSelectedUser(null);
+                    setSelectedGroup(null);
+                    if (selectedUserRef) selectedUserRef.current = null;
+                    if (selectedGroupRef) selectedGroupRef.current = null;
                     setChatContextMenu(null);
                     setIsForwardingMode(false);
                     setIsChatSelectionMode(false);
@@ -5433,15 +5767,19 @@ export default function Chat() {
     };
 
     const renderSharedMediaPanel = () => {
-        if (!selectedUser) return null;
+        const activeTarget = selectedUser || selectedGroup;
+        if (!activeTarget) return null;
+        const isGroup = !!selectedGroup;
 
         // Filter messages for this chat
-        const chatMsgs = messages.filter(m =>
-            (String(m.sender_id) === String(selectedUser._id) && String(m.receiver_id) === String(user.id || user._id)) ||
-            (String(m.sender_id) === String(user.id || user._id) && String(m.receiver_id) === String(selectedUser._id)) ||
-            (String(m.user_id) === String(user.id || user._id) && String(m.receiver_id) === String(selectedUser._id)) ||
-            (String(m.user_id) === String(selectedUser._id) && String(m.receiver_id) === String(user.id || user._id))
-        );
+        const chatMsgs = isGroup
+            ? messages.filter(m => String(m.group_id) === String(selectedGroup._id))
+            : messages.filter(m =>
+                (String(m.sender_id) === String(selectedUser._id) && String(m.receiver_id) === String(user.id || user._id)) ||
+                (String(m.sender_id) === String(user.id || user._id) && String(m.receiver_id) === String(selectedUser._id)) ||
+                (String(m.user_id) === String(user.id || user._id) && String(m.receiver_id) === String(selectedUser._id)) ||
+                (String(m.user_id) === String(selectedUser._id) && String(m.receiver_id) === String(user.id || user._id))
+            );
 
         const mediaMsgs = chatMsgs.filter(m => m.type === 'image' || m.type === 'video');
         const docMsgs = chatMsgs.filter(m => m.type === 'file');
@@ -5864,6 +6202,10 @@ export default function Chat() {
                                 const nameMatch = displayName.toLowerCase().includes(searchQuery.toLowerCase());
                                 const msgMatch = contentPart.toLowerCase().includes(searchQuery.toLowerCase());
                                 const matchesSearch = nameMatch || msgMatch;
+
+                                if (filterType === 'groups') {
+                                    return matchesSearch && item.is_group;
+                                }
 
                                 if (archivedChatIds.includes(item._id)) return false;
                                 if (filterType === 'all') {
@@ -6569,9 +6911,9 @@ export default function Chat() {
                                     <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10 }}>
                                         <span style={{ fontSize: 16 }}>{selectedUser.name?.charAt(0).toUpperCase()}</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 'bold', fontSize: 16 }}>{selectedUser.name}</span>
-                                        <span style={{ fontSize: 12, color: '#667781' }}>{renderUserStatus(selectedUser)}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                                        <span style={{ fontWeight: 'bold', fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUser.name}</span>
+                                        <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderUserStatus(selectedUser)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -6728,11 +7070,11 @@ export default function Chat() {
                                                         className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
                                                         onClick={() => {
                                                             if (isForwardingMode) {
-                                                                const isSelected = forwardSelectedMsgs.find(m => (m._id || m.id) === (msg._id || msg.id));
+                                                                const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
                                                                 if (isSelected) {
-                                                                    setForwardSelectedMsgs(prev => prev.filter(m => (m._id || m.id) !== (msg._id || msg.id)));
+                                                                    setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
                                                                 } else {
-                                                                    if (!msg._id) {
+                                                                    if (!msg._id && !msg.id) {
                                                                         setSnackbar({ message: "Please wait for message to sync before selecting", type: 'info' });
                                                                         return;
                                                                     }
@@ -6743,7 +7085,7 @@ export default function Chat() {
                                                     >
                                                         {isForwardingMode && (
                                                             <div className="wa-msg-checkbox">
-                                                                {forwardSelectedMsgs.find(m => m._id === msg._id) ?
+                                                                {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
                                                                     <CheckSquare size={24} color="white" fill="#027EB5" /> :
                                                                     <div className="wa-checkbox-empty" />
                                                                 }
@@ -7208,7 +7550,7 @@ export default function Chat() {
                                     <ArrowLeft size={24} />
                                 </button>
 
-                                <div className="wa-chat-header-user" onClick={() => { /* In future could open group info */ }}>
+                                <div className="wa-chat-header-user" onClick={() => setIsContactInfoOpen(true)} style={{ cursor: 'pointer' }}>
                                     <div className="wa-avatar" style={{ width: 40, height: 40, marginRight: 10, background: '#dfe5e7' }}>
                                         {selectedGroup.icon ? (
                                             <img src={selectedGroup.icon} alt="group" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -7216,11 +7558,11 @@ export default function Chat() {
                                             <Camera size={22} color="#8696a0" />
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 500, fontSize: 16, color: '#111b21' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                                        <span style={{ fontWeight: 500, fontSize: 16, color: '#111b21', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {selectedGroup.name || 'Unnamed Group'}
                                         </span>
-                                        <span style={{ fontSize: 12, color: '#667781' }}>
+                                        <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {selectedGroup.members?.map(m => m.name).join(', ')}
                                         </span>
                                     </div>
@@ -7241,11 +7583,116 @@ export default function Chat() {
                                 >
                                     <Search size={20} />
                                 </button>
-                                <button className="wa-nav-icon-btn"><MoreVertical size={20} /></button>
+                                <div style={{ position: 'relative' }} ref={groupMenuRef}>
+                                    <button
+                                        className="wa-nav-icon-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowGroupMenu(!showGroupMenu);
+                                        }}
+                                    >
+                                        <MoreVertical size={20} />
+                                    </button>
+                                    {showGroupMenu && (
+                                        <div className="wa-menu-dropdown right" style={{ top: '100%', right: 0 }}>
+                                            <div className="wa-menu-item" onClick={() => { setIsContactInfoOpen(true); setShowGroupMenu(false); }}>Group info</div>
+                                            <div className="wa-menu-item" onClick={() => {
+                                                setIsForwardingMode(true);
+                                                setIsChatSelectionMode(true);
+                                                setShowGroupMenu(false);
+                                            }}>Select messages</div>
+                                            <div className="wa-menu-item" onClick={() => {
+                                                const id = selectedGroup._id;
+                                                const displayName = selectedGroup.name || 'Group';
+                                                if (archivedChatIds.includes(String(id))) {
+                                                    handleUnarchiveChat(id, displayName);
+                                                } else {
+                                                    handleArchiveChat(id, displayName);
+                                                }
+                                                setShowGroupMenu(false);
+                                            }}>
+                                                {archivedChatIds.includes(String(selectedGroup._id)) ? 'Unarchive group' : 'Archive group'}
+                                            </div>
+                                            <div className="wa-menu-item" onClick={() => { setShowMuteModal(true); setMuteTarget(selectedGroup); setShowGroupMenu(false); }}>Mute notifications</div>
+                                            <div className="wa-menu-item" onClick={() => { setIsClearChatConfirmOpen(true); setShowGroupMenu(false); }}>Clear messages</div>
+                                            <div className="wa-menu-item" style={{ color: '#ea0038' }} onClick={() => { setIsExitGroupConfirmOpen(true); setShowGroupMenu(false); }}>Exit group</div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
                         {/* Group Messages Area */}
+                        {/* Group Pinned Messages Banner */}
+                        {(() => {
+                            const pinnedMessages = groupMessages.filter(m => m.is_pinned && !m.is_deleted_by_admin && !m.is_deleted_by_user).sort((a, b) => new Date(b.pinned_at) - new Date(a.pinned_at));
+                            if (pinnedMessages.length === 0) return null;
+                            const safeIndex = currentPinnedIndex >= pinnedMessages.length ? 0 : currentPinnedIndex;
+                            const msg = pinnedMessages[safeIndex];
+
+                            let previewContent = null;
+                            const isExcel = msg.type === 'file' && msg.fileName && (msg.fileName.toLowerCase().endsWith('.xlsx') || msg.fileName.toLowerCase().endsWith('.xls') || msg.fileName.toLowerCase().endsWith('.csv'));
+                            const youtubeId = (msg.type === 'text' || !msg.type) && getYouTubeVideoId(msg.content) ? getYouTubeVideoId(msg.content) : null;
+
+                            if (msg.type === 'image' || msg.type === 'video') {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                        {msg.type === 'image' ? <img src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned" /> : <video src={msg.file_path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    </div>
+                                );
+                            } else if (isExcel) {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: 10 }}>
+                                        XLSX
+                                    </div>
+                                );
+                            } else if (youtubeId || (msg.link_preview && msg.link_preview.image)) {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5' }}>
+                                        <img src={msg.link_preview?.image || `https://img.youtube.com/vi/${youtubeId}/default.jpg`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="pinned link" />
+                                    </div>
+                                );
+                            } else if (msg.type === 'file') {
+                                previewContent = (
+                                    <div style={{ width: 36, height: 36, marginLeft: 12, borderRadius: 4, overflow: 'hidden', flexShrink: 0, backgroundColor: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <FileText size={20} color="#54656f" />
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="wa-pinned-messages-banner" style={{ background: 'white', padding: '8px 16px', borderBottom: '1px solid #d1d7db', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                                    onClick={() => {
+                                        navigateToMessage(msg);
+                                        setCurrentPinnedIndex((safeIndex + 1) % pinnedMessages.length);
+                                    }}>
+
+                                    {pinnedMessages.length > 1 && (
+                                        <div style={{ marginRight: 12, display: 'flex', flexDirection: 'column', gap: 4, height: 36, justifyContent: 'center' }}>
+                                            {Array.from({ length: pinnedMessages.length }).map((_, i) => (
+                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#008069' : '#d1d7db' }} />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 16, justifyContent: 'center' }}>
+                                        <Pin size={18} color="#8696a0" />
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                                        <span style={{ fontWeight: 500, fontSize: 13, color: '#111b21', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                            {isMeMsg(msg) ? 'You' : (msg.sender_id?.name || 'User')}
+                                        </span>
+                                        <span style={{ fontSize: 13, color: '#54656f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {msg.content || (msg.type === 'image' ? 'Photo' : msg.type === 'file' ? 'Document' : msg.type === 'video' ? 'Video' : 'Message')}
+                                        </span>
+                                    </div>
+
+                                    {previewContent}
+                                </div>
+                            );
+                        })()}
+
                         <div
                             ref={chatMessagesRef}
                             className="wa-chat-messages-area"
@@ -7254,6 +7701,10 @@ export default function Chat() {
                                 if (!el) return;
                                 const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
                                 setShowScrollBtn(distFromBottom > 80);
+                            }}
+                            onContextMenu={(e) => {
+                                e.preventDefault();
+                                setChatContextMenu({ x: e.clientX, y: e.clientY });
                             }}
                         >
                             <div style={{ flex: '1 1 auto' }}></div>
@@ -7337,9 +7788,9 @@ export default function Chat() {
                                                         className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
                                                         onClick={() => {
                                                             if (isForwardingMode) {
-                                                                const isSelected = forwardSelectedMsgs.find(m => (m._id || m.id) === (msg._id || msg.id));
+                                                                const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
                                                                 if (isSelected) {
-                                                                    setForwardSelectedMsgs(prev => prev.filter(m => (m._id || m.id) !== (msg._id || msg.id)));
+                                                                    setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
                                                                 } else {
                                                                     setForwardSelectedMsgs(prev => [...prev, msg]);
                                                                 }
@@ -7348,7 +7799,7 @@ export default function Chat() {
                                                     >
                                                         {isForwardingMode && (
                                                             <div className="wa-msg-checkbox">
-                                                                {forwardSelectedMsgs.find(m => m._id === msg._id) ?
+                                                                {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
                                                                     <CheckSquare size={24} color="white" fill="#027EB5" /> :
                                                                     <div className="wa-checkbox-empty" />
                                                                 }
@@ -7459,6 +7910,7 @@ export default function Chat() {
                                                             )}
 
                                                             <div className="wa-msg-meta">
+                                                                {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3 }} />}
                                                                 <span className="wa-timestamp">
                                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                                                 </span>
@@ -7482,65 +7934,148 @@ export default function Chat() {
                             <div ref={bottomRef} />
                         </div>
 
-                        {/* Group Input */}
-                        <div className="wa-footer-wrapper">
-                            {renderGrammarBar()}
-                            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
-                                {/* Typing Link Preview */}
-                                {typingLinkPreview && typingLinkPreview.title && (
-                                    <div className="wa-typing-link-preview">
-                                        <div className="wa-typing-preview-header" style={{ justifyContent: 'flex-end' }}>
-                                            <X size={16} style={{ cursor: 'pointer', color: '#667781' }} onClick={() => setTypingLinkPreview(null)} />
-                                        </div>
-                                        <div className="wa-typing-preview-card">
-                                            {typingLinkPreview.image && <img src={typingLinkPreview.image} alt={typingLinkPreview.title} className="wa-typing-preview-image" />}
-                                            <div className="wa-typing-preview-text">
-                                                <div className="wa-typing-preview-title">{typingLinkPreview.title}</div>
-                                                {typingLinkPreview.description && <div className="wa-typing-preview-description">{typingLinkPreview.description}</div>}
-                                                <div className="wa-typing-preview-domain"><span>{typingLinkPreview.domain}</span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {replyingTo && (
-                                    <div className="wa-reply-preview-container">
-                                        <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                                            <div className="wa-reply-preview-header">
-                                                <span className="wa-reply-preview-name">
-                                                    {isMeMsg(replyingTo) ? 'You' : (replyingTo.sender_id?.name || 'User')}
-                                                </span>
-                                            </div>
-                                            <div className="wa-reply-preview-content">
-                                                {replyingTo.type === 'image' ? '📷 Photo' : (replyingTo.type === 'file' ? '📄 File' : replyingTo.content)}
-                                            </div>
-                                        </div>
-                                        {replyingTo.type === 'image' && replyingTo.file_path && (
-                                            <div className="wa-reply-preview-thumb">
-                                                <img src={replyingTo.file_path} alt="thumbnail" />
-                                            </div>
-                                        )}
-                                        <X size={16} className="wa-reply-preview-close" onClick={() => setReplyingTo(null)} />
-                                    </div>
-                                )}
-
-                                <div className="wa-footer-inner">
-                                    <div className="wa-input-pill">
-                                        <div className="wa-footer-left-icons">
-                                            <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
-                                                <Plus size={22} color="#54656f" />
+                        {/* Forward Bottom Bar for Groups */}
+                        {isForwardingMode ? (
+                            <div className="wa-forward-bottom-bar">
+                                <div className="wa-forward-left-group">
+                                    <button className="wa-forward-cancel-btn" onClick={() => {
+                                        setIsForwardingMode(false);
+                                        setIsChatSelectionMode(false);
+                                        setForwardSelectedMsgs([]);
+                                    }}>
+                                        <X size={24} />
+                                    </button>
+                                    <span className="wa-forward-count">{forwardSelectedMsgs.length} selected</span>
+                                </div>
+                                <div className="wa-selection-actions">
+                                    {isChatSelectionMode && (
+                                        <>
+                                            <button onClick={handleChatSelectionBulkStar} title="Star messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Star size={24} color="#ffffff" />
                                             </button>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                style={{ display: 'none' }}
-                                                accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
-                                                onChange={handleFileSelect}
-                                            />
-                                            <button className="wa-nav-icon-btn">
-                                                <Smile size={22} color="#54656f" />
+                                            <button onClick={handleChatSelectionBulkDelete} title="Delete messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Trash2 size={24} color="#ffffff" />
                                             </button>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (forwardSelectedMsgs.length === 0) {
+                                                setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
+                                            } else {
+                                                setIsForwardModalOpen(true);
+                                            }
+                                        }}
+                                        title="Forward messages"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        <Forward size={24} color="#ffffff" />
+                                    </button>
+                                    {isChatSelectionMode && (
+                                        <>
+                                            <button onClick={handleChatSelectionBulkCopy} title="Copy messages" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <Copy size={24} color="#ffffff" />
+                                            </button>
+                                            {forwardSelectedMsgs.some(m => m.type === 'image' || m.type === 'video' || m.type === 'file' || m.type === 'audio') && (
+                                                <button onClick={handleChatSelectionBulkDownload} title="Download media" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                    <Download size={24} color="#ffffff" />
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="wa-footer-wrapper">
+                                {renderGrammarBar()}
+                                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '4px' }}>
+                                    {/* Typing Link Preview */}
+                                    {typingLinkPreview && typingLinkPreview.title && (
+                                        <div className="wa-typing-link-preview">
+                                            <div className="wa-typing-preview-header" style={{ justifyContent: 'flex-end' }}>
+                                                <X size={16} style={{ cursor: 'pointer', color: '#667781' }} onClick={() => setTypingLinkPreview(null)} />
+                                            </div>
+                                            <div className="wa-typing-preview-card">
+                                                {typingLinkPreview.image && <img src={typingLinkPreview.image} alt={typingLinkPreview.title} className="wa-typing-preview-image" />}
+                                                <div className="wa-typing-preview-text">
+                                                    <div className="wa-typing-preview-title">{typingLinkPreview.title}</div>
+                                                    {typingLinkPreview.description && <div className="wa-typing-preview-description">{typingLinkPreview.description}</div>}
+                                                    <div className="wa-typing-preview-domain"><span>{typingLinkPreview.domain}</span></div>
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
+
+                                    {replyingTo && (
+                                        <div className="wa-reply-preview-container">
+                                            <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+                                                <div className="wa-reply-preview-header">
+                                                    <span className="wa-reply-preview-name">
+                                                        {isMeMsg(replyingTo) ? 'You' : (replyingTo.sender_id?.name || 'User')}
+                                                    </span>
+                                                </div>
+                                                <div className="wa-reply-preview-content">
+                                                    {replyingTo.type === 'image' ? '📷 Photo' : (replyingTo.type === 'file' ? '📄 File' : replyingTo.content)}
+                                                </div>
+                                            </div>
+                                            {replyingTo.type === 'image' && replyingTo.file_path && (
+                                                <div className="wa-reply-preview-thumb">
+                                                    <img src={replyingTo.file_path} alt="thumbnail" />
+                                                </div>
+                                            )}
+                                            <X size={16} className="wa-reply-preview-close" onClick={() => setReplyingTo(null)} />
+                                        </div>
+                                    )}
+
+                                    <div className="wa-footer-inner">
+                                        <div className="wa-input-pill">
+                                            <div className="wa-footer-left-icons">
+                                                <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                                    <Plus size={22} color="#54656f" />
+                                                </button>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    style={{ display: 'none' }}
+                                                    accept=".jpg,.jpeg,.png,.doc,.docx,.pdf,.xls,.xlsx,.mp4,.avi,.mkv,.mov,.webm,video/*"
+                                                    onChange={handleFileSelect}
+                                                />
+                                                <button className="wa-nav-icon-btn">
+                                                    <Smile size={22} color="#54656f" />
+                                                </button>
+                                            </div>
+
+                                            <div className="wa-input-area">
+                                                <textarea
+                                                    className="wa-input-box"
+                                                    placeholder="Type a message"
+                                                    value={groupInput}
+                                                    onChange={(e) => setGroupInput(e.target.value)}
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            if (!groupInput.trim()) return;
+                                                            const text = groupInput;
+                                                            setGroupInput('');
+                                                            const replyId = replyingTo?._id || replyingTo?.id;
+                                                            setReplyingTo(null);
+                                                            try {
+                                                                const token = localStorage.getItem('token');
+                                                                const res = await axios.post(`/api/groups/${selectedGroup._id}/send`, { content: text, reply_to: replyId }, {
+                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                });
+                                                                setGroupMessages(prev => {
+                                                                    if (prev.find(m => m._id === res.data.message?._id)) return prev;
+                                                                    return [...prev, res.data.message];
+                                                                });
+                                                                setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+                                                            } catch (err) { console.error('Group send failed', err); }
+                                                        }
+                                                    }}
+                                                    rows={1}
+                                                    style={{ resize: 'none', overflowY: 'auto' }}
+                                                />
+                                            </div>
 
                                         <div className="wa-input-area">
                                             <textarea
@@ -7554,6 +8089,9 @@ export default function Chat() {
                                                 onKeyDown={async (e) => {
                                                     if (e.key === 'Enter' && !e.shiftKey) {
                                                         e.preventDefault();
+                                            <div className="wa-footer-right-icons">
+                                                {groupInput.trim() ? (
+                                                    <button className="wa-send-btn-circle-inner" onClick={async () => {
                                                         if (!groupInput.trim()) return;
                                                         const text = groupInput;
                                                         setGroupInput('');
@@ -7570,45 +8108,20 @@ export default function Chat() {
                                                             });
                                                             setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
                                                         } catch (err) { console.error('Group send failed', err); }
-                                                    }
-                                                }}
-                                                rows={1}
-                                                style={{ resize: 'none', overflowY: 'auto' }}
-                                            />
-                                        </div>
-
-                                        <div className="wa-footer-right-icons">
-                                            {groupInput.trim() ? (
-                                                <button className="wa-send-btn-circle-inner" onClick={async () => {
-                                                    if (!groupInput.trim()) return;
-                                                    const text = groupInput;
-                                                    setGroupInput('');
-                                                    const replyId = replyingTo?._id || replyingTo?.id;
-                                                    setReplyingTo(null);
-                                                    try {
-                                                        const token = localStorage.getItem('token');
-                                                        const res = await axios.post(`/api/groups/${selectedGroup._id}/send`, { content: text, reply_to: replyId }, {
-                                                            headers: { 'Authorization': `Bearer ${token}` }
-                                                        });
-                                                        setGroupMessages(prev => {
-                                                            if (prev.find(m => m._id === res.data.message?._id)) return prev;
-                                                            return [...prev, res.data.message];
-                                                        });
-                                                        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-                                                    } catch (err) { console.error('Group send failed', err); }
-                                                }}>
-                                                    <Send size={24} color="white" strokeWidth={2.5} />
-                                                </button>
-                                            ) : (
-                                                <button className="wa-nav-icon-btn-pill">
-                                                    <Mic size={22} color="#54656f" />
-                                                </button>
-                                            )}
+                                                    }}>
+                                                        <Send size={24} color="white" strokeWidth={2.5} />
+                                                    </button>
+                                                ) : (
+                                                    <button className="wa-nav-icon-btn-pill">
+                                                        <Mic size={22} color="#54656f" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 ) : (
                     <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', color: '#41525d' }}>
@@ -8414,7 +8927,7 @@ export default function Chat() {
 
     return (
         <>
-            <div className={`wa-app-container ${selectedUser ? 'chat-active' : 'list-active'}`}>
+            <div className={`wa-app-container ${(selectedUser || selectedGroup) ? 'chat-active' : 'list-active'}`}>
                 {renderLeftSidebar()}
                 {isSettingsOpen ? (
                     renderSettingsPanel()
@@ -8589,6 +9102,41 @@ export default function Chat() {
             )}
             {renderChatContextMenu()}
             {renderCameraModals()}
+
+            {adminConfirmModal && (
+                <div className="wa-mute-modal-overlay" onClick={() => setAdminConfirmModal(null)}>
+                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()} style={{ width: 400, padding: 24, borderRadius: 12 }}>
+                        <div style={{ textAlign: 'left', marginBottom: 20 }}>
+                            <h3 style={{ fontSize: 16, color: '#3b4a54', fontWeight: 400, margin: 0 }}>
+                                {adminConfirmModal.type === 'add'
+                                    ? `Are you sure you want to make ${adminConfirmModal.member.name || 'this person'} an admin?`
+                                    : `You want to remove this person as Group admin?`}
+                            </h3>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 32 }}>
+                            <button
+                                onClick={() => setAdminConfirmModal(null)}
+                                style={{ padding: '8px 24px', borderRadius: 24, border: '1px solid #d1d7db', background: 'transparent', color: '#027EB5', cursor: 'pointer', fontWeight: 500 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const m = adminConfirmModal.member;
+                                    const isAdmin = adminConfirmModal.type === 'add';
+                                    const activeTarget = selectedGroup;
+                                    const updatedMembers = activeTarget.members.map(member => member._id === m._id ? { ...member, isAdmin } : member);
+                                    setSelectedGroup({ ...activeTarget, members: updatedMembers });
+                                    setAdminConfirmModal(null);
+                                }}
+                                style={{ padding: '8px 24px', borderRadius: 24, border: 'none', background: '#027EB5', color: 'white', cursor: 'pointer', fontWeight: 500 }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {pinMessageModal && (
                 <div className="wa-mute-modal-overlay" onClick={() => setPinMessageModal(null)}>
