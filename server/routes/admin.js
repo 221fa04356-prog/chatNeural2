@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const Group = require('../models/Group');
+const GroupMessage = require('../models/GroupMessage');
 const ChatDeletion = require('../models/ChatDeletion');
 const PasswordReset = require('../models/PasswordReset');
 const sendEmail = require('../utils/emailService');
@@ -273,10 +276,17 @@ router.get('/chat/contacts/:userId', async (req, res) => {
         // Fetch user details for these contacts
         const contacts = await User.find({ _id: { $in: contactIds } }).select('name email');
 
+        // Fetch groups this user is a member of
+        const groups = await Group.find({ members: new mongoose.Types.ObjectId(userId) }).select('name');
+
         // Check if user has AI messages
         const hasAI = await Message.exists({ user_id: userId, receiver_id: null });
 
-        const result = contacts.map(c => ({ id: c._id, name: c.name, email: c.email, type: 'user' }));
+        const result = [
+            ...contacts.map(c => ({ id: c._id, name: c.name, email: c.email, type: 'user' })),
+            ...groups.map(g => ({ id: g._id, name: g.name || 'Unnamed Group', email: 'Group', type: 'group' }))
+        ];
+
         if (hasAI) {
             result.unshift({ id: 'ai', name: 'AI Assistant', email: 'System', type: 'ai' });
         }
@@ -295,21 +305,28 @@ router.get('/chat/dates/:userId/:otherUserId', async (req, res) => {
 
         if (otherUserId === 'ai') {
             query = { user_id: userId, receiver_id: null };
+            const messages = await Message.find(query).select('created_at').sort({ created_at: -1 });
+            const dates = [...new Set(messages.map(m => m.created_at.toISOString().split('T')[0]))];
+            return res.json(dates);
         } else {
-            query = {
-                $or: [
-                    { user_id: userId, receiver_id: otherUserId },
-                    { user_id: otherUserId, receiver_id: userId }
-                ]
-            };
+            // Check if it's a group
+            const isGroup = await Group.exists({ _id: otherUserId });
+            if (isGroup) {
+                const groupMessages = await GroupMessage.find({ group_id: otherUserId }).select('created_at').sort({ created_at: -1 });
+                const dates = [...new Set(groupMessages.map(m => m.created_at.toISOString().split('T')[0]))];
+                return res.json(dates);
+            } else {
+                query = {
+                    $or: [
+                        { user_id: userId, receiver_id: otherUserId },
+                        { user_id: otherUserId, receiver_id: userId }
+                    ]
+                };
+                const messages = await Message.find(query).select('created_at').sort({ created_at: -1 });
+                const dates = [...new Set(messages.map(m => m.created_at.toISOString().split('T')[0]))];
+                return res.json(dates);
+            }
         }
-
-        const messages = await Message.find(query).select('created_at').sort({ created_at: -1 });
-
-        // Extract unique dates (YYYY-MM-DD)
-        const dates = [...new Set(messages.map(m => m.created_at.toISOString().split('T')[0]))];
-
-        res.json(dates);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -522,25 +539,36 @@ router.get('/chat/history-filtered', async (req, res) => {
             created_at: { $gte: start, $lte: end }
         };
 
+        let messages = [];
         if (otherUserId === 'ai') {
             query.user_id = userId;
             query.receiver_id = null;
+            messages = await Message.find(query).sort({ created_at: 1 }).populate('reply_to', 'content type file_path role');
         } else {
-            query.$or = [
-                { user_id: userId, receiver_id: otherUserId },
-                { user_id: otherUserId, receiver_id: userId }
-            ];
+            const isGroup = await Group.exists({ _id: otherUserId });
+            if (isGroup) {
+                query.group_id = otherUserId;
+                const groupMsgs = await GroupMessage.find(query).sort({ created_at: 1 }).populate('sender_id', 'name');
+                messages = groupMsgs.map(m => {
+                    const obj = m.toObject();
+                    obj.user_id = m.sender_id?._id || m.sender_id;
+                    obj.sender_name = m.sender_id?.name || 'Unknown';
+                    return obj;
+                });
+            } else {
+                query.$or = [
+                    { user_id: userId, receiver_id: otherUserId },
+                    { user_id: otherUserId, receiver_id: userId }
+                ];
+                messages = await Message.find(query).sort({ created_at: 1 }).populate('reply_to', 'content type file_path role');
+            }
         }
-
-        const messages = await Message.find(query)
-            .sort({ created_at: 1 })
-            .populate('reply_to', 'content type file_path role');
 
         // Check if user has deleted this contact
         const deletions = await ChatDeletion.find({
             userId: userId,
             contactId: otherUserId
-        }).sort({ deletedAt: 1 });
+        }).populate('userId', 'name').sort({ deletedAt: 1 });
 
         const enrichedMessages = [...messages];
 
@@ -551,7 +579,7 @@ router.get('/chat/history-filtered', async (req, res) => {
                     _id: `deletion-${del._id}`,
                     role: 'system',
                     type: 'text',
-                    content: `This contact chat was deleted by user (${del.contactName || 'unknown'})`,
+                    content: `These chat were delted by the ${del.userId?.name || del.contactName || 'unknown'}`,
                     created_at: del.deletedAt,
                     is_system_notice: true
                 });

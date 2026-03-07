@@ -1915,7 +1915,7 @@ export default function AdminDashboard() {
                                             {chatContacts.filter(c => c.type !== 'ai' && c.name !== 'AI Assistant').map(c => (
                                                 <div key={c.id} onClick={() => handleSelectContact(c)} style={{ background: 'white', padding: '1rem', borderRadius: '1rem', border: '1px solid #e9ecef', cursor: 'pointer', transition: 'all 0.2s' }} className="hover-card">
                                                     <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#32325d' }}>{c.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#8898aa' }}>{c.type === 'ai' ? 'Automated Assistant' : 'Peer-to-Peer Chat'}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#8898aa' }}>{c.type === 'ai' ? 'Automated Assistant' : (c.type === 'group' ? 'Group Chat' : 'Peer-to-Peer Chat')}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -1975,7 +1975,7 @@ export default function AdminDashboard() {
                                     {chatStep === 'messages' && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             {viewChat.messages.map((msg, i) => {
-                                                const isMe = msg.user_id === viewChat.user.id;
+                                                const isMe = String(msg.user_id?._id || msg.user_id) === String(viewChat.user.id || viewChat.user._id);
                                                 const isDeleted = msg.is_deleted_by_admin || msg.is_deleted_by_user;
                                                 const msgId = msg._id || msg.id;
                                                 const isSelected = selectedMsgs.includes(msgId);
@@ -1992,106 +1992,144 @@ export default function AdminDashboard() {
                                                             transition: 'background 0.3s'
                                                         }}
                                                     >
-                                                        <div
-                                                            id={`msg-${msg._id || msg.id}`}
-                                                            style={{
-                                                                alignSelf: isMe ? 'flex-end' : 'flex-start',
-                                                                maxWidth: '85%',
+                                                        {msg.role === 'system' ? (
+                                                            <div style={{
                                                                 display: 'flex',
-                                                                flexDirection: isMe ? 'row-reverse' : 'row',
-                                                                alignItems: 'flex-start',
-                                                                gap: '4px',
-                                                                padding: '0 12px'
-                                                            }}
-                                                        >
-                                                            {selectionMode && !isDeleted && (
-                                                                <div
-                                                                    onClick={() => toggleSelectMsg(msgId)}
-                                                                    style={{
-                                                                        width: '20px', height: '20px', borderRadius: '50%',
-                                                                        border: `2px solid ${isSelected ? '#0FB5D0' : '#ced4da'}`,
-                                                                        background: isSelected ? '#0FB5D0' : 'transparent',
-                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                        cursor: 'pointer', transition: 'all 0.2s',
-                                                                        flexShrink: 0,
-                                                                        marginTop: '8px' // Align with the top of the bubble
-                                                                    }}
-                                                                >
-                                                                    {isSelected && <Check size={12} color="white" />}
-                                                                </div>
-                                                            )}
-                                                            <div
-                                                                onClick={() => selectionMode && !isDeleted && toggleSelectMsg(msgId)}
-                                                                style={{
-                                                                    display: 'flex', flexDirection: 'column',
-                                                                    alignItems: isMe ? 'flex-end' : 'flex-start',
-                                                                    cursor: selectionMode ? 'pointer' : 'default',
-                                                                    opacity: (selectionMode && !isSelected) ? 0.7 : 1,
-                                                                    transition: 'all 0.2s'
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    className="wa-message-bubble"
-                                                                    style={{
-                                                                        padding: '0.75rem 1rem', borderRadius: '1.2rem',
-                                                                        background: isMe ? '#0B8195' : 'white',
-                                                                        color: isMe ? 'white' : '#32325d',
-                                                                        boxShadow: isSelected ? '0 0 0 3px rgba(15, 181, 208, 0.3)' : '0 4px 6px rgba(50,50,93,0.1)',
-                                                                        border: isMe ? 'none' : '1px solid #e9ecef',
-                                                                        borderBottomRightRadius: isMe ? '0' : '1.2rem',
-                                                                        borderBottomLeftRadius: isMe ? '1.2rem' : '0',
-                                                                        position: 'relative',
-                                                                        transition: 'all 0.2s',
-                                                                        width: 'fit-content',
-                                                                        maxWidth: '100%',
-                                                                        wordBreak: 'normal',
-                                                                        overflowWrap: 'anywhere'
-                                                                    }}
-                                                                >
-                                                                    {!isDeleted && !selectionMode && (
-                                                                        <div
-                                                                            className="dropdown-trigger"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setMsgDropdown({ id: msgId, x: e.clientX, y: e.clientY });
-                                                                            }}
-                                                                            style={{
-                                                                                position: 'absolute', top: '8px', right: '8px',
-                                                                                left: 'auto', color: isMe ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.6)',
-                                                                                cursor: 'pointer', opacity: 0, transition: 'opacity 0.2s'
-                                                                            }}
-                                                                        >
-                                                                            <ChevronDown size={14} />
-                                                                        </div>
-                                                                    )}
-
-                                                                    {msg.is_deleted_by_admin && (
-                                                                        <div style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: isMe ? 'rgba(255,255,255,0.9)' : '#f5365c', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                                                                            <Trash2 size={12} style={{ marginRight: '4px' }} /> Deleted by Admin
-                                                                        </div>
-                                                                    )}
-                                                                    {msg.is_flagged && !isDeleted && (
-                                                                        <div style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: '#7D1802', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                                                                            <AlertTriangle size={12} style={{ marginRight: '4px' }} /> Unethical: {msg.flag_reason || 'Flagged'}
-                                                                        </div>
-                                                                    )}
-                                                                    {msg.is_deleted_by_user && (
-                                                                        <div style={{ fontSize: '0.85rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: isMe ? 'rgba(255,255,255,0.9)' : '#8898aa', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                                                                            <XCircle size={14} style={{ marginRight: '4px' }} /> Deleted by User
-                                                                        </div>
-                                                                    )}
-
-                                                                    {renderLinkPreview(msg)}
-
-                                                                    <div style={{ opacity: isDeleted ? 0.6 : 1, marginTop: msg.link_preview ? '10px' : '0', whiteSpace: 'pre-wrap' }}>
-                                                                        {renderContent(msg.content)}
-                                                                    </div>
-                                                                </div>
-                                                                <div style={{ fontSize: '0.7rem', color: '#8898aa', marginTop: '4px', textAlign: isMe ? 'right' : 'left' }}>
-                                                                    {isMe ? 'You' : (selectedContact.name)} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                margin: '20px 0',
+                                                                position: 'relative'
+                                                            }}>
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    left: 0,
+                                                                    right: 0,
+                                                                    height: '1px',
+                                                                    background: '#e9ecef',
+                                                                    zIndex: 1
+                                                                }}></div>
+                                                                <div style={{
+                                                                    background: '#f8f9fa',
+                                                                    padding: '4px 16px',
+                                                                    borderRadius: '20px',
+                                                                    fontSize: '0.75rem',
+                                                                    color: '#8898aa',
+                                                                    fontWeight: '600',
+                                                                    zIndex: 2,
+                                                                    border: '1px solid #e9ecef',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px'
+                                                                }}>
+                                                                    {msg.content}
                                                                 </div>
                                                             </div>
-                                                        </div>
+                                                        ) : (
+                                                            <div
+                                                                id={`msg-${msg._id || msg.id}`}
+                                                                style={{
+                                                                    alignSelf: isMe ? 'flex-end' : 'flex-start',
+                                                                    maxWidth: '85%',
+                                                                    display: 'flex',
+                                                                    flexDirection: isMe ? 'row-reverse' : 'row',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: '4px',
+                                                                    padding: '0 12px'
+                                                                }}
+                                                            >
+                                                                {selectionMode && !isDeleted && (
+                                                                    <div
+                                                                        onClick={() => toggleSelectMsg(msgId)}
+                                                                        style={{
+                                                                            width: '20px', height: '20px', borderRadius: '50%',
+                                                                            border: `2px solid ${isSelected ? '#0FB5D0' : '#ced4da'}`,
+                                                                            background: isSelected ? '#0FB5D0' : 'transparent',
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                            cursor: 'pointer', transition: 'all 0.2s',
+                                                                            flexShrink: 0,
+                                                                            marginTop: '8px' // Align with the top of the bubble
+                                                                        }}
+                                                                    >
+                                                                        {isSelected && <Check size={12} color="white" />}
+                                                                    </div>
+                                                                )}
+                                                                <div
+                                                                    onClick={() => selectionMode && !isDeleted && toggleSelectMsg(msgId)}
+                                                                    style={{
+                                                                        display: 'flex', flexDirection: 'column',
+                                                                        alignItems: isMe ? 'flex-end' : 'flex-start',
+                                                                        cursor: selectionMode ? 'pointer' : 'default',
+                                                                        opacity: (selectionMode && !isSelected) ? 0.7 : 1,
+                                                                        transition: 'all 0.2s'
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        className="wa-message-bubble"
+                                                                        style={{
+                                                                            padding: '0.75rem 1rem', borderRadius: '1.2rem',
+                                                                            background: isMe ? '#0B8195' : 'white',
+                                                                            color: isMe ? 'white' : '#32325d',
+                                                                            boxShadow: isSelected ? '0 0 0 3px rgba(15, 181, 208, 0.3)' : '0 4px 6px rgba(50,50,93,0.1)',
+                                                                            border: isMe ? 'none' : '1px solid #e9ecef',
+                                                                            borderBottomRightRadius: isMe ? '0' : '1.2rem',
+                                                                            borderBottomLeftRadius: isMe ? '1.2rem' : '0',
+                                                                            position: 'relative',
+                                                                            transition: 'all 0.2s',
+                                                                            width: 'fit-content',
+                                                                            maxWidth: '100%',
+                                                                            wordBreak: 'normal',
+                                                                            overflowWrap: 'anywhere'
+                                                                        }}
+                                                                    >
+                                                                        {selectedContact?.type === 'group' && !isMe && (
+                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#0A7C8F', marginBottom: '4px' }}>
+                                                                                {msg.sender_name || 'User'}
+                                                                            </div>
+                                                                        )}
+                                                                        {!isDeleted && !selectionMode && (
+                                                                            <div
+                                                                                className="dropdown-trigger"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setMsgDropdown({ id: msgId, x: e.clientX, y: e.clientY });
+                                                                                }}
+                                                                                style={{
+                                                                                    position: 'absolute', top: '8px', right: '8px',
+                                                                                    left: 'auto', color: isMe ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.6)',
+                                                                                    cursor: 'pointer', opacity: 0, transition: 'opacity 0.2s'
+                                                                                }}
+                                                                            >
+                                                                                <ChevronDown size={14} />
+                                                                            </div>
+                                                                        )}
+
+                                                                        {msg.is_deleted_by_admin && (
+                                                                            <div style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: isMe ? 'rgba(255,255,255,0.9)' : '#f5365c', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                                                                <Trash2 size={12} style={{ marginRight: '4px' }} /> Deleted by Admin
+                                                                            </div>
+                                                                        )}
+                                                                        {msg.is_flagged && !isDeleted && (
+                                                                            <div style={{ fontSize: '0.75rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: '#7D1802', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                                                                <AlertTriangle size={12} style={{ marginRight: '4px' }} /> Unethical: {msg.flag_reason || 'Flagged'}
+                                                                            </div>
+                                                                        )}
+                                                                        {msg.is_deleted_by_user && (
+                                                                            <div style={{ fontSize: '0.85rem', marginBottom: '6px', display: 'flex', alignItems: 'center', color: isMe ? 'rgba(255,255,255,0.9)' : '#8898aa', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                                                                <XCircle size={14} style={{ marginRight: '4px' }} /> Deleted by User
+                                                                            </div>
+                                                                        )}
+
+                                                                        {renderLinkPreview(msg)}
+
+                                                                        <div style={{ opacity: isDeleted ? 0.6 : 1, marginTop: msg.link_preview ? '10px' : '0', whiteSpace: 'pre-wrap' }}>
+                                                                            {renderContent(msg.content)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.7rem', color: '#8898aa', marginTop: '4px', textAlign: isMe ? 'right' : 'left' }}>
+                                                                        {isMe ? 'You' : (selectedContact.name)} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}

@@ -98,6 +98,7 @@ export default function Chat() {
     const [newChatSearchQuery, setNewChatSearchQuery] = useState('');
     const [groupSearchQuery, setGroupSearchQuery] = useState('');
     const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false);
 
     const [isContactInfoOpen, setIsContactInfoOpen] = useState(false); // Controls "Contact Info" panel
@@ -221,6 +222,7 @@ export default function Chat() {
         showRiskAlerts: true
     });
     const [isDeleteChatConfirmOpen, setIsDeleteChatConfirmOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null); // { id, isGroup, name }
     const fontSizesArr = [
         '25%', '33%', '50%', '67%', '75%', '80%', '90%',
         '100% (default)',
@@ -258,6 +260,8 @@ export default function Chat() {
                 setSelectedFontSize(matchingSize);
                 localStorage.setItem('neuChat_fontSize', matchingSize);
             }
+
+            setIsMobile(window.innerWidth <= 768);
         };
 
         window.addEventListener('resize', handleResize);
@@ -266,6 +270,17 @@ export default function Chat() {
     }, [baseDPR, selectedFontSize]);
 
     useEffect(() => {
+        // Disable manual scaling logic on mobile to prevent interference with native browser responsiveness
+        if (window.innerWidth <= 768) {
+            const container = document.querySelector('.wa-app-container');
+            if (container) {
+                container.style.zoom = '1';
+                container.style.width = '100vw';
+                container.style.height = '100vh';
+            }
+            return;
+        }
+
         const targetScale = parseInt(selectedFontSize) / 100;
         const internalZoom = targetScale / browserScale;
 
@@ -419,7 +434,7 @@ export default function Chat() {
     const [groupIcon, setGroupIcon] = useState(null);
     const [groups, setGroups] = useState([]);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
-    const [leftPanelWidth, setLeftPanelWidth] = useState(450);
+    const [leftPanelWidth, setLeftPanelWidth] = useState(window.innerWidth <= 768 ? window.innerWidth : 450);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const selectedGroupRef = useRef(null);
     const [groupMessages, setGroupMessages] = useState([]);
@@ -2241,32 +2256,42 @@ export default function Chat() {
     };
 
     const handleDeleteChatConfirm = async () => {
-        const activeTarget = selectedUser || selectedGroup;
+        const activeTarget = deleteTarget || selectedUser || selectedGroup;
         if (!activeTarget) return;
 
         try {
             const token = localStorage.getItem('token');
-            const isGroup = !!selectedGroup;
+            const targetId = activeTarget._id || activeTarget.id;
+            const isGroup = activeTarget.isGroup !== undefined
+                ? activeTarget.isGroup
+                : (activeTarget.is_group !== undefined ? activeTarget.is_group : !!selectedGroup);
+
             await axios.post('/api/chat/chat/delete-history', {
-                contactId: activeTarget._id,
+                contactId: targetId,
                 isGroup: isGroup,
-                contactName: isGroup ? activeTarget.name : activeTarget.name
+                contactName: activeTarget.name
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (isGroup) {
-                setGroups(prev => prev.filter(g => g._id !== activeTarget._id));
+                setGroups(prev => prev.filter(g => (g._id !== targetId && g.id !== targetId)));
             } else {
                 // Instead of removing from state, clear history locally so it disappears from "Recent" but stays for "Search"
-                setUsers(prev => prev.map(u => u._id === activeTarget._id ? { ...u, lastMessage: null, unreadCount: 0 } : u));
+                setUsers(prev => prev.map(u => (u._id === targetId || u.id === targetId) ? { ...u, lastMessage: null, unreadCount: 0 } : u));
             }
 
-            setMessages([]);
-            setGroupMessages([]);
-            setIsContactInfoOpen(false);
+            // If the deleted chat was the currently open one, close it
+            const currentId = (selectedUser?._id || selectedUser?.id || selectedGroup?._id || selectedGroup?.id);
+            if (currentId === targetId) {
+                setMessages([]);
+                setGroupMessages([]);
+                setIsContactInfoOpen(false);
+                handleBackToChatList();
+            }
+
             setIsDeleteChatConfirmOpen(false);
-            handleBackToChatList();
+            setDeleteTarget(null);
             setSnackbar({ message: 'Chat deleted successfully', type: 'success', variant: 'system' });
         } catch (err) {
             console.error("Delete chat failed", err);
@@ -4673,6 +4698,7 @@ export default function Chat() {
                             </div>
                         )}
                         <div className="wa-setting-item danger" onClick={() => {
+                            setDeleteTarget({ _id: activeTarget._id, id: activeTarget._id, name: displayName, isGroup });
                             setIsDeleteChatConfirmOpen(true);
                         }}>
                             <div className="wa-setting-icon"><Trash2 size={20} color="#e53935" /></div>
@@ -5468,16 +5494,9 @@ export default function Chat() {
                     </div>
 
                     <div className="wa-dropdown-item delete" onClick={() => {
-                        if (isGroup) {
-                            setGroups(prev => prev.filter(g => g._id !== id));
-                        } else {
-                            // Instead of filtering out of users state, clear history
-                            setUsers(prev => prev.map(u => u._id === id ? { ...u, lastMessage: null, unreadCount: 0 } : u));
-                        }
+                        setDeleteTarget({ _id: id, id: id, name: displayName, isGroup });
+                        setIsDeleteChatConfirmOpen(true);
                         setOpenDropdown(null);
-                        if ((selectedUser && selectedUser._id === id) || (selectedGroup && selectedGroup._id === id)) {
-                            handleBackToChatList();
-                        }
                     }}>
                         <Trash2 size={18} style={{ marginRight: 12 }} /> {isGroup ? 'Delete group' : 'Delete chat'}
                     </div>
@@ -6067,7 +6086,7 @@ export default function Chat() {
     };
 
     const renderLeftPanel = () => (
-        <div className="wa-left-panel" style={{ width: leftPanelWidth, minWidth: 260, maxWidth: window.innerWidth / 2, flex: 'none', position: 'relative', overflow: 'hidden' }}>
+        <div className="wa-left-panel" style={{ width: leftPanelWidth, minWidth: isMobile ? '100%' : 260, flex: 'none', position: 'relative', overflow: 'hidden' }}>
             {/* Drawers */}
             {isProfileOpen && renderProfileDrawer()}
             {isNewChatOpen && renderNewChatDrawer()}
@@ -6133,7 +6152,7 @@ export default function Chat() {
             {/* Unread Notifications Banner */}
             {totalUnread > 0 && showUnreadBanner && (
                 <div style={{
-                    margin: '0 12px 10px',
+                    margin: '10px 12px 10px',
                     padding: '10px 12px',
                     background: '#e7f5ff',
                     borderRadius: 8,
@@ -6312,7 +6331,7 @@ export default function Chat() {
                                                         ) :
                                                             item.lastMessage?.type === 'image' ? (isGroup ? '📷 Photo' : '📷 Image') :
                                                                 item.lastMessage?.type === 'file' ? '📄 File' :
-                                                                    renderHighlightedContent(item.lastMessage?.content || (item.lastMessage?.is_system ? `${item.lastMessage.sender_id?.name || 'Someone'} ${item.lastMessage.content}` : 'No messages'))
+                                                                    renderHighlightedContent(item.lastMessage?.content || (item.lastMessage?.is_system ? `${item.lastMessage.sender_id?.name || 'Someone'} ${item.lastMessage.content}` : ''))
                                                     )}
                                                 </span>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -8076,19 +8095,6 @@ export default function Chat() {
                                                     style={{ resize: 'none', overflowY: 'auto' }}
                                                 />
                                             </div>
-
-                                        <div className="wa-input-area">
-                                            <textarea
-                                                id="group-message-input"
-                                                name="message"
-                                                aria-label="Type a message"
-                                                className="wa-input-box"
-                                                placeholder="Type a message"
-                                                value={groupInput}
-                                                onChange={(e) => setGroupInput(e.target.value)}
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
                                             <div className="wa-footer-right-icons">
                                                 {groupInput.trim() ? (
                                                     <button className="wa-send-btn-circle-inner" onClick={async () => {
@@ -9000,11 +9006,16 @@ export default function Chat() {
 
             <ConfirmModal
                 isOpen={isDeleteChatConfirmOpen}
-                title={selectedGroup ? "Delete group?" : "Delete chat?"}
-                desc={selectedGroup ? "Are you sure you want to delete this group and all its messages?" : "Are you sure you want to delete this chat and all its messages?"}
+                title={deleteTarget?.isGroup || (!deleteTarget && selectedGroup) ? "Delete group?" : "Delete chat?"}
+                message={deleteTarget?.isGroup || (!deleteTarget && selectedGroup)
+                    ? `Are you sure you want to delete the group "${deleteTarget?.name || selectedGroup?.name}" and all its messages?`
+                    : `Are you sure you want to delete the chat with "${deleteTarget?.name || selectedUser?.name}" and all its messages?`}
                 confirmText="Delete"
                 onConfirm={handleDeleteChatConfirm}
-                onCancel={() => setIsDeleteChatConfirmOpen(false)}
+                onCancel={() => {
+                    setIsDeleteChatConfirmOpen(false);
+                    setDeleteTarget(null);
+                }}
             />
 
             <ConfirmModal
