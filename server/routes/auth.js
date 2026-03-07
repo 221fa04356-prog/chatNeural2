@@ -18,9 +18,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'neural_secret_77';
 
 // Register
 router.post('/register', async (req, res) => {
-    const { name, email, mobile, designation } = req.body;
+    const { name, email, mobile, countryCode, designation } = req.body;
 
-    if (!name || !email || !mobile) {
+    if (!name || !email || !mobile || !countryCode) {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -47,7 +47,7 @@ router.post('/register', async (req, res) => {
         }
 
         // Insert as pending
-        const newUser = await User.create({ name, email, mobile, designation, status: 'pending', is_temporary_password: false });
+        const newUser = await User.create({ name, email, mobile, countryCode, designation, status: 'pending', is_temporary_password: false });
 
         // Emit Socket Event
         if (req.io) {
@@ -76,7 +76,7 @@ router.post('/register', async (req, res) => {
                 <p><strong>Name:</strong> ${name}</p>
                 <p><strong>Job Position:</strong> ${designation || 'N/A'}</p>
                 <p><strong>Email:</strong> ${email}</p>
-                <p><strong>Mobile:</strong> ${mobile}</p>
+                <p><strong>Mobile:</strong> ${countryCode} ${mobile}</p>
                 <p>Please login to the admin dashboard to approve this user.</p>
             `;
             // Fire and forget email to not block response
@@ -192,7 +192,8 @@ router.post('/forgot-password', async (req, res) => {
             sendEmail(adminEmail, subject, html).catch(err => console.error('Failed to send admin email:', err));
         }
 
-        res.json({ message: 'Reset request sent to admin' });
+        console.log(`[DEBUG] Forgot Password for: ${user.name} (ID: ${user.login_id})`);
+        res.json({ message: 'Reset request sent to admin', name: user.name });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -200,14 +201,14 @@ router.post('/forgot-password', async (req, res) => {
 
 // Admin Registration (Secret Key Protected)
 router.post('/admin/register', async (req, res) => {
-    const { name, email, password, secretKey } = req.body;
+    const { name, email, mobile, countryCode, password, secretKey } = req.body;
 
     const MASTER_KEY = process.env.ADMIN_SECRET || 'neural_master_key';
     if (secretKey !== MASTER_KEY) {
         return res.status(403).json({ error: 'Invalid Admin Secret Key' });
     }
 
-    if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
+    if (!name || !email || !mobile || !countryCode || !password) return res.status(400).json({ error: 'All fields required' });
 
     try {
         const existing = await User.findOne({ email });
@@ -228,7 +229,8 @@ router.post('/admin/register', async (req, res) => {
             password_signature: signature,
             role: 'admin',
             status: 'approved',
-            mobile: '0000000000' + Date.now() // Dummy unique mobile
+            mobile,
+            countryCode
         });
 
         res.json({ message: 'Admin account created successfully' });
@@ -444,6 +446,7 @@ const VerificationLog = require('../models/VerificationLog');
 
 router.post('/send-call-otp', async (req, res) => {
     const { context, identifier, mobile } = req.body;
+    let user = null; // Declare user here to make it accessible later
     try {
         let finalMobile = mobile;
         if (!finalMobile && identifier) {
@@ -451,7 +454,7 @@ router.post('/send-call-otp', async (req, res) => {
             if (context.includes('admin') || identifier.includes('@')) query.email = identifier;
             else query.login_id = identifier;
 
-            const user = await User.findOne(query);
+            user = await User.findOne(query); // Assign to the declared user variable
             if (!user) return res.status(404).json({ error: 'User not found' });
             if (!user.mobile) return res.status(400).json({ error: 'No mobile number registered to this account' });
             finalMobile = user.mobile;
@@ -493,12 +496,12 @@ router.post('/send-call-otp', async (req, res) => {
 
             await client.calls.create({
                 twiml: twiml,
-                to: '+91' + cleanMobile,
+                to: (user?.countryCode || '+91') + cleanMobile,
                 from: fromPhone
             });
         } else {
             console.log('\n=============================================');
-            console.log('[TWILIO MOCK] Call to +91' + cleanMobile);
+            console.log(`[TWILIO MOCK] Call to ${(user?.countryCode || '+91')}${cleanMobile}`);
             console.log('[TWILIO MOCK] Body: Welcome... Your OTP is: ' + otp);
             console.log('=============================================\n');
         }
@@ -545,7 +548,7 @@ router.post('/verify-call-otp', async (req, res) => {
 });
 
 router.put('/update-profile', async (req, res) => {
-    const { userId, about, mobile } = req.body;
+    const { userId, about, mobile, countryCode } = req.body;
     console.log('[PROFILE UPDATE] Request received for userId:', userId);
 
     if (!userId) {
@@ -556,11 +559,12 @@ router.put('/update-profile', async (req, res) => {
     try {
         const updateData = {};
         if (about !== undefined) updateData.about = about;
+        if (countryCode !== undefined) updateData.countryCode = countryCode;
         if (mobile !== undefined) {
-            // Basic mobile validation match register logic
-            if (!/^\d{10}$/.test(mobile)) {
+            // Basic mobile validation match register logic: 10-15 digits
+            if (!/^\d{10,15}$/.test(mobile)) {
                 console.error('[PROFILE UPDATE] Invalid mobile format:', mobile);
-                return res.status(400).json({ error: 'Mobile number must be exactly 10 digits.' });
+                return res.status(400).json({ error: 'Mobile number must be between 10 and 15 digits.' });
             }
             // Check if mobile matches someone else
             const existing = await User.findOne({ mobile, _id: { $ne: userId } });

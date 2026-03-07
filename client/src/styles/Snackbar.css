@@ -12,15 +12,18 @@
 
 /* Base Card Style */
 .snackbar-card {
-    background: #f0f2f5;
-    width: 340px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    background: rgba(240, 242, 245, 0.85); /* Semi-transparent background */
+    backdrop-filter: blur(12px); /* Blur effect */
+    -webkit-backdrop-filter: blur(12px);
+    width: 360px;
+    border-radius: 18px; /* Softer rounded corners */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); /* Deeper shadow */
     display: flex;
     flex-direction: column;
     overflow: hidden;
     animation: slideInCard 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     color: #111b21;
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
 }
 
 /* Header - Branded */
@@ -28,7 +31,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 16px 4px 16px;
+    padding: 12px 18px 4px 18px;
 }
 
 .snackbar-app-info {
@@ -38,46 +41,47 @@
 }
 
 .snackbar-app-icon {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
 }
 
 .snackbar-app-name {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: #54656f;
 }
 
 .snackbar-header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     color: #8696a0;
 }
 
 .snackbar-close-icon,
 .snackbar-more-icon {
     cursor: pointer;
-    transition: color 0.2s;
+    transition: all 0.2s;
 }
 
 .snackbar-close-icon:hover {
     color: #111b21;
+    transform: scale(1.1);
 }
 
 /* Body Layout */
 .snackbar-body {
     display: flex;
-    align-items: center;
-    padding: 12px 16px 18px 16px;
+    align-items: flex-start; /* Align to top for multi-line */
+    padding: 8px 18px 20px 18px;
     gap: 14px;
 }
 
-/* Avatar - ONLY for default */
+/* Avatar */
 .snackbar-avatar {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     flex-shrink: 0;
 }
 
@@ -86,6 +90,7 @@
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .snackbar-initial-avatar {
@@ -98,7 +103,8 @@
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 18px;
+    font-size: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 /* Content Text */
@@ -107,14 +113,13 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    min-height: 44px;
-    /* Align with avatar height */
+    justify-content: flex-start;
+    padding-top: 2px;
 }
 
 .snackbar-sender-name {
-    font-weight: 700;
-    font-size: 15px;
+    font-weight: 750;
+    font-size: 16px;
     color: #111b21;
     margin-bottom: 2px;
 }
@@ -122,46 +127,51 @@
 .snackbar-message-preview {
     font-size: 14px;
     color: #54656f;
-    line-height: 1.4;
+    line-height: 1.5;
 }
 
 /* Action Button (Undo/Action) */
 .snackbar-action-btn {
     color: #027EB5;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
     cursor: pointer;
     margin-left: auto;
     white-space: nowrap;
-    padding-bottom: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
 }
 
 .snackbar-action-btn:hover {
-    text-decoration: underline;
+    background: rgba(2, 126, 181, 0.1);
+    text-decoration: none;
 }
 
-/* System Variant Overrides (Archive case) */
+/* System Variant Overrides */
 .snackbar-card.system .snackbar-body {
     padding-top: 8px;
-    padding-bottom: 20px;
+    padding-bottom: 24px;
 }
 
 .snackbar-card.system .snackbar-message-preview {
     color: #111b21;
     font-size: 15px;
+    font-weight: 500;
 }
 
-/* Simple/Dark Toast fallbacks */
+/* Simple/Dark Toast */
 .snackbar-card.dark-toast {
-    background: #111b21;
+    background: rgba(17, 27, 33, 0.9);
+    backdrop-filter: blur(8px);
     color: white;
     width: auto;
     min-width: 280px;
-    border-radius: 4px;
+    border-radius: 12px;
 }
 
 .snackbar-card.dark-toast .snackbar-message-preview {
-    color: white;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 /* Footer (Reply Input) */

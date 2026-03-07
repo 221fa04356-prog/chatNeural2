@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },
     mobile: { type: String, unique: true, required: true },
+    countryCode: { type: String, required: true, default: '+91' },
     designation: { type: String },
     about: { type: String, default: 'Available' },
     login_id: { type: String, unique: true, sparse: true }, // sparse allows null/undefined to not clash

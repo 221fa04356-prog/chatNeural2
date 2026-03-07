@@ -17,6 +17,7 @@ import '../styles/PrivacySettings.css';
 import { formatDateForSeparator } from '../utils/dateUtils';
 import Snackbar from '../components/Snackbar';
 import { getTranslator, getLangCode } from '../utils/translations';
+import { countryCodes } from '../utils/countryCodes';
 
 import NeuralBackground from '../components/NeuralBackground';
 import ConfirmModal from '../components/ConfirmModal';
@@ -382,6 +383,7 @@ export default function Chat() {
         const payload = {
             userId: userData.id || userData._id || user.id || user._id,
             mobile: cleanMobile,
+            countryCode: userData.countryCode,
             about: userData.about
         };
         console.log('[CLIENT] Attempting profile update with payload:', payload);
@@ -392,8 +394,8 @@ export default function Chat() {
             return;
         }
 
-        if (payload.mobile && payload.mobile.length !== 10) {
-            setSnackbar({ message: 'Error: Mobile number must be exactly 10 digits', type: 'error' });
+        if (payload.mobile && (payload.mobile.length < 10 || payload.mobile.length > 15)) {
+            setSnackbar({ message: 'Error: Mobile number must be between 10 and 15 digits', type: 'error' });
             return;
         }
 
@@ -5675,24 +5677,24 @@ export default function Chat() {
                                             onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
                                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '1px solid #e9edef', width: '100%', textAlign: 'left', padding: '8px 0' }}
                                         >
-                                            <span>{editCountry.code} {editCountry.dial}</span>
+                                            <span>{editCountry.dial}</span>
                                             <ChevronDown size={18} color="#8696a0" />
                                         </button>
 
                                         {isCountryDropdownOpen && (
-                                            <div className="wa-country-dropdown">
-                                                {countries.map(c => (
+                                            <div className="wa-country-dropdown" style={{ position: 'absolute', top: '100%', left: 0, width: '250px', maxHeight: '300px', overflowY: 'auto', background: 'white', border: '1px solid #e9edef', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', zIndex: 100 }}>
+                                                {countryCodes.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
                                                     <div
-                                                        key={c.code}
+                                                        key={`${c.isoCode}-${c.dialCode}`}
                                                         className="wa-country-item"
                                                         onClick={() => {
-                                                            setEditCountry(c);
+                                                            setEditCountry({ name: c.name, code: c.isoCode, dial: c.dialCode });
                                                             setIsCountryDropdownOpen(false);
                                                         }}
+                                                        style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f2f5' }}
                                                     >
-                                                        <span style={{ marginRight: 10 }}>{c.flag}</span>
                                                         <span style={{ flex: 1 }}>{c.name}</span>
-                                                        <span style={{ color: '#8696a0' }}>{c.dial}</span>
+                                                        <span style={{ color: '#8696a0' }}>{c.dialCode}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -5707,10 +5709,10 @@ export default function Chat() {
                                             autoComplete="tel"
                                             className="wa-edit-input"
                                             value={editPhone}
-                                            maxLength={10}
+                                            maxLength={15}
                                             onChange={(e) => {
                                                 const val = e.target.value.replace(/[^0-9]/g, '');
-                                                if (val.length <= 10) setEditPhone(val);
+                                                if (val.length <= 15) setEditPhone(val);
                                             }}
                                         />
                                     </div>
@@ -5771,15 +5773,16 @@ export default function Chat() {
                                     await axios.post('/api/chat/user/update', {
                                         targetUserId: selectedUser._id,
                                         name: newName,
-                                        mobile: editPhone
+                                        mobile: editPhone,
+                                        countryCode: editCountry.dial
                                     }, {
                                         headers: { 'Authorization': `Bearer ${token}` }
                                     });
 
                                     // Update Selected User
-                                    setSelectedUser(prev => ({ ...prev, name: newName, mobile: editPhone, country: editCountry }));
+                                    setSelectedUser(prev => ({ ...prev, name: newName, mobile: editPhone, country: editCountry, countryCode: editCountry.dial }));
                                     // Update Users List
-                                    setUsers(prev => prev.map(u => u._id === selectedUser._id ? { ...u, name: newName, mobile: editPhone } : u));
+                                    setUsers(prev => prev.map(u => u._id === selectedUser._id ? { ...u, name: newName, mobile: editPhone, country: editCountry, countryCode: editCountry.dial } : u));
                                     // Close Panel
                                     setIsEditContactOpen(false);
                                     setSnackbar({ message: 'Profile Updated successfully', type: 'success', variant: 'system' });
@@ -8297,14 +8300,32 @@ export default function Chat() {
                                         <div className="wa-settings-field">
                                             <label>{t('settings.profile.phone')}</label>
                                             {isSettingsEditing ? (
-                                                <input
-                                                    type="text"
-                                                    className="wa-settings-input"
-                                                    value={userData.mobile || ""}
-                                                    onChange={(e) => setUserData({ ...userData, mobile: e.target.value })}
-                                                />
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <select
+                                                        className="wa-settings-input"
+                                                        style={{ width: '100px', cursor: 'pointer' }}
+                                                        value={userData.countryCode || '+91'}
+                                                        onChange={(e) => setUserData({ ...userData, countryCode: e.target.value })}
+                                                    >
+                                                        {countryCodes.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                                                            <option key={`${c.isoCode}-${c.dialCode}`} value={c.dialCode}>
+                                                                {c.isoCode} ({c.dialCode})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <input
+                                                        type="text"
+                                                        className="wa-settings-input"
+                                                        style={{ flex: 1 }}
+                                                        value={userData.mobile || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/\D/g, '');
+                                                            if (val.length <= 15) setUserData({ ...userData, mobile: val });
+                                                        }}
+                                                    />
+                                                </div>
                                             ) : (
-                                                <p>{userData.mobile || "N/A"}</p>
+                                                <p>{userData.countryCode || ""} {userData.mobile || "N/A"}</p>
                                             )}
                                         </div>
                                     </div>
