@@ -312,7 +312,7 @@ router.post('/toggle-favorite', authenticateToken, async (req, res) => {
 
 // Update User info (from Edit Contact panel) - Secured with Auth
 router.post('/user/update', authenticateToken, async (req, res) => {
-    const { targetUserId, name, mobile } = req.body;
+    const { targetUserId, name, mobile, countryCode } = req.body;
 
     if (!targetUserId) return res.status(400).json({ error: 'Target User ID required' });
 
@@ -320,6 +320,7 @@ router.post('/user/update', authenticateToken, async (req, res) => {
         const updateData = {};
         if (name !== undefined) updateData.name = name;
         if (mobile !== undefined) updateData.mobile = mobile;
+        if (countryCode !== undefined) updateData.countryCode = countryCode;
         if (req.body.designation !== undefined) updateData.designation = req.body.designation;
         if (req.body.about !== undefined) updateData.about = req.body.about;
 

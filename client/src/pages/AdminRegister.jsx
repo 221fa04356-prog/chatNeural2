@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Shield, Lock, Mail, User, Key, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Shield, Lock, Mail, User, Key, Eye, EyeOff, ArrowLeft, Phone } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import HumanVerification from '../components/HumanVerification';
 import Snackbar from '../components/Snackbar';
+import { countryCodes } from '../utils/countryCodes';
 import '../styles/Home.css';
 
 export default function AdminRegister() {
-    const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', secretKey: '' });
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', secretKey: '', mobile: '', countryCode: '+91' });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'info' });
@@ -27,6 +28,7 @@ export default function AdminRegister() {
         const nameRegex = /^[a-zA-Z\s]+$/;
         const emailRegex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
         const passwordRegex = /^[A-Z][a-z]*(?=.*\d)(?=.*[@#$&*])[a-z\d@#$&*]{7,19}$/;
+        const mobileRegex = /^\d{10,15}$/;
 
         if (!nameRegex.test(formData.name)) {
             setSnackbar({ open: true, message: 'Full Name must contain only alphabets', type: 'warning' });
@@ -35,6 +37,11 @@ export default function AdminRegister() {
 
         if (!emailRegex.test(formData.email)) {
             setSnackbar({ open: true, message: 'Please enter a valid email address', type: 'warning' });
+            return;
+        }
+
+        if (!formData.mobile || !mobileRegex.test(formData.mobile)) {
+            setSnackbar({ open: true, message: 'Mobile number must be between 10 and 15 digits', type: 'warning' });
             return;
         }
 
@@ -126,6 +133,46 @@ export default function AdminRegister() {
                                         required
                                         className="input-neural"
                                     />
+                                </div>
+                            </div>
+
+                            <div className="form-group-custom">
+                                <label style={{ display: 'block', fontWeight: '700', color: '#475569' }}>Mobile Number</label>
+                                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                    <div style={{ position: 'relative', width: '100px', flexShrink: 0 }}>
+                                        <select
+                                            value={formData.countryCode}
+                                            onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+                                            className="input-neural"
+                                            style={{ paddingLeft: '8px', paddingRight: '20px', fontSize: '0.85rem', appearance: 'none', cursor: 'pointer', height: '42px' }}
+                                        >
+                                            {countryCodes.sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
+                                                <option key={`${c.isoCode}-${c.dialCode}`} value={c.dialCode}>
+                                                    {c.isoCode} ({c.dialCode})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div style={{ position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94A3B8', fontSize: '0.7rem' }}>
+                                            ▼
+                                        </div>
+                                    </div>
+                                    <div style={{ position: 'relative', flex: 1 }}>
+                                        <Phone size={16} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '10px', color: '#94A3B8', zIndex: 10, pointerEvents: 'none' }} />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Mobile"
+                                            value={formData.mobile}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                if (/^\d*$/.test(val) && val.length <= 15) {
+                                                    setFormData({ ...formData, mobile: val });
+                                                }
+                                            }}
+                                            required
+                                            style={{ height: '42px' }}
+                                            className="input-neural"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

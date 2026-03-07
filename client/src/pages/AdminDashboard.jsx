@@ -243,7 +243,11 @@ export default function AdminDashboard() {
 
     // Snackbar & Confirmation
     const [snackbar, setSnackbar] = useState(null);
-    const showSnackbar = (message, type = 'info') => setSnackbar({ message, type });
+    const showSnackbar = (message, type = 'info') => {
+        const name = adminUser?.name || 'Admin';
+        const adminLabel = `Admin (${name})`;
+        setSnackbar({ open: true, message, type, senderName: adminLabel });
+    };
     const closeSnackbar = () => setSnackbar(null);
 
     const [confirmConfig, setConfirmConfig] = useState(null);
@@ -429,7 +433,7 @@ export default function AdminDashboard() {
                 if (prev.find(u => u.id === newUser.id)) return prev;
                 return [...prev, newUser];
             });
-            showSnackbar(`New Registration: ${newUser.name}`, 'info');
+            showSnackbar(`New Registration (Pending Approval): ${newUser.name}`, 'info');
             fetchStats();
         });
 
@@ -439,7 +443,8 @@ export default function AdminDashboard() {
                 if (prev.find(r => r.id === newReset.id)) return prev;
                 return [...prev, newReset];
             });
-            showSnackbar(`New Password Reset Request: ${newReset.login_id || newReset.email}`, 'info');
+            const identifier = `${newReset.name} (${newReset.login_id || newReset.email})`;
+            showSnackbar(`New Password Reset Request: ${identifier}`, 'info');
             fetchStats();
         });
 
@@ -528,7 +533,8 @@ export default function AdminDashboard() {
 
         try {
             await axios.post('/api/admin/approve', { userId, loginId, password });
-            showSnackbar('User approved!', 'success');
+            const user = users.find(u => u.id === userId || u._id === userId);
+            showSnackbar(`Pending Approval approved for: ${user?.name || ''} (${loginId})`, 'success');
             fetchData();
             fetchStats();
             setConfirmPass({ ...confirmPass, [userId]: '' });
@@ -551,8 +557,10 @@ export default function AdminDashboard() {
 
         try {
             await axios.post('/api/admin/reset-password', { requestId, userId, newPassword });
-            showSnackbar('Temporary password allocated', 'success');
-            fetchData();
+            // Find the user associated with the reset request to display their name/login_id
+            const user = users.find(u => u.id === userId);
+            showSnackbar(`Temporary password set for: ${user?.name || userId} (${user?.login_id || ''})`, 'success');
+            fetchData(); // Re-fetch data to update resets list if needed
             fetchStats();
         } catch (err) {
             showSnackbar(err.response?.data?.error || 'Reset failed', 'error');
@@ -674,7 +682,7 @@ export default function AdminDashboard() {
                 setViewChat({ ...viewChat, messages: viewChat.messages.map(m => selectedMsgs.includes(m.id || m._id) ? { ...m, is_deleted_by_admin: true } : m) });
                 setSelectionMode(false);
                 setSelectedMsgs([]);
-                showSnackbar('Messages deleted', 'success');
+                showSnackbar('Chat Messages deleted', 'success');
                 closeConfirm();
             } catch (err) {
                 showSnackbar('Failed to delete messages', 'error');
@@ -1347,7 +1355,7 @@ export default function AdminDashboard() {
                                                         fetchData();
                                                         fetchStats();
                                                         closeConfirm();
-                                                        showSnackbar('Registration rejected', 'success');
+                                                        showSnackbar(`Pending Approval rejected for: ${u.name} (${u.login_id || u.email})`, 'success');
                                                     })}
                                                     style={{ background: '#fff', color: '#f5365c', padding: '8px 12px', width: '110px', minWidth: '110px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(245, 54, 92, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap', outline: 'none' }}
                                                     className="hover-card"
@@ -1398,7 +1406,7 @@ export default function AdminDashboard() {
                                                         fetchData();
                                                         fetchStats();
                                                         closeConfirm();
-                                                        showSnackbar('User deleted', 'success');
+                                                        showSnackbar(`Total User deleted: ${u.name} (${u.login_id || u.email})`, 'success');
                                                     })}
                                                     style={{ background: '#fff', color: '#f5365c', padding: '8px 12px', width: '110px', minWidth: '110px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(245, 54, 92, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap', outline: 'none' }}
                                                     className="hover-card"
@@ -1588,7 +1596,7 @@ export default function AdminDashboard() {
                                                     fetchData();
                                                     fetchStats();
                                                     closeConfirm();
-                                                    showSnackbar('Request deleted', 'success');
+                                                    showSnackbar(`Reset Request deleted for: ${r.name} (${r.login_id})`, 'success');
                                                 })}
                                                 style={{ background: '#fff', color: '#f5365c', padding: '8px 12px', width: '110px', minWidth: '110px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(245, 54, 92, 0.1)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap', outline: 'none' }}
                                                 className="hover-card"
@@ -2148,7 +2156,7 @@ export default function AdminDashboard() {
 
             {/* Global Confirms & Notifications */}
             {renderMsgDropdown()}
-            {snackbar && <Snackbar message={snackbar.message} type={snackbar.type} onClose={closeSnackbar} />}
+            {snackbar && <Snackbar message={snackbar.message} type={snackbar.type} senderName={snackbar.senderName} onClose={closeSnackbar} />}
             <ConfirmModal isOpen={!!confirmConfig} {...confirmConfig} onCancel={closeConfirm} />
 
             {/* Unethical Content Alert Popup */}

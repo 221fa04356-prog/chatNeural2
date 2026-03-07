@@ -123,8 +123,15 @@ export default function Home() {
 
         try {
             const payload = isAdmin ? { email: adminEmail } : { loginId: userLoginId };
-            await axios.post('/api/auth/forgot-password', payload);
-            setSnackbar({ open: true, message: 'Password reset request sent to Admin.', type: 'success' });
+            const res = await axios.post('/api/auth/forgot-password', payload);
+            const displayName = res.data.name || 'User';
+            const userIdentifier = `${displayName} (${isAdmin ? adminEmail : userLoginId})`;
+            setSnackbar({
+                open: true,
+                message: 'Password reset request sent to Admin.',
+                type: 'success',
+                senderName: userIdentifier
+            });
         } catch (err) {
             setSnackbar({
                 open: true,
@@ -191,7 +198,8 @@ export default function Home() {
                 <Snackbar
                     message={snackbar.message}
                     type={snackbar.type}
-                    variant="system"
+                    variant="default"
+                    senderName={snackbar.senderName || "Admin"}
                     onClose={() => setSnackbar({ ...snackbar, open: false })}
                 />
             )}

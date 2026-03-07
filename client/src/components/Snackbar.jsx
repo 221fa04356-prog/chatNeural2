@@ -59,25 +59,31 @@ const Snackbar = ({ message, senderName, senderAvatar, type = 'info', onClose, d
                 <div className="snackbar-body">
                     {/* Avatar and Sender Name - ONLY for default variant */}
                     {variant === 'default' && (
-                        <>
-                            <div className="snackbar-avatar">
-                                {senderAvatar ? (
-                                    <img src={senderAvatar} alt={senderName} />
-                                ) : (
-                                    <div className="snackbar-initial-avatar">
-                                        {senderName ? senderName.charAt(0).toUpperCase() : 'A'}
-                                    </div>
-                                )}
-                            </div>
-                        </>
+                        <div className="snackbar-avatar">
+                            {senderAvatar ? (
+                                <img src={senderAvatar} alt={senderName} />
+                            ) : (
+                                <div className="snackbar-initial-avatar">
+                                    {(() => {
+                                        if (!senderName) return 'A';
+                                        // Handle "Admin (Name)" format
+                                        const match = senderName.match(/\((.*?)\)/);
+                                        const nameToUse = match ? match[1] : senderName;
+                                        // Skip "Admin" part if it's the only thing
+                                        const finalName = nameToUse.toLowerCase().startsWith('admin') && nameToUse.length > 5
+                                            ? nameToUse.substring(5).trim()
+                                            : nameToUse;
+                                        return finalName.charAt(0).toUpperCase() || 'A';
+                                    })()}
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     <div className="snackbar-content-text">
-                        {variant === 'default' && (
-                            <div className="snackbar-sender-name">
-                                {senderName || 'Admin'}
-                            </div>
-                        )}
+                        <div className="snackbar-sender-name">
+                            {senderName || 'Admin'}
+                        </div>
                         <div className="snackbar-message-preview">{message}</div>
                     </div>
 
@@ -85,11 +91,6 @@ const Snackbar = ({ message, senderName, senderAvatar, type = 'info', onClose, d
                         <div className="snackbar-action-btn" onClick={() => { onAction(); onClose(); }}>
                             {actionLabel}
                         </div>
-                    )}
-
-                    {/* Simple Close Icon - Only for simple variant */}
-                    {(variant === 'simple' || variant === 'dark-toast') && (
-                        <X size={16} className="snackbar-close-icon-simple" onClick={onClose} style={{ cursor: 'pointer', marginLeft: 'auto', color: '#fff', opacity: 0.8 }} />
                     )}
                 </div>
 
