@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const ChatDeletion = require('../models/ChatDeletion');
 const PasswordReset = require('../models/PasswordReset');
 const sendEmail = require('../utils/emailService');
 const crypto = require('crypto');
@@ -535,7 +536,31 @@ router.get('/chat/history-filtered', async (req, res) => {
             .sort({ created_at: 1 })
             .populate('reply_to', 'content type file_path role');
 
-        res.json(messages);
+        // Check if user has deleted this contact
+        const deletions = await ChatDeletion.find({
+            userId: userId,
+            contactId: otherUserId
+        }).sort({ deletedAt: 1 });
+
+        const enrichedMessages = [...messages];
+
+        if (deletions.length > 0) {
+            deletions.forEach(del => {
+                // Add a synthetic system message for each deletion
+                enrichedMessages.push({
+                    _id: `deletion-${del._id}`,
+                    role: 'system',
+                    type: 'text',
+                    content: `This contact chat was deleted by user (${del.contactName || 'unknown'})`,
+                    created_at: del.deletedAt,
+                    is_system_notice: true
+                });
+            });
+            // Re-sort by created_at since we added messages
+            enrichedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        }
+
+        res.json(enrichedMessages);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

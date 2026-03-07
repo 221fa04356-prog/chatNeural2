@@ -103,7 +103,8 @@ export default function Chat() {
     const [isContactInfoOpen, setIsContactInfoOpen] = useState(false); // Controls "Contact Info" panel
     const [messageSearchQuery, setMessageSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all'); // 'all' | 'unread' | 'favorites'
-    const [openDropdown, setOpenDropdown] = useState(null); // { type: 'msg'|'contact', id: string }
+    const [openDropdown, setOpenDropdown] = useState(null); // { type: 'msg'|'contact', id: string, data: any }
+    const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0 });
     const [chatContextMenu, setChatContextMenu] = useState(null); // { x: number, y: number }
     const [replyingTo, setReplyingTo] = useState(null); // { _id: string, content: string, senderName: string }
     const [infoMessage, setInfoMessage] = useState(null); // Message details view
@@ -216,6 +217,7 @@ export default function Chat() {
         showEncryptionBadge: true,
         showRiskAlerts: true
     });
+    const [isDeleteChatConfirmOpen, setIsDeleteChatConfirmOpen] = useState(false);
     const fontSizesArr = [
         '25%', '33%', '50%', '67%', '75%', '80%', '90%',
         '100% (default)',
@@ -2076,7 +2078,7 @@ export default function Chat() {
             const token = localStorage.getItem('token');
             const res = await axios.post('/api/chat/messages/bulk-delete', {
                 messageIds: validIds,
-                deleteFor: deleteOption // Send 'me' or 'everyone' to backend
+                mode: deleteOption // Fixed: Send 'mode' instead of 'deleteFor'
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -2085,42 +2087,40 @@ export default function Chat() {
                 const currentUserId = user.id || user._id;
                 const results = res.data.results || [];
 
-                setMessages(prev => {
+                const updateMsgsState = (prev) => {
                     let updatedMsgs = [...prev];
                     results.forEach(resMsg => {
                         const mId = String(resMsg.messageId);
-                        const isDeletedForMe = resMsg.deleted_for && resMsg.deleted_for.some(id => String(id) === String(currentUserId));
+                        const existingMsg = updatedMsgs.find(m => String(m._id) === mId || String(m.id) === mId);
 
-                        if (isDeletedForMe) {
+                        // If already deleted or admin deleted, and user chose 'me', remove from view
+                        const wasAlreadyDeleted = existingMsg && (existingMsg.is_deleted_by_user || existingMsg.is_deleted_by_admin || (existingMsg.deleted_for && existingMsg.deleted_for.some(id => String(id) === String(currentUserId))));
+
+                        if (deleteOption === 'me' && wasAlreadyDeleted) {
                             updatedMsgs = updatedMsgs.filter(m => String(m._id) !== mId && String(m.id) !== mId);
                         } else {
-                            updatedMsgs = updatedMsgs.map(m =>
-                                (String(m._id) === mId || String(m.id) === mId)
-                                    ? { ...m, is_deleted_by_admin: resMsg.is_deleted_by_admin, is_deleted_by_user: resMsg.is_deleted_by_user }
-                                    : m
-                            );
+                            const isDeletedForMe = resMsg.deleted_for && resMsg.deleted_for.some(id => String(id) === String(currentUserId));
+                            if (isDeletedForMe) {
+                                // For bulk, if it's the first 'delete for me', we keep it in view but it will show placeholder
+                                updatedMsgs = updatedMsgs.map(m =>
+                                    (String(m._id) === mId || String(m.id) === mId)
+                                        ? { ...m, deleted_for: resMsg.deleted_for, is_deleted_by_admin: resMsg.is_deleted_by_admin, is_deleted_by_user: resMsg.is_deleted_by_user }
+                                        : m
+                                );
+                            } else {
+                                updatedMsgs = updatedMsgs.map(m =>
+                                    (String(m._id) === mId || String(m.id) === mId)
+                                        ? { ...m, is_deleted_by_admin: resMsg.is_deleted_by_admin, is_deleted_by_user: resMsg.is_deleted_by_user }
+                                        : m
+                                );
+                            }
                         }
                     });
                     return updatedMsgs;
-                });
+                };
 
-                setGroupMessages(prev => {
-                    let updatedMsgs = [...prev];
-                    results.forEach(resMsg => {
-                        const mId = String(resMsg.messageId);
-                        const isDeletedForMe = resMsg.deleted_for && resMsg.deleted_for.some(id => String(id) === String(currentUserId));
-                        if (isDeletedForMe) {
-                            updatedMsgs = updatedMsgs.filter(m => String(m._id) !== mId && String(m.id) !== mId);
-                        } else {
-                            updatedMsgs = updatedMsgs.map(m =>
-                                (String(m._id) === mId || String(m.id) === mId)
-                                    ? { ...m, is_deleted_by_admin: resMsg.is_deleted_by_admin, is_deleted_by_user: resMsg.is_deleted_by_user }
-                                    : m
-                            );
-                        }
-                    });
-                    return updatedMsgs;
-                });
+                setMessages(updateMsgsState);
+                setGroupMessages(updateMsgsState);
 
                 setSnackbar({
                     message: deleteOption === 'everyone' ? 'Messages deleted for everyone' : 'Messages deleted',
@@ -2150,34 +2150,69 @@ export default function Chat() {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.post(`/api/chat/message/${msgId}/delete`, {
-                deleteFor: deleteOption // Send 'me' or 'everyone' to backend
+                mode: deleteOption // Fixed: Send 'mode' instead of 'deleteFor'
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (res.data.status === 'success') {
                 const currentUserId = user.id || user._id;
-                const isDeletedForMe = res.data.deleted_for && res.data.deleted_for.some(id => String(id) === String(currentUserId));
+                const existingMsg = (selectedGroup ? groupMessages : messages).find(m => m._id === msgId || m.id === msgId);
 
-                if (isDeletedForMe) {
+                // If already deleted or admin deleted, and user clicks 'delete for me', remove from view
+                const wasAlreadyDeleted = existingMsg && (existingMsg.is_deleted_by_user || existingMsg.is_deleted_by_admin || (existingMsg.deleted_for && existingMsg.deleted_for.some(id => String(id) === String(currentUserId))));
+
+                if (deleteOption === 'me' && wasAlreadyDeleted) {
                     setMessages(prev => prev.filter(msg => msg._id !== msgId && msg.id !== msgId));
+                    setGroupMessages(prev => prev.filter(msg => msg._id !== msgId && msg.id !== msgId));
                 } else {
-                    setMessages(prev => prev.map(msg =>
+                    const updateFn = prev => prev.map(msg =>
                         (msg._id === msgId || msg.id === msgId)
-                            ? { ...msg, is_deleted_by_admin: res.data.is_deleted_by_admin, is_deleted_by_user: res.data.is_deleted_by_user }
+                            ? { ...msg, deleted_for: res.data.deleted_for, is_deleted_by_admin: res.data.is_deleted_by_admin, is_deleted_by_user: res.data.is_deleted_by_user }
                             : msg
-                    ));
-                    setGroupMessages(prev => prev.map(msg =>
-                        (msg._id === msgId || msg.id === msgId)
-                            ? { ...msg, is_deleted_by_admin: res.data.is_deleted_by_admin, is_deleted_by_user: res.data.is_deleted_by_user }
-                            : msg
-                    ));
+                    );
+                    setMessages(updateFn);
+                    setGroupMessages(updateFn);
                 }
                 setSnackbar({ message: deleteOption === 'everyone' ? 'Message deleted for everyone' : 'Message deleted', type: 'success', variant: 'system' });
             }
         } catch (err) {
             console.error("Delete failed", err);
             setSnackbar({ message: 'Delete failed', type: 'error', variant: 'system' });
+        }
+    };
+
+    const handleDeleteChatConfirm = async () => {
+        const activeTarget = selectedUser || selectedGroup;
+        if (!activeTarget) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const isGroup = !!selectedGroup;
+            await axios.post('/api/chat/chat/delete-history', {
+                contactId: activeTarget._id,
+                isGroup: isGroup,
+                contactName: isGroup ? activeTarget.name : activeTarget.name
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (isGroup) {
+                setGroups(prev => prev.filter(g => g._id !== activeTarget._id));
+            } else {
+                // Instead of removing from state, clear history locally so it disappears from "Recent" but stays for "Search"
+                setUsers(prev => prev.map(u => u._id === activeTarget._id ? { ...u, lastMessage: null, unreadCount: 0 } : u));
+            }
+
+            setMessages([]);
+            setGroupMessages([]);
+            setIsContactInfoOpen(false);
+            setIsDeleteChatConfirmOpen(false);
+            handleBackToChatList();
+            setSnackbar({ message: 'Chat deleted successfully', type: 'success', variant: 'system' });
+        } catch (err) {
+            console.error("Delete chat failed", err);
+            setSnackbar({ message: 'Failed to delete chat', type: 'error', variant: 'system' });
         }
     };
 
@@ -3471,7 +3506,7 @@ export default function Chat() {
                                             </div>
                                         </div>
                                     </div>
-                                    {renderDropdownMenu('contact', item._id, item)}
+                                    {/* {renderDropdownMenu('contact', item._id, item)} */}
                                 </div>
                             );
                         })
@@ -3946,6 +3981,9 @@ export default function Chat() {
                 <div className="wa-input-pill" style={{ flex: 1, background: 'white' }}>
                     <input
                         type="text"
+                        id="caption-input"
+                        name="caption"
+                        aria-label="Add a caption"
                         className="wa-input-box"
                         placeholder="Add a caption..."
                         value={input}
@@ -4263,7 +4301,31 @@ export default function Chat() {
                     ) : (
                         <div className="wa-contact-info-item">
                             <div className="wa-info-item-label" style={{ marginBottom: 15 }}>Groups in common</div>
-                            <div style={{ color: '#8696a0', fontSize: 13, padding: '10px 0' }}>No groups in common</div>
+                            {(() => {
+                                const commonGroups = groups.filter(g =>
+                                    g.members && g.members.some(m => String(m._id || m) === String(selectedUser?._id))
+                                );
+
+                                if (commonGroups.length === 0) {
+                                    return <div style={{ color: '#8696a0', fontSize: 13, padding: '10px 0' }}>No groups in common</div>;
+                                }
+
+                                return (
+                                    <div className="wa-member-list">
+                                        {commonGroups.map(g => (
+                                            <div key={g._id} className="wa-common-group-item">
+                                                <div className="wa-group-avatar" style={{ background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {g.icon ? <img src={g.icon} alt="grp" style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : <Users size={20} color="#abb4bb" />}
+                                                </div>
+                                                <div className="wa-group-info">
+                                                    <div className="wa-group-name">{g.name}</div>
+                                                    <div className="wa-group-members">{g.members?.length || 0} members</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
 
@@ -4282,9 +4344,11 @@ export default function Chat() {
                                 <div className="wa-setting-text">{t('contact_info.block', { name: displayName })}</div>
                             </div>
                         )}
-                        <div className="wa-setting-item danger">
-                            <div className="wa-setting-icon"><ThumbsDown size={20} color="#e53935" /></div>
-                            <div className="wa-setting-text">{isGroup ? t('contact_info.report_group') : t('contact_info.report', { name: displayName })}</div>
+                        <div className="wa-setting-item danger" onClick={() => {
+                            setIsDeleteChatConfirmOpen(true);
+                        }}>
+                            <div className="wa-setting-icon"><Trash2 size={20} color="#e53935" /></div>
+                            <div className="wa-setting-text">{isGroup ? 'Delete group' : 'Delete chat'}</div>
                         </div>
                     </div>
 
@@ -4902,38 +4966,68 @@ export default function Chat() {
         );
     };
 
-    const handleMsgDropdownOpen = (e, msgId) => {
+    const handleMsgDropdownOpen = (e, msgId, msgData) => {
         e.stopPropagation();
-        // If click is in the bottom 60% of screen, show menu ABOVE (classic WhatsApp)
-        const isBottomPart = e.clientY > window.innerHeight * 0.4;
+        setDropdownPos({ x: e.clientX, y: e.clientY });
         setOpenDropdown({
             type: 'msg',
             id: msgId,
-            pos: isBottomPart ? 'up' : 'down'
+            data: msgData
         });
     };
 
     const renderDropdownMenu = (type, id, data) => {
+        if (!data) return null; // Safety check to prevent black screen
         if (!openDropdown || openDropdown.type !== type || openDropdown.id !== id) return null;
-        const isMe = data.sender_id === user.id || data.user_id === user.id;
+        const isMe = isMeMsg(data);
+
+        // Calculate positioning logic for fixed menu (centered horizontally in viewport)
+        const menuWidth = 250;
+        const menuHeight = 420; // Increased approximation to prevent clipping for full menus
+
+        // Center the menu horizontally on the entire viewport
+        let left = (window.innerWidth / 2) - (menuWidth / 2);
+        let top = dropdownPos.y;
+
+        // Ensure menu stays within vertical bounds
+        // If it would go off the bottom, flip it to show above the click point
+        if (top + menuHeight > window.innerHeight - 60) {
+            top = top - menuHeight;
+        }
+
+        // Final safety clamp to ensure it doesn't go off the top (header) or bottom (footer)
+        // Header is roughly 60px, Footer is roughly 60px
+        top = Math.max(70, Math.min(top, window.innerHeight - menuHeight - 70));
+
+        // Ensure menu stays within horizontal bounds with 10px margin
+        left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
+
+        const menuStyle = {
+            position: 'fixed',
+            top: top,
+            left: left,
+            zIndex: 3000 // Very high
+        };
 
         if (type === 'msg') {
-            const isDeleted = data.is_deleted_by_user || data.is_deleted_by_admin;
-            const posClass = openDropdown.pos === 'up' ? 'pos-up' : 'pos-down';
+            const currentUserId = user.id || user._id;
+            const isDeleted = data.is_deleted_by_user || data.is_deleted_by_admin || (data.deleted_for && data.deleted_for.some(id => String(id) === String(currentUserId)));
             return (
-                <div className={`wa-dropdown-menu msg-dropdown ${posClass}`} onClick={(e) => e.stopPropagation()}>
-                    <div className="wa-reactions-row">
-                        <span>👍</span><span>❤️</span><span>😂</span><span>😮</span><span>😢</span><span>🙏</span><Plus size={20} />
-                    </div>
-                    <div className="wa-dropdown-divider"></div>
+                <div className="wa-dropdown-menu msg-dropdown active-fixed" style={menuStyle} onClick={(e) => e.stopPropagation()}>
+                    {!isDeleted && (
+                        <>
+                            <div className="wa-reactions-row">
+                                <span>👍</span><span>❤️</span><span>😂</span><span>😮</span><span>😢</span><span>🙏</span><Plus size={20} />
+                            </div>
+                            <div className="wa-dropdown-divider"></div>
+                        </>
+                    )}
 
                     {!isDeleted && (
                         <>
-                            {isMe && (
-                                <div className="wa-dropdown-item" onClick={(e) => { e.stopPropagation(); setInfoMessage(data); setOpenDropdown(null); }}>
-                                    <Info size={18} style={{ marginRight: 12 }} /> Message info
-                                </div>
-                            )}
+                            <div className="wa-dropdown-item" onClick={(e) => { e.stopPropagation(); setInfoMessage(data); setOpenDropdown(null); }}>
+                                <Info size={18} style={{ marginRight: 12 }} /> Message info
+                            </div>
                             <div className="wa-dropdown-item" onClick={() => { setReplyingTo(data); setOpenDropdown(null); }}>
                                 <Reply size={18} style={{ marginRight: 12 }} /> Reply
                             </div>
@@ -4998,12 +5092,11 @@ export default function Chat() {
         }
 
         if (type === 'contact') {
-            const isGroup = !!data.isGroup || (data.members !== undefined);
+            const isGroup = !!data.isGroup || (data.members !== undefined) || !!data.is_group;
             const displayName = data.name || (isGroup ? 'Unnamed Group' : 'User');
-            const posClass = openDropdown.pos === 'up' ? 'pos-up' : 'pos-down';
 
             return (
-                <div className={`wa-dropdown-menu contact-dropdown ${posClass}`} onClick={(e) => e.stopPropagation()}>
+                <div className="wa-dropdown-menu contact-dropdown active-fixed" style={menuStyle} onClick={(e) => e.stopPropagation()}>
                     {archivedChatIds.includes(id) ? (
                         <div className="wa-dropdown-item" onClick={() => handleUnarchiveChat(id, displayName)}>
                             <Archive size={18} style={{ marginRight: 12 }} /> {isGroup ? 'Unarchive group' : 'Unarchive chat'}
@@ -5044,11 +5137,11 @@ export default function Chat() {
                     </div>
 
                     <div className="wa-dropdown-item delete" onClick={() => {
-                        // Implement delete chat for group (exit then delete or just delete local)
                         if (isGroup) {
                             setGroups(prev => prev.filter(g => g._id !== id));
                         } else {
-                            setUsers(prev => prev.filter(u => u._id !== id));
+                            // Instead of filtering out of users state, clear history
+                            setUsers(prev => prev.map(u => u._id === id ? { ...u, lastMessage: null, unreadCount: 0 } : u));
                         }
                         setOpenDropdown(null);
                         if ((selectedUser && selectedUser._id === id) || (selectedGroup && selectedGroup._id === id)) {
@@ -5142,18 +5235,24 @@ export default function Chat() {
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div className="wa-edit-field-group">
-                                    <label className="wa-edit-label">First name</label>
+                                    <label className="wa-edit-label" htmlFor="edit-firstname">First name</label>
                                     <input
                                         type="text"
+                                        id="edit-firstname"
+                                        name="firstname"
+                                        autoComplete="given-name"
                                         className="wa-edit-input"
                                         value={editFirstName}
                                         onChange={(e) => setEditFirstName(e.target.value)}
                                     />
                                 </div>
                                 <div className="wa-edit-field-group" style={{ marginTop: 24 }}>
-                                    <label className="wa-edit-label">Last name</label>
+                                    <label className="wa-edit-label" htmlFor="edit-lastname">Last name</label>
                                     <input
                                         type="text"
+                                        id="edit-lastname"
+                                        name="lastname"
+                                        autoComplete="family-name"
                                         className="wa-edit-input"
                                         placeholder=""
                                         value={editLastName}
@@ -5171,15 +5270,18 @@ export default function Chat() {
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', gap: 16 }}>
                                     <div className="wa-edit-field-group" style={{ width: '120px', position: 'relative' }}>
-                                        <label className="wa-edit-label">Country</label>
-                                        <div
+                                        <label className="wa-edit-label" htmlFor="edit-country-btn">Country</label>
+                                        <button
+                                            type="button"
+                                            id="edit-country-btn"
+                                            name="country"
                                             className="wa-edit-input wa-country-select"
                                             onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '1px solid #e9edef', width: '100%', textAlign: 'left', padding: '8px 0' }}
                                         >
                                             <span>{editCountry.code} {editCountry.dial}</span>
                                             <ChevronDown size={18} color="#8696a0" />
-                                        </div>
+                                        </button>
 
                                         {isCountryDropdownOpen && (
                                             <div className="wa-country-dropdown">
@@ -5201,9 +5303,12 @@ export default function Chat() {
                                         )}
                                     </div>
                                     <div className="wa-edit-field-group" style={{ flex: 1 }}>
-                                        <label className="wa-edit-label">Phone</label>
+                                        <label className="wa-edit-label" htmlFor="edit-phone">Phone</label>
                                         <input
                                             type="text"
+                                            id="edit-phone"
+                                            name="phone"
+                                            autoComplete="tel"
                                             className="wa-edit-input"
                                             value={editPhone}
                                             maxLength={10}
@@ -5227,8 +5332,16 @@ export default function Chat() {
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="sync-toggle-input"
+                                        name="syncEnabled"
+                                        style={{ display: 'none' }}
+                                        checked={isSyncEnabled}
+                                        onChange={() => setIsSyncEnabled(!isSyncEnabled)}
+                                    />
                                     <div>
-                                        <div style={{ fontSize: 16, color: '#111b21' }}>Sync contact to phone</div>
+                                        <label htmlFor="sync-toggle-input" style={{ fontSize: 16, color: '#111b21', cursor: 'pointer' }}>Sync contact to phone</label>
                                         <div style={{ fontSize: 13, color: '#667781', marginTop: 4, lineHeight: 1.4 }}>
                                             This contact will be added to your phone's address book.
                                         </div>
@@ -5666,6 +5779,9 @@ export default function Chat() {
                     <Search size={18} color="#54656f" />
                     <input
                         type="text"
+                        id="chat-search-input"
+                        name="chat-search"
+                        aria-label="Search or start new chat"
                         placeholder={t('chat_list.search_placeholder')}
                         className="wa-search-input"
                         value={searchQuery}
@@ -5695,9 +5811,9 @@ export default function Chat() {
                     </div>
                     {/* Close button implementation if needed, but request implies the 'x' is at the start */}
                     {/* Based on drawing: "x You have {3} new notifications" */}
-                    {/* I will implement it as clickable X icon at the start to dismiss, or just static text if that's what the drawing means. 
-                        Drawing shows 'x' at the start. It usually implies dismissal. 
-                        Let's make the whole banner dismissible or just the 'x'. 
+                    {/* I will implement it as clickable X icon at the start to dismiss, or just static text if that's what the drawing means.
+                        Drawing shows 'x' at the start. It usually implies dismissal.
+                        Let's make the whole banner dismissible or just the 'x'.
                      */}
                 </div>
             )}
@@ -5750,7 +5866,11 @@ export default function Chat() {
                                 const matchesSearch = nameMatch || msgMatch;
 
                                 if (archivedChatIds.includes(item._id)) return false;
-                                if (filterType === 'all') return matchesSearch;
+                                if (filterType === 'all') {
+                                    if (searchQuery) return matchesSearch;
+                                    // Hide users with no message history from the main list unless searching
+                                    return !!item.lastMessage;
+                                }
                                 if (filterType === 'unread') return matchesSearch && (item.unreadCount > 0);
                                 if (filterType === 'favorites') return matchesSearch && item.isFavorite;
                                 if (filterType === 'groups') return matchesSearch && item.is_group;
@@ -5792,8 +5912,8 @@ export default function Chat() {
                                                 setSelectedGroup(null);
                                             }
                                         }}
-                                        onContextMenu={(e) => { e.preventDefault(); setOpenDropdown({ type: 'contact', id: item._id }); }}
-                                        onTouchStart={(e) => { e.persist(); longPressTimer.current = setTimeout(() => { setOpenDropdown({ type: 'contact', id: item._id }); }, 600); }}
+                                        onContextMenu={(e) => { e.preventDefault(); setOpenDropdown({ type: 'contact', id: item._id, data: item }); }}
+                                        onTouchStart={(e) => { e.persist(); longPressTimer.current = setTimeout(() => { setOpenDropdown({ type: 'contact', id: item._id, data: item }); }, 600); }}
                                         onTouchEnd={() => clearTimeout(longPressTimer.current)}
                                         onTouchMove={() => clearTimeout(longPressTimer.current)}
                                     >
@@ -5818,7 +5938,7 @@ export default function Chat() {
                                                     <div className="wa-dropdown-trigger" onClick={(e) => {
                                                         e.stopPropagation();
                                                         const pos = e.clientY > window.innerHeight - 300 ? 'up' : 'down';
-                                                        setOpenDropdown({ type: 'contact', id: item._id, pos });
+                                                        setOpenDropdown({ type: 'contact', id: item._id, pos, data: item });
                                                     }}>
                                                         <ChevronDown size={18} />
                                                     </div>
@@ -5828,12 +5948,15 @@ export default function Chat() {
                                                 <span className="wa-chat-last-msg">
                                                     {item.lastMessage?.is_deleted_by_admin ? (
                                                         <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                                                            <Trash2 size={12} style={{ marginRight: 4 }} /> This message was deleted by Admin
+                                                            <Trash2 size={12} style={{ marginRight: 4 }} /> {t('chat_window.deleted_admin')}
+                                                        </span>
+                                                    ) : (item.lastMessage?.deleted_for && item.lastMessage.deleted_for.includes(user.id || user._id)) ? (
+                                                        <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
+                                                            <XCircle size={12} style={{ marginRight: 4 }} /> {t('chat_window.deleted_user_me')}
                                                         </span>
                                                     ) : item.lastMessage?.is_deleted_by_user ? (
                                                         <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                                                            <XCircle size={12} style={{ marginRight: 4 }} />
-                                                            {String(item.lastMessage.sender_id) === String(user.id || user._id) ? 'You deleted this message' : 'This message was deleted'}
+                                                            <XCircle size={12} style={{ marginRight: 4 }} /> {t('chat_window.deleted_user_other')}
                                                         </span>
                                                     ) : (
                                                         item.lastMessage?.type === 'audio' ? (
@@ -5857,7 +5980,7 @@ export default function Chat() {
                                                     {item.unreadCount > 0 && <div className="wa-unread-badge">{item.unreadCount}</div>}
                                                 </div>
                                             </div>
-                                            {renderDropdownMenu('contact', item._id, item)}
+                                            {/* {renderDropdownMenu('contact', item._id, item)} */}
                                         </div>
                                     </div>
                                 );
@@ -6088,7 +6211,7 @@ export default function Chat() {
                 }
             }
         }
-        // Refresh 
+        // Refresh
         fetchUsers();
         fetchGroups();
         setSnackbar({ message: 'Messages forwarded!', type: 'success', variant: 'system' });
@@ -6628,8 +6751,8 @@ export default function Chat() {
                                                         )}
                                                         <div
                                                             className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'} ${msg.link_preview ? 'has-link-preview' : ''}`}
-                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id); } }}
-                                                            onTouchStart={(e) => { if (!isForwardingMode) { e.persist(); longPressTimer.current = setTimeout(() => { handleMsgDropdownOpen(e, msg._id); }, 600); } }}
+                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
+                                                            onTouchStart={(e) => { if (!isForwardingMode) { e.persist(); longPressTimer.current = setTimeout(() => { handleMsgDropdownOpen(e, msg._id, msg); }, 600); } }}
                                                             onTouchEnd={() => clearTimeout(longPressTimer.current)}
                                                             onTouchMove={() => clearTimeout(longPressTimer.current)}
                                                         >
@@ -6640,11 +6763,10 @@ export default function Chat() {
                                                                 </div>
                                                             )}
                                                             {!isForwardingMode && (
-                                                                <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id)}>
+                                                                <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
                                                                     <ChevronDown size={18} />
                                                                 </div>
                                                             )}
-                                                            {!isForwardingMode && renderDropdownMenu('msg', msg._id, msg)}
 
                                                             {/* Reply Context Rendering */}
                                                             {msg.reply_to && (
@@ -6658,120 +6780,127 @@ export default function Chat() {
                                                                 </div>
                                                             )}
 
-                                                            {/* Image Rendering */}
-                                                            {msg.type === 'image' && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
-                                                                <div className="wa-msg-image-container" onClick={(e) => {
-                                                                    if (isForwardingMode) return;
-                                                                    e.stopPropagation();
-                                                                    setViewingImage(msg);
-                                                                }}>
-                                                                    <img src={msg.file_path} alt="Sent" className="wa-msg-image" />
-                                                                </div>
-                                                            )}
-                                                            {/* File Rendering */}
-                                                            {msg.type === 'file' && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
-                                                                <div
-                                                                    className="wa-msg-doc-bubble"
-                                                                    onClick={() => handleDownload(msg.file_path, msg.fileName)}
-                                                                    style={{ cursor: 'pointer' }}
-                                                                >
-                                                                    {/* Top: Preview */}
-                                                                    <div className="wa-doc-preview-area">
-                                                                        {/* Simulated Page Content */}
-                                                                        <div className="wa-doc-preview-simulated">
-                                                                            {/* Simulate text lines */}
-                                                                            <div style={{ width: '80%', height: 6, background: '#d1d7db', marginBottom: 6 }}></div>
-                                                                            <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-                                                                            <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-                                                                            <div style={{ width: '90%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-
-                                                                            <div style={{ marginTop: 10, width: '40%', height: 20, background: '#e9edef' }}></div> {/* Image placeholder */}
-
-                                                                            <div style={{ flex: 1 }}></div>
-                                                                            <div style={{ fontSize: 8, color: '#999', textAlign: 'center' }}>Page 1</div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Bottom: Info Footer */}
-                                                                    <div className="wa-doc-info-area">
-                                                                        <div className="wa-doc-icon" style={{ background: 'transparent', padding: 0 }}>
-                                                                            <FileText size={30} color="#e53935" strokeWidth={1.5} />
-                                                                        </div>
-                                                                        <div className="wa-doc-details">
-                                                                            <div className="wa-doc-filename" title={msg.fileName || 'Document'}>
-                                                                                {msg.fileName || 'Document.pdf'}
-                                                                            </div>
-                                                                            <div className="wa-doc-meta">
-                                                                                {msg.pageCount || 1} pages • {(msg.fileName || msg.file_path)?.split('.').pop()?.toUpperCase() || 'PDF'} • {msg.fileSize ? Math.ceil(msg.fileSize / 1024) + ' kB' : 'Unknown size'}
-                                                                            </div>
-                                                                        </div>
-
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Audio Rendering */}
-                                                            {msg.type === 'audio' && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
-                                                                <VoiceMessagePlayer
-                                                                    src={msg.file_path}
-                                                                    duration={msg.duration}
-                                                                    isMe={isMe}
-                                                                    userDataImage={userData.image}
-                                                                    selectedUserImage={selectedUser?.image}
-                                                                />
-                                                            )}
-                                                            {/* Link Preview Card */}
-                                                            {msg.link_preview && msg.link_preview.title && !msg.is_deleted_by_admin && !msg.is_deleted_by_user && (
-                                                                <div
-                                                                    className={`wa-link-preview-card ${!msg.link_preview.image ? 'no-image' : ''} ${((msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
-                                                                    onClick={() => window.open(msg.link_preview.url, '_blank')}
-                                                                    style={{ cursor: 'pointer', transition: 'none' }}
-                                                                >
-                                                                    {msg.link_preview.image && (
-                                                                        <div className="wa-link-preview-image">
-                                                                            <img src={msg.link_preview.image} alt={msg.link_preview.title} />
-                                                                            {(msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be')) && (
-                                                                                <div className="wa-link-preview-play-btn">
-                                                                                    <div className="wa-play-icon">▶</div>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="wa-link-preview-content">
-                                                                        <div className="wa-link-preview-title">{msg.link_preview.title}</div>
-                                                                        {msg.link_preview.description && <div className="wa-link-preview-description">{msg.link_preview.description}</div>}
-                                                                        <div className="wa-link-preview-domain">
-                                                                            {(msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be')) ? (
-                                                                                <>
-                                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
-                                                                                    </svg>
-                                                                                    <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{msg.link_preview.domain}</span>
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                    </svg>
-                                                                                    <span>{msg.link_preview.domain}</span>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
                                                             {msg.is_deleted_by_admin ? (
                                                                 <div className="wa-deleted-tag">
-                                                                    <Trash2 size={16} /> This message was deleted by Admin
+                                                                    <Trash2 size={16} /> {t('chat_window.deleted_admin')}
+                                                                </div>
+                                                            ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
+                                                                <div className="wa-deleted-tag">
+                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_me')}
                                                                 </div>
                                                             ) : msg.is_deleted_by_user ? (
                                                                 <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {isMe ? 'You deleted this message' : 'This message was deleted'}
+                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_other')}
                                                                 </div>
-                                                            ) : msg.content && (
-                                                                <span>{renderContent(msg.content)}</span>
+                                                            ) : (
+                                                                <>
+                                                                    {/* Image Rendering */}
+                                                                    {msg.type === 'image' && (
+                                                                        <div className="wa-msg-image-container" onClick={(e) => {
+                                                                            if (isForwardingMode) return;
+                                                                            e.stopPropagation();
+                                                                            setViewingImage(msg);
+                                                                        }}>
+                                                                            <img src={msg.file_path} alt="Sent" className="wa-msg-image" />
+                                                                        </div>
+                                                                    )}
+                                                                    {/* File Rendering */}
+                                                                    {msg.type === 'file' && (
+                                                                        <div
+                                                                            className="wa-msg-doc-bubble"
+                                                                            onClick={() => handleDownload(msg.file_path, msg.fileName)}
+                                                                            style={{ cursor: 'pointer' }}
+                                                                        >
+                                                                            {/* Top: Preview */}
+                                                                            <div className="wa-doc-preview-area">
+                                                                                {/* Simulated Page Content */}
+                                                                                <div className="wa-doc-preview-simulated">
+                                                                                    {/* Simulate text lines */}
+                                                                                    <div style={{ width: '80%', height: 6, background: '#d1d7db', marginBottom: 6 }}></div>
+                                                                                    <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+                                                                                    <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+                                                                                    <div style={{ width: '90%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+
+                                                                                    <div style={{ marginTop: 10, width: '40%', height: 20, background: '#e9edef' }}></div> {/* Image placeholder */}
+
+                                                                                    <div style={{ flex: 1 }}></div>
+                                                                                    <div style={{ fontSize: 8, color: '#999', textAlign: 'center' }}>Page 1</div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Bottom: Info Footer */}
+                                                                            <div className="wa-doc-info-area">
+                                                                                <div className="wa-doc-icon" style={{ background: 'transparent', padding: 0 }}>
+                                                                                    <FileText size={30} color="#e53935" strokeWidth={1.5} />
+                                                                                </div>
+                                                                                <div className="wa-doc-details">
+                                                                                    <div className="wa-doc-filename" title={msg.fileName || 'Document'}>
+                                                                                        {msg.fileName || 'Document.pdf'}
+                                                                                    </div>
+                                                                                    <div className="wa-doc-meta">
+                                                                                        {msg.pageCount || 1} pages • {(msg.fileName || msg.file_path)?.split('.').pop()?.toUpperCase() || 'PDF'} • {msg.fileSize ? Math.ceil(msg.fileSize / 1024) + ' kB' : 'Unknown size'}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Audio Rendering */}
+                                                                    {msg.type === 'audio' && (
+                                                                        <VoiceMessagePlayer
+                                                                            src={msg.file_path}
+                                                                            duration={msg.duration}
+                                                                            isMe={isMe}
+                                                                            userDataImage={userData.image}
+                                                                            selectedUserImage={selectedUser?.image}
+                                                                        />
+                                                                    )}
+                                                                    {/* Link Preview Card */}
+                                                                    {msg.link_preview && msg.link_preview.title && (
+                                                                        <div
+                                                                            className={`wa-link-preview-card ${!msg.link_preview.image ? 'no-image' : ''} ${((msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
+                                                                            onClick={() => window.open(msg.link_preview.url, '_blank')}
+                                                                            style={{ cursor: 'pointer', transition: 'none' }}
+                                                                        >
+                                                                            {msg.link_preview.image && (
+                                                                                <div className="wa-link-preview-image">
+                                                                                    <img src={msg.link_preview.image} alt={msg.link_preview.title} />
+                                                                                    {(msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be')) && (
+                                                                                        <div className="wa-link-preview-play-btn">
+                                                                                            <div className="wa-play-icon">▶</div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="wa-link-preview-content">
+                                                                                <div className="wa-link-preview-title">{msg.link_preview.title}</div>
+                                                                                {msg.link_preview.description && <div className="wa-link-preview-description">{msg.link_preview.description}</div>}
+                                                                                <div className="wa-link-preview-domain">
+                                                                                    {(msg.link_preview.domain?.includes('youtube') || msg.link_preview.domain?.includes('youtu.be')) ? (
+                                                                                        <>
+                                                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
+                                                                                            </svg>
+                                                                                            <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{msg.link_preview.domain}</span>
+                                                                                        </>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                            </svg>
+                                                                                            <span>{msg.link_preview.domain}</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {msg.content && (
+                                                                        <span>{renderContent(msg.content)}</span>
+                                                                    )}
+                                                                </>
                                                             )}
 
                                                             <div className="wa-msg-meta">
@@ -6851,7 +6980,7 @@ export default function Chat() {
                                 </div>
                             </div>
                         ) : (
-                            // Footer Input Area 
+                            // Footer Input Area
                             <div className="wa-footer-wrapper">
                                 {renderGrammarBar()}
 
@@ -7028,6 +7157,9 @@ export default function Chat() {
                                                         </div>
                                                     )}
                                                     <textarea
+                                                        id="p2p-message-input"
+                                                        name="message"
+                                                        aria-label="Type a message"
                                                         className="wa-input-box"
                                                         placeholder={t('chat_window.input_placeholder')}
                                                         value={input}
@@ -7224,14 +7356,13 @@ export default function Chat() {
                                                         )}
                                                         <div
                                                             className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'}`}
-                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id); } }}
+                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
                                                         >
                                                             {!isForwardingMode && (
-                                                                <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id)}>
+                                                                <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
                                                                     <ChevronDown size={18} />
                                                                 </div>
                                                             )}
-                                                            {!isForwardingMode && renderDropdownMenu('msg', msg._id, msg)}
 
                                                             {msg.reply_to && (
                                                                 <div className="wa-reply-context">
@@ -7248,11 +7379,15 @@ export default function Chat() {
 
                                                             {msg.is_deleted_by_admin ? (
                                                                 <div className="wa-deleted-tag">
-                                                                    <Trash2 size={16} /> This message was deleted by Admin
+                                                                    <Trash2 size={16} /> {t('chat_window.deleted_admin')}
+                                                                </div>
+                                                            ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
+                                                                <div className="wa-deleted-tag">
+                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_me')}
                                                                 </div>
                                                             ) : msg.is_deleted_by_user ? (
                                                                 <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {isMe ? 'You deleted this message' : 'This message was deleted'}
+                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_other')}
                                                                 </div>
                                                             ) : (
                                                                 <>
@@ -7409,6 +7544,9 @@ export default function Chat() {
 
                                         <div className="wa-input-area">
                                             <textarea
+                                                id="group-message-input"
+                                                name="message"
+                                                aria-label="Type a message"
                                                 className="wa-input-box"
                                                 placeholder="Type a message"
                                                 value={groupInput}
@@ -8307,6 +8445,9 @@ export default function Chat() {
             )}
 
             {infoMessage && renderMessageInfo()}
+
+            {/* Global Dropdown Menu */}
+            {openDropdown && renderDropdownMenu(openDropdown.type, openDropdown.id, openDropdown.data)}
             {isMuteModalOpen && renderMuteModal()}
             {pinReplaceModal && renderPinReplaceModal()}
             {isForwardModalOpen && renderForwardModal()}
@@ -8345,56 +8486,38 @@ export default function Chat() {
             )}
 
             <ConfirmModal
+                isOpen={isDeleteChatConfirmOpen}
+                title={selectedGroup ? "Delete group?" : "Delete chat?"}
+                desc={selectedGroup ? "Are you sure you want to delete this group and all its messages?" : "Are you sure you want to delete this chat and all its messages?"}
+                confirmText="Delete"
+                onConfirm={handleDeleteChatConfirm}
+                onCancel={() => setIsDeleteChatConfirmOpen(false)}
+            />
+
+            <ConfirmModal
                 isOpen={isDeleteModalOpen}
-                title="Delete Message"
-                message={(() => {
+                title={(() => {
                     if (Array.isArray(msgToDelete)) {
-                        // Check if all messages are sent by the user
-                        const allMine = msgToDelete.every(id => {
-                            const msg = messages.find(m => (m._id === id || m.id === id));
-                            return msg && isMeMsg(msg);
-                        });
-
-                        if (allMine) {
-                            return `Delete ${msgToDelete.length} messages?`;
-                        }
-                        return `Delete ${msgToDelete.length} messages for yourself?`;
+                        return `Delete ${msgToDelete.length} messages?`;
                     }
-
-                    const msg = messages.find(m => (m._id === msgToDelete || m.id === msgToDelete));
-                    if (!msg) return "Are you sure you want to delete this message?";
-
-                    const isMe = isMeMsg(msg);
-
-                    // Simple message for sent messages (buttons handle the options)
-                    if (isMe) {
-                        return "Delete message?";
+                    const msg = (selectedGroup ? groupMessages : messages).find(m => m._id === msgToDelete || m.id === msgToDelete);
+                    if (msg && (msg.is_deleted_by_user || msg.is_deleted_by_admin || (msg.deleted_for && msg.deleted_for.some(id => String(id) === String(user.id || user._id))))) {
+                        return "Delete this permanently from your view?";
                     }
-
-                    // Message for received messages
-                    return "Delete this message for yourself?";
+                    return "Delete message?";
                 })()}
-                // For sent messages (single or bulk), show two delete buttons
                 onConfirmMe={(() => {
                     if (Array.isArray(msgToDelete)) {
-                        // Check if all messages are sent by the user
-                        const allMine = msgToDelete.every(id => {
-                            const msg = messages.find(m => (m._id === id || m.id === id));
-                            return msg && isMeMsg(msg);
-                        });
-
-                        if (allMine) {
-                            return () => {
-                                handleBulkDeleteMessage(msgToDelete, 'me');
-                                setIsDeleteModalOpen(false);
-                                setMsgToDelete(null);
-                            };
-                        }
-                        return undefined;
+                        // For bulk, always show "Delete for me"
+                        return () => {
+                            handleBulkDeleteMessage(msgToDelete, 'me');
+                            setIsDeleteModalOpen(false);
+                            setMsgToDelete(null);
+                        };
                     }
 
-                    const msg = messages.find(m => (m._id === msgToDelete || m.id === msgToDelete));
-                    if (msg && isMeMsg(msg)) {
+                    const msg = (selectedGroup ? groupMessages : messages).find(m => m._id === msgToDelete || m.id === msgToDelete);
+                    if (msg) {
                         return () => {
                             handleDeleteMessage(msgToDelete, 'me');
                             setIsDeleteModalOpen(false);
@@ -8405,13 +8528,13 @@ export default function Chat() {
                 })()}
                 onConfirmEveryone={(() => {
                     if (Array.isArray(msgToDelete)) {
-                        // Check if all messages are sent by the user
-                        const allMine = msgToDelete.every(id => {
-                            const msg = messages.find(m => (m._id === id || m.id === id));
-                            return msg && isMeMsg(msg);
+                        // Check if all messages are sent by me AND none are already deleted
+                        const allEligible = msgToDelete.every(id => {
+                            const msg = (selectedGroup ? groupMessages : messages).find(m => (m._id === id || m.id === id));
+                            return msg && isMeMsg(msg) && !msg.is_deleted_by_user && !msg.is_deleted_by_admin;
                         });
 
-                        if (allMine) {
+                        if (allEligible) {
                             return () => {
                                 handleBulkDeleteMessage(msgToDelete, 'everyone');
                                 setIsDeleteModalOpen(false);
@@ -8421,8 +8544,9 @@ export default function Chat() {
                         return undefined;
                     }
 
-                    const msg = messages.find(m => (m._id === msgToDelete || m.id === msgToDelete));
-                    if (msg && isMeMsg(msg)) {
+                    const msg = (selectedGroup ? groupMessages : messages).find(m => m._id === msgToDelete || m.id === msgToDelete);
+                    // Only show "Delete for everyone" if I sent it AND it's not already deleted
+                    if (msg && isMeMsg(msg) && !msg.is_deleted_by_user && !msg.is_deleted_by_admin) {
                         return () => {
                             handleDeleteMessage(msgToDelete, 'everyone');
                             setIsDeleteModalOpen(false);
@@ -8431,32 +8555,11 @@ export default function Chat() {
                     }
                     return undefined;
                 })()}
-                // For received messages or mixed bulk, use standard confirm
-                onConfirm={(() => {
-                    if (Array.isArray(msgToDelete)) {
-                        // Check if any messages are NOT sent by the user (received or mixed)
-                        const anyNotMine = msgToDelete.some(id => {
-                            const msg = messages.find(m => (m._id === id || m.id === id));
-                            return msg && !isMeMsg(msg);
-                        });
-
-                        if (anyNotMine || msgToDelete.length === 0) {
-                            return confirmDelete;
-                        }
-                        return undefined;
-                    }
-
-                    const msg = messages.find(m => (m._id === msgToDelete || m.id === msgToDelete));
-                    if (msg && !isMeMsg(msg)) {
-                        return confirmDelete;
-                    }
-                    return undefined;
-                })()}
-                confirmText="Delete"
+                onConfirm={undefined} // We use onConfirmMe / onConfirmEveryone exclusively now
+                confirmText="Delete for me"
                 onCancel={() => {
                     setIsDeleteModalOpen(false);
                     setMsgToDelete(null);
-                    setDeleteOption('me');
                 }}
             />
 

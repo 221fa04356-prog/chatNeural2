@@ -19,17 +19,21 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, onConfirmMe
                     <p>{message}</p>
                 </div>
                 <div className="confirm-modal-footer">
-                    {onConfirmMe && onConfirmEveryone ? (
-                        <>
-                            <button className="btn-secondary" onClick={onCancel}>Cancel</button>
-                            <button className="btn-danger" onClick={onConfirmMe}>{confirmTextMe || 'Delete for me'}</button>
-                            <button className="btn-danger" onClick={onConfirmEveryone}>{confirmTextEveryone || 'Delete for everyone'}</button>
-                        </>
-                    ) : (
-                        <>
-                            <button className="btn-secondary" onClick={onCancel}>Cancel</button>
-                            <button className="btn-danger" onClick={onConfirm}>{confirmText || 'Confirm'}</button>
-                        </>
+                    <button className="btn-secondary" onClick={onCancel}>Cancel</button>
+                    {onConfirmMe && (
+                        <button className="btn-danger" onClick={onConfirmMe}>
+                            {confirmTextMe || 'Delete for me'}
+                        </button>
+                    )}
+                    {onConfirmEveryone && (
+                        <button className="btn-danger" onClick={onConfirmEveryone}>
+                            {confirmTextEveryone || 'Delete for everyone'}
+                        </button>
+                    )}
+                    {!onConfirmMe && !onConfirmEveryone && onConfirm && (
+                        <button className="btn-danger" onClick={onConfirm}>
+                            {confirmText || 'Confirm'}
+                        </button>
                     )}
                 </div>
             </div>

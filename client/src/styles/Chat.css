@@ -1973,98 +1973,78 @@ html {
 }
 
 .wa-dropdown-menu {
-    position: absolute;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: fixed;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(11, 20, 26, 0.1), 0 8px 24px rgba(11, 20, 26, 0.1);
     border-radius: 8px;
-    padding: 8px 0;
-    z-index: 1000;
-    min-width: 180px;
-    animation: fadeIn 0.15s ease-out;
+    padding: 6px 0;
+    z-index: 3000;
+    min-width: 250px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: dropdownPop 0.2s cubic-bezier(0, 0, 0.2, 1);
+    border: none;
 }
 
-.msg-dropdown.pos-up {
-    bottom: calc(100% + 5px) !important;
-    top: auto !important;
-}
-
-.msg-dropdown.pos-down {
-    top: 5px !important;
-    bottom: auto !important;
-}
-
-.msg-dropdown {
-    right: 0 !important;
-}
-
-.wa-msg-rec .msg-dropdown {
-    right: auto !important;
-    left: 20px !important;
-}
-
-.contact-dropdown {
-    right: 15px;
-}
-
-.contact-dropdown.pos-up {
-    bottom: 40px !important;
-    top: auto !important;
-}
-
-.contact-dropdown.pos-down {
-    top: 40px !important;
-    bottom: auto !important;
-}
-
-@keyframes fadeIn {
+@keyframes dropdownPop {
     from {
         opacity: 0;
-        transform: translateY(-5px);
+        transform: scale(0.95) translateY(-5px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
     }
 }
 
 .wa-dropdown-item {
-    padding: 10px 24px;
+    padding: 8px 24px;
     font-size: 14.5px;
     color: #3b4a54;
     cursor: pointer;
     display: flex;
     align-items: center;
+    transition: background 0.1s;
 }
 
 .wa-dropdown-item:hover {
     background: #f5f6f6;
 }
 
+.wa-dropdown-item svg {
+    color: #8696a0;
+}
+
 .wa-dropdown-item.delete {
-    color: #e53935;
+    color: #3b4a54;
+}
+
+.wa-dropdown-item.delete svg {
+    color: #8696a0;
 }
 
 .wa-dropdown-divider {
     height: 1px;
-    background: #f0f2f5;
-    margin: 4px 0;
+    background: #f5f6f6;
+    margin: 3px 0;
 }
 
 .wa-reactions-row {
     display: flex;
-    padding: 8px 16px;
+    padding: 8px 18px;
     gap: 12px;
-    font-size: 20px;
+    font-size: 22px;
+    justify-content: space-between;
 }
 
 .wa-reactions-row span {
     cursor: pointer;
-    transition: transform 0.1s;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .wa-reactions-row span:hover {
-    transform: scale(1.3);
+    transform: scale(1.4);
 }
 
 .wa-msg-meta {
