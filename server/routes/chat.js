@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const Message = require('../models/Message');
 const GroupMessage = require('../models/GroupMessage');
+const ChatDeletion = require('../models/ChatDeletion');
 const User = require('../models/User'); // Import User model
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse'); // Renamed to avoid confusion
@@ -194,7 +195,7 @@ router.get('/users', authenticateToken, async (req, res) => {
                     { user_id: u._id, receiver_id: currentUserId }
                 ],
                 deleted_for: { $ne: currentUserId }
-            }).sort({ created_at: -1 }).select('content created_at type sender_id duration is_deleted_by_admin is_deleted_by_user').lean();
+            }).sort({ created_at: -1 }).select('content created_at type sender_id duration is_deleted_by_admin is_deleted_by_user deleted_for').lean();
 
             // 2. Get Unread Count
             const unreadCount = await Message.countDocuments({
@@ -1124,6 +1125,43 @@ router.post('/messages/bulk-delete', authenticateToken, async (req, res) => {
 });
 
 
+
+// Delete complete chat history (For Me)
+router.post('/chat/delete-history', authenticateToken, async (req, res) => {
+    const { contactId, isGroup, contactName } = req.body;
+    const userId = req.user.id;
+    try {
+        if (isGroup) {
+            await GroupMessage.updateMany(
+                { group_id: contactId },
+                { $addToSet: { deleted_for: userId } }
+            );
+        } else {
+            // First, record the deletion for admin tracking
+            await ChatDeletion.create({
+                userId: userId,
+                contactId: contactId,
+                contactName: contactName,
+                deletedAt: new Date()
+            });
+
+            // Then, hide existing messages for the user
+            await Message.updateMany(
+                {
+                    $or: [
+                        { user_id: userId, receiver_id: contactId },
+                        { user_id: contactId, receiver_id: userId }
+                    ]
+                },
+                { $addToSet: { deleted_for: userId } }
+            );
+        }
+        res.json({ status: 'success' });
+    } catch (err) {
+        console.error('[DELETE HISTORY ERROR]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get Unethical Messages (Persistence) - Admin Only
 router.get('/admin/unethical-messages', authenticateToken, async (req, res) => {

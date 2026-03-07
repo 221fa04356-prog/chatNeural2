@@ -106,7 +106,10 @@ router.get('/my-groups', authenticateToken, async (req, res) => {
 
         // Enrich each group with last message and unread count
         const enriched = await Promise.all(groups.map(async (g) => {
-            const lastMsg = await GroupMessage.findOne({ group_id: g._id })
+            const lastMsg = await GroupMessage.findOne({
+                group_id: g._id,
+                deleted_for: { $ne: userId }
+            })
                 .sort({ created_at: -1 })
                 .populate('sender_id', 'name')
                 .lean();
@@ -149,7 +152,10 @@ router.get('/:groupId/messages', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Not a group member' });
         }
 
-        const messages = await GroupMessage.find({ group_id: groupId })
+        const messages = await GroupMessage.find({
+            group_id: groupId,
+            deleted_for: { $ne: userId }
+        })
             .populate('sender_id', 'name _id')
             .sort({ created_at: 1 });
 
