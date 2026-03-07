@@ -7,7 +7,7 @@ import {
     Search, Settings, Phone, Video, Paperclip, Smile, Mic, Send,
     ArrowLeft, CheckCheck, User as UserIcon, FileText, Calendar, X, Star, ChevronDown, ChevronRight, ChevronLeft, Bell,
     Info, Reply, Copy, Forward, Pin, CheckSquare, Download, Trash2, Archive, BellOff, HeartOff, XCircle, Lock, List, Heart, ThumbsDown, Share, Pencil, Image, StarOff, Camera, Link2 as LinkIcon,
-    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User, Play,
+    LayoutGrid, UserPlus, ArrowRight, Share2, Crop, Check, RotateCcw, Minus, Delete, User, Play, MapPin, IndianRupee, Sticker,
     ShieldCheck, Monitor, BellRing, Laptop, LogOut, Globe, Clock, Building2, Mail, Briefcase, ExternalLink,
     ShieldAlert, Fingerprint, HardDrive, Keyboard, HelpCircle, Settings2, Volume2, MonitorSmartphone
 } from 'lucide-react';
@@ -91,6 +91,8 @@ export default function Chat() {
         return saved ? JSON.parse(saved) : [];
     }); // List of archived user/group IDs
     const [isArchivedChatsOpen, setIsArchivedChatsOpen] = useState(false);
+    const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+    const attachmentMenuRef = useRef(null);
 
 
     const [userData, setUserData] = useState(user); // For Profile Display
@@ -314,10 +316,25 @@ export default function Chat() {
                 setIsNotificationSettingsOpen(false);
                 setFile(null);
                 setReplyingTo(null);
+                setIsAttachmentMenuOpen(false);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+
+        const handleClickOutside = (e) => {
+            if (attachmentMenuRef.current && !attachmentMenuRef.current.contains(e.target)) {
+                const triggerBtn = e.target.closest('.wa-nav-icon-btn');
+                if (!triggerBtn || (!triggerBtn.innerHTML.includes('Paperclip') && !triggerBtn.innerHTML.includes('Plus'))) {
+                    setIsAttachmentMenuOpen(false);
+                }
+            }
+        };
+        window.addEventListener('mousedown', handleClickOutside);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('mousedown', handleClickOutside);
+        };
     }, []);
 
     const handleFontSizeChange = (size) => {
@@ -3477,6 +3494,36 @@ export default function Chat() {
         );
     };
 
+    const renderAttachmentMenu = () => {
+        if (!isAttachmentMenuOpen) return null;
+
+        const items = [
+            { icon: FileText, label: t('chat_window.document'), color: '#7f66ff', onClick: () => { fileInputRef.current.click(); setIsAttachmentMenuOpen(false); } },
+            { icon: Image, label: t('chat_window.photos_videos'), color: '#007bfc', onClick: () => { fileInputRef.current.click(); setIsAttachmentMenuOpen(false); } },
+            { icon: Camera, label: t('chat_window.camera'), color: '#ff2e74', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: Mic, label: t('chat_window.audio'), color: '#ff8a00', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: MapPin, label: t('chat_window.location'), color: '#00a356', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: User, label: t('chat_window.contact'), color: '#009de2', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: List, label: t('chat_window.poll'), color: '#ffbc38', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: Calendar, label: t('chat_window.event'), color: '#ef0b33', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: Sticker, label: t('chat_window.sticker'), color: '#02a698', onClick: () => { setIsAttachmentMenuOpen(false); } },
+            { icon: IndianRupee, label: t('chat_window.payment'), color: '#019484', onClick: () => { setIsAttachmentMenuOpen(false); } },
+        ];
+
+        return (
+            <div className={`wa-attachment-menu ${isAttachmentMenuOpen ? 'active' : ''}`} ref={attachmentMenuRef}>
+                {items.map((item, idx) => (
+                    <div key={idx} className="wa-attachment-item" onClick={item.onClick}>
+                        <div className="wa-attachment-item-icon" style={{ backgroundColor: item.color }}>
+                            <item.icon size={22} color="white" />
+                        </div>
+                        <span className="wa-attachment-label">{item.label}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const renderArchivedChatsDrawer = () => {
         const archivedUsers = users.filter(u => archivedChatIds.includes(u._id));
         const archivedGroups = groups.filter(g => archivedChatIds.includes(g._id));
@@ -3509,7 +3556,6 @@ export default function Chat() {
                                     key={item._id}
                                     className="wa-user-item"
                                     onClick={() => {
-                                        setIsArchivedChatsOpen(false);
                                         if (isGroup) {
                                             setSelectedGroup(item);
                                             setSelectedUser(null);
@@ -7394,8 +7440,9 @@ export default function Chat() {
 
                                     <div className="wa-input-pill">
                                         {!isRecording && (
-                                            <div className="wa-footer-left-icons">
-                                                <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                            <div className="wa-footer-left-icons" style={{ position: 'relative' }}>
+                                                {renderAttachmentMenu()}
+                                                <button className="wa-nav-icon-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
                                                     <Paperclip size={22} color="#54656f" />
                                                 </button>
                                                 <input
@@ -8029,8 +8076,9 @@ export default function Chat() {
 
                                     <div className="wa-footer-inner">
                                         <div className="wa-input-pill">
-                                            <div className="wa-footer-left-icons">
-                                                <button className="wa-nav-icon-btn" onClick={() => fileInputRef.current.click()} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
+                                            <div className="wa-footer-left-icons" style={{ position: 'relative' }}>
+                                                {renderAttachmentMenu()}
+                                                <button className="wa-nav-icon-btn" onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)} title="Allowed files: JPG, JPEG, PNG, DOC, DOCX, PDF, Excel, Video (up to 1GB)">
                                                     <Plus size={22} color="#54656f" />
                                                 </button>
                                                 <input
@@ -8047,6 +8095,9 @@ export default function Chat() {
 
                                             <div className="wa-input-area">
                                                 <textarea
+                                                    id="group-message-input"
+                                                    name="message"
+                                                    aria-label="Type a message"
                                                     className="wa-input-box"
                                                     placeholder="Type a message"
                                                     value={groupInput}
@@ -8077,18 +8128,7 @@ export default function Chat() {
                                                 />
                                             </div>
 
-                                        <div className="wa-input-area">
-                                            <textarea
-                                                id="group-message-input"
-                                                name="message"
-                                                aria-label="Type a message"
-                                                className="wa-input-box"
-                                                placeholder="Type a message"
-                                                value={groupInput}
-                                                onChange={(e) => setGroupInput(e.target.value)}
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
+
                                             <div className="wa-footer-right-icons">
                                                 {groupInput.trim() ? (
                                                     <button className="wa-send-btn-circle-inner" onClick={async () => {

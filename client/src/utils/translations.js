@@ -170,6 +170,16 @@ const translations = {
             selected_count: '{count} Selected',
             back: 'Back',
             no_media_shared: 'No {tab} shared yet',
+            document: 'Document',
+            photos_videos: 'Photos & videos',
+            camera: 'Camera',
+            audio: 'Audio',
+            location: 'Location',
+            contact: 'Contact',
+            poll: 'Poll',
+            event: 'Event',
+            sticker: 'New sticker',
+            payment: 'Payment',
         },
         shared_media: {
             tabs: {
