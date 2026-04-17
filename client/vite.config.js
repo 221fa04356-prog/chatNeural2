@@ -38,6 +38,7 @@ function getWifiIp() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const hostIp = getWifiIp();
+  const backendTarget = `http://${hostIp}:3000`;
   const logger = createLogger();
   const originalInfo = logger.info;
 
@@ -57,17 +58,17 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:3000',
+          target: backendTarget,
           changeOrigin: true,
           secure: false, // Ensure proxy handles self-signed certs if backend was HTTPS (it's HTTP here so fine)
         },
         '/socket.io': {
-          target: 'http://127.0.0.1:3000',
+          target: backendTarget,
           ws: true,
           secure: false,
         },
         '/uploads': {
-          target: 'http://127.0.0.1:3000',
+          target: backendTarget,
           changeOrigin: true,
           secure: false,
         }

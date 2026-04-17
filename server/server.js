@@ -135,12 +135,16 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('send_message', async (data) => {
-        console.log(`Socket: Message from ${userId} to ${data.receiverId}`);
+        const receiverId = data.receiverId;
+        console.log(`Socket: Message from ${userId} to ${receiverId}`);
         const secureData = {
             ...data,
             sender_id: userId,
             user_id: userId
         };
+
+        // Send to receiver instantly (CORE REAL-TIME CHAT FLOW)
+        io.to(receiverId).emit('receive_message', secureData);
 
         // Notify Admins for real-time review
         io.to('admins').emit('receive_message', secureData);
@@ -157,8 +161,7 @@ io.on('connection', async (socket) => {
             });
 
             if (acceptedRequest) {
-                // Accepted — relay message normally
-                io.to(receiverId).emit('receive_message', secureData);
+                // Accepted — relay message normally processed
                 return;
             }
 
@@ -222,8 +225,6 @@ io.on('connection', async (socket) => {
             // Do NOT relay message — receiver must accept first
         } catch (err) {
             console.error('[MSG_REQUEST] Error in send_message handler:', err);
-            // Fallback: relay message anyway to avoid breaking chat
-            io.to(data.receiverId).emit('receive_message', secureData);
         }
     });
 

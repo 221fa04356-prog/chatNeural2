@@ -70,10 +70,13 @@ import EmojiPicker from '../components/EmojiPicker';
 // --- Socket Link ---
 // --- Socket Link ---
 // --- Socket Link ---
-const SOCKET_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3000`;
+const SOCKET_URL = import.meta.env.VITE_API_URL || '/';
 const socket = io(SOCKET_URL, {
     autoConnect: false, // Don't connect until we have a token
-    transports: ['websocket', 'polling'], //  Try WebSocket first, then polling
+    transports: ['websocket'], // Changed to websocket only to perfectly match user's previous folder
+    auth: (cb) => {
+        cb({ token: localStorage.getItem('token') });
+    },
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,
@@ -153,8 +156,8 @@ const TimePicker = ({ value, onChange, onClose }) => {
                             padding: '10px',
                             textAlign: 'center',
                             cursor: 'pointer',
-                            background: hCurrent === hour ? '#00a884' : 'transparent',
-                            color: '#e9edef',
+                            background: hCurrent === hour ? '#0EA5BE' : 'transparent',
+                            color: '#f8fafc',
                             fontSize: '14px'
                         }}
                     >
@@ -171,8 +174,8 @@ const TimePicker = ({ value, onChange, onClose }) => {
                             padding: '10px',
                             textAlign: 'center',
                             cursor: 'pointer',
-                            background: mCurrent === minute ? '#00a884' : 'transparent',
-                            color: '#e9edef',
+                            background: mCurrent === minute ? '#0EA5BE' : 'transparent',
+                            color: '#f8fafc',
                             fontSize: '14px'
                         }}
                     >
@@ -328,20 +331,20 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
             const hp1 = audioContext.createBiquadFilter(); hp1.type = 'highpass'; hp1.frequency.value = 140;
             const hp2 = audioContext.createBiquadFilter(); hp2.type = 'highpass'; hp2.frequency.value = 140;
             const hp3 = audioContext.createBiquadFilter(); hp3.type = 'highpass'; hp3.frequency.value = 140;
- 
+
             // 2. Presence & Studio Crispness (Capturing the natural human speech clarity)
             const presenceBoost = audioContext.createBiquadFilter();
             presenceBoost.type = 'peaking';
             presenceBoost.frequency.value = 3500;
             presenceBoost.gain.value = 8; // Gently boost clarity
             presenceBoost.Q.value = 1.0;
- 
+
             const sibilanceFocus = audioContext.createBiquadFilter();
             sibilanceFocus.type = 'peaking';
             sibilanceFocus.frequency.value = 5200;
             sibilanceFocus.gain.value = 4;
             sibilanceFocus.Q.value = 1.2;
- 
+
             // 3. Quad-Stage "Air Guard" Low-pass (4x 8500Hz): Natural high-end cutoff
             const lp1 = audioContext.createBiquadFilter(); lp1.type = 'lowpass'; lp1.frequency.value = 8500;
             const lp2 = audioContext.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 8500;
@@ -643,8 +646,10 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
             <div className="wa-input-pill" style={{
                 flex: 1, padding: isMobile ? '4px 6px' : '8px 12px 8px 16px',
                 minHeight: isMobile ? '44px' : '54px', borderRadius: '30px',
-                display: 'flex', alignItems: 'center', background: '#ffffff',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)', gap: isMobile ? '2px' : '16px',
+                display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)', gap: isMobile ? '2px' : '16px',
                 overflow: 'visible'
             }}>
                 {!isMobile && <div style={{ flex: 1 }}></div>}
@@ -661,13 +666,13 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
                                     {(userData?.name || 'M')[0].toUpperCase()}
                                 </div>
                             )}
-                            <div className="wa-voice-mic-badge" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                                <Mic size={10} color="#8696a0" />
+                            <div className="wa-voice-mic-badge" style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', background: 'rgba(15, 23, 42, 0.9)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+                                <Mic size={10} color="#0EA5BE" />
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             {!isPaused && !isReviewing && <div className="wa-recording-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444', animation: 'wa-pulse 1.5s infinite ease-in-out' }} />}
-                            <span style={{ color: '#111b21', fontSize: isMobile ? '11px' : '12px', fontWeight: 500 }}>
+                            <span style={{ color: '#f8fafc', fontSize: isMobile ? '11px' : '12px', fontWeight: 500 }}>
                                 {(!isPaused && !isReviewing)
                                     ? formatVoiceTime(recordingTime)
                                     : (isPlayingPreview || previewProgress > 0 ? formatVoiceTime(previewSeconds) : formatVoiceTime(recordingTime))}
@@ -696,8 +701,8 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
                             ref={waveformRef}
                             width={220}
                             height={36}
-                            style={{ 
-                                width: '100%', 
+                            style={{
+                                width: '100%',
                                 height: '100%',
                                 opacity: (isPaused || isReviewing) ? 0.8 : 1
                             }}
@@ -733,7 +738,7 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
                                 window.addEventListener('mousemove', onMouseMove);
                                 window.addEventListener('mouseup', onMouseUp);
 
-                                updateSeekFromEvent(e); 
+                                updateSeekFromEvent(e);
                             }}
                         />
                         {(isPaused || isReviewing) && (
@@ -742,7 +747,7 @@ const VoiceRecordingUI = memo(({ isMobile, onSend, onCancel, setSnackbar, t, use
                                 left: `${previewProgress}%`,
                                 width: '10px',
                                 height: '10px',
-                                backgroundColor: '#0EA5BE', 
+                                backgroundColor: '#0EA5BE',
                                 borderRadius: '50%',
                                 pointerEvents: 'none',
                                 transform: 'translateX(-50%)',
@@ -1049,6 +1054,7 @@ export default function Chat() {
     const searchSource = useRef('chat_header'); // 'chat_header' | 'contact_info'
     const isInitialFetchDone = useRef(false);
     const usersRef = useRef([]);
+    const recentlyMarkedRead = useRef({}); // { userId: timestamp }
 
     // --- Forwarding State ---
     const [isForwardingMode, setIsForwardingMode] = useState(false);
@@ -1196,10 +1202,11 @@ export default function Chat() {
         };
 
         // Register listeners
-        window.addEventListener('mousemove', () => {
+        const handleMouseMove = () => {
             resetSleepTimer();
             if (isAppAsleep) setIsAppAsleep(false);
-        });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('keydown', resetSleepTimer);
         window.addEventListener('mousedown', resetSleepTimer);
         window.addEventListener('touchstart', resetSleepTimer);
@@ -1211,7 +1218,7 @@ export default function Chat() {
 
         return () => {
             if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
-            window.removeEventListener('mousemove', resetSleepTimer);
+            window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('keydown', resetSleepTimer);
             window.removeEventListener('mousedown', resetSleepTimer);
             window.removeEventListener('touchstart', resetSleepTimer);
@@ -1219,7 +1226,7 @@ export default function Chat() {
             window.removeEventListener('blur', handleBlur);
             window.removeEventListener('click', handleWakeUp, true);
         };
-    }, [selectedUser, selectedGroup, isAppAsleep]); // Re-run when chat changes or when we enter/exit sleep
+    }, [isAppAsleep]); // Re-run only when sleep state changes
 
     const fetchReminders = async () => {
         try {
@@ -1244,11 +1251,11 @@ export default function Chat() {
 
                     let isAttending = false;
                     if (m.isGroup) {
-                         isAttending = ev.responses && ev.responses.some(r => String(r.user_id._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
-                         if (String(m.sender_id?._id || m.sender_id) === String(user.id)) isAttending = true;
+                        isAttending = ev.responses && ev.responses.some(r => String(r.user_id._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
+                        if (String(m.sender_id?._id || m.sender_id) === String(user.id)) isAttending = true;
                     } else {
-                         isAttending = ev.responses && ev.responses.some(r => String(r.user_id._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
-                         if (String(m.user_id?._id || m.user_id) === String(user.id)) isAttending = true;
+                        isAttending = ev.responses && ev.responses.some(r => String(r.user_id._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
+                        if (String(m.user_id?._id || m.user_id) === String(user.id)) isAttending = true;
                     }
                     if (!isAttending) return;
 
@@ -1257,7 +1264,7 @@ export default function Chat() {
                     const startObj = new Date(startStr);
                     if (isNaN(startObj.getTime())) return;
                     const diffMs = startObj.getTime() - now.getTime();
-                    
+
                     const rt = ev.reminderTiming || 'default';
                     let targetMs = 24 * 60 * 60 * 1000;
                     if (rt === '15m') targetMs = 15 * 60 * 1000;
@@ -1284,13 +1291,13 @@ export default function Chat() {
                         }
                     }
                 });
-                
+
                 // Keep UI updated if events expire
                 setEventTick(prev => prev + 1);
             }
         }, 60000);
         return () => clearInterval(interval);
-    }, [user, isAppAsleep, remindersList, eventTick]);
+    }, [user, isAppAsleep, remindersList]);
 
     const isAccountBanned = () => {
         if (!accountBanned) return false;
@@ -2654,14 +2661,18 @@ export default function Chat() {
             setSnackbar({ message: 'Please select at least one message', type: 'info', variant: 'system' });
             return;
         }
-        const ids = selectedMediaMsgs.map(m => m._id);
+        const ids = selectedMediaMsgs.map(m => m._id || m.id);
         const token = localStorage.getItem('token');
         try {
             const allStarred = selectedMediaMsgs.every(m => m.is_starred);
             await Promise.all(ids.map(id => axios.post(`/api/chat/message/${id}/toggle`, { action: 'star', value: !allStarred }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })));
-            setMessages(prev => prev.map(m => ids.includes(m._id) ? { ...m, is_starred: !allStarred } : m));
+            
+            const updateStarred = (prev) => prev.map(m => (ids.includes(m._id) || ids.includes(m.id)) ? { ...m, is_starred: !allStarred } : m);
+            setMessages(updateStarred);
+            setGroupMessages(updateStarred);
+
             setSnackbar({ message: `Messages ${allStarred ? 'unstarred' : 'starred'}`, type: 'success', variant: 'system' });
             setSelectedMediaMsgs([]);
         } catch (err) {
@@ -2847,30 +2858,27 @@ export default function Chat() {
             return;
         }
 
-        // --- Grammar check ONLY for text messages (no files or link previews) ---
+        const trimmedInput = input.trim();
         const isEmojiPresent = /[\u00a9\u00ae\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff]/.test(input);
         const containsUrl = /https?:\/\/[^\s]+/.test(input);
-        const trimmedNow = input.trim();
-        if (file || !trimmedNow || trimmedNow.length < 3 || typingLinkPreview || containsUrl || isEmojiPresent) {
-            setGrammarSuggestions(null);
-            setShowGrammarBar(false);
-            setIsGrammarLoading(false);
-            setIsGarbageMessage(false);
-            setSuggestionApplied(true); // Bypass AI check requirement
+
+        if (file || !trimmedInput || trimmedInput.length < 3 || typingLinkPreview || containsUrl || isEmojiPresent) {
+            if (grammarSuggestions !== null) setGrammarSuggestions(null);
+            if (showGrammarBar !== false) setShowGrammarBar(false);
+            if (isGrammarLoading !== false) setIsGrammarLoading(false);
+            if (isGarbageMessage !== false) setIsGarbageMessage(false);
+            if (suggestionApplied !== true) setSuggestionApplied(true);
             return;
         }
 
-        // For all inputs 1+, we instantly block the send button while waiting for AI
-        setSuggestionApplied(false);
+        // Only block send if we aren't already blocked and not currently loading a previous check
+        if (suggestionApplied) setSuggestionApplied(false);
 
         const timer = setTimeout(async () => {
-            const trimmedInput = input.trim();
             const hasVowels = /[aeiouy]/i.test(trimmedInput);
             const hasNumbers = /[0-9]/.test(trimmedInput);
-            const isEmojiPresent = /[\u00a9\u00ae\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff]/.test(trimmedInput);
             const isMeaningful = trimmedInput.length >= 1 && (/[a-zA-Z0-9]/.test(trimmedInput) || isEmojiPresent);
 
-            // Catch repeats like "fff", "jgjg" and vowel-less strings
             const isProbablyGarbage = (trimmedInput.length >= 3 && !hasVowels && !hasNumbers && !isEmojiPresent) ||
                 /([^aeiouy0-9\s])\1{2,}/i.test(trimmedInput) ||
                 (trimmedInput.length >= 4 && !hasVowels && !hasNumbers && !isEmojiPresent);
@@ -2878,7 +2886,7 @@ export default function Chat() {
             if (isProbablyGarbage || (!isMeaningful && !isEmojiPresent)) {
                 setIsGarbageMessage(true);
                 setShowGrammarBar(true);
-                if ((isProbablyGarbage || !isMeaningful) && trimmedInput.length >= 3) {
+                if (trimmedInput.length >= 3) {
                     setSnackbar({
                         message: "Please write a meaningful word or sentence to start the chat",
                         type: 'error',
@@ -2892,7 +2900,7 @@ export default function Chat() {
 
             setIsGarbageMessage(false);
             setIsGrammarLoading(true);
-            setShowGrammarBar(true); // Show bar immediately with loader
+            setShowGrammarBar(true);
             try {
                 const token = localStorage.getItem('token');
                 const res = await axios.post('/api/chat/grammar-check', { text: input }, {
@@ -2901,12 +2909,13 @@ export default function Chat() {
                 const suggestions = res.data;
                 setGrammarSuggestions(suggestions);
 
-                if (trimmedInput.toLowerCase() === suggestions.fluent.trim().toLowerCase() ||
-                    trimmedInput.toLowerCase() === suggestions.basic.trim().toLowerCase()
-                ) {
-                    // Check if it's unethical before praising grammar
-                    const badWords = ['damn', 'idiot', 'stupid', 'hate', 'kill', 'abuse', 'fuck', 'shit', 'bastard', 'asshole'];
-                    const isUnethical = badWords.some(word => {
+                const sFluent = (suggestions.fluent || '').trim().toLowerCase();
+                const sBasic = (suggestions.basic || '').trim().toLowerCase();
+                const tInput = trimmedInput.toLowerCase();
+
+                if (tInput === sFluent || tInput === sBasic) {
+                    const badWordsList = ['damn', 'idiot', 'stupid', 'hate', 'kill', 'abuse', 'fuck', 'shit', 'bastard', 'asshole'];
+                    const isUnethical = badWordsList.some(word => {
                         const regex = new RegExp(`\\b${word}\\b`, 'i');
                         return regex.test(trimmedInput);
                     });
@@ -2923,10 +2932,11 @@ export default function Chat() {
             } catch (err) {
                 console.error("Grammar check failed", err);
                 setShowGrammarBar(false);
+                setSuggestionApplied(true); // Don't block if API fails
             } finally {
                 setIsGrammarLoading(false);
             }
-        }, 1400);
+        }, 800); // Reduced delay for better performance
 
         return () => clearTimeout(timer);
     }, [input, file, typingLinkPreview]);
@@ -3195,22 +3205,30 @@ export default function Chat() {
             const isActiveChat = currentSelected && String(senderId) === String(currentSelected._id);
 
             if (isActiveChat) {
-                console.log('[DEBUG] Active chat open, adding message to view and marking read.');
+                console.log('[DEBUG] Active chat open with', senderId, '- adding and marking read.');
                 const nearBottom = isChatNearBottom();
                 const incomingMsgId = String(data._id || data.id || '');
+
                 setMessages(prev => {
-                    if (prev.find(m => m._id === data._id)) return prev;
+                    const exists = prev.some(m => String(m._id || m.id) === incomingMsgId);
+                    if (exists) return prev;
                     return [...prev, { ...data, role: 'user' }];
                 });
-                if (nearBottom) {
+
+                // Always call markAsRead when chat is active and new message arrives
+                // Delay slightly more to be safe with DB and UI transitions
+                setTimeout(() => {
                     markAsRead(senderId);
+                }, 300);
+
+                if (nearBottom) {
                     clearPendingUnread(true);
                 } else {
                     if (incomingMsgId && unreadCountedIdsRef.current.has(incomingMsgId)) return;
                     if (incomingMsgId) unreadCountedIdsRef.current.add(incomingMsgId);
                     setShowScrollBtn(true);
                     setPendingNewMsgCount(prev => prev + 1);
-                    setFirstUnreadMessageId(prev => prev || (data._id || data.id));
+                    setFirstUnreadMessageId(prev => prev || incomingMsgId);
                     setUnreadBarLockedUntil(Date.now() + 5000);
                 }
             } else {
@@ -3312,20 +3330,61 @@ export default function Chat() {
         };
 
         const onMessagesRead = (data) => {
-            console.log('Socket: messages_read', data);
-            const currentSelected = selectedUserRef.current;
-            if (currentSelected && String(data.reader_id) === String(currentSelected._id)) {
-                setMessages(prev => prev.map(msg => {
-                    const myId = userRef.current?.id || userRef.current?._id;
-                    const senderId = (msg.sender_id?._id || msg.sender_id) || (msg.user_id?._id || msg.user_id);
-                    const isMyMsg = String(senderId) === String(myId);
+            const readerId = String(data.reader_id || '');
+            const senderPayloadId = String(data.sender_id || ''); // Optional from broadcast
+            console.log('[DEBUG] Socket: messages_read received', { readerId, senderPayloadId });
 
-                    if (isMyMsg && !msg.is_read) {
-                        return { ...msg, is_read: true, read_at: data.read_at };
-                    }
-                    return msg;
-                }));
+            const myId = String(userRef.current?.id || userRef.current?._id || '');
+            const currentSelectedId = String(selectedUserRef.current?._id || selectedUserRef.current?.id || '');
+
+            // Determine if this event is relevant to ME as the sender
+            // It's relevant if:
+            // 1. I am the sender directed by the server (private room)
+            // 2. The broadcast sender_id matches my ID
+            const isTargetedToMe = !senderPayloadId || senderPayloadId === myId;
+            if (!isTargetedToMe) return;
+
+            const markMsg = (m) => {
+                const msgSenderId = String(m.sender_id?._id || m.sender_id || m.user_id?._id || m.user_id || '');
+                if (msgSenderId === myId && !m.is_read) {
+                    return { ...m, is_read: true, read_at: data.read_at || new Date() };
+                }
+                return m;
+            };
+
+            // Update cache
+            if (readerId && messageCacheByUserRef.current[readerId]) {
+                messageCacheByUserRef.current[readerId] = messageCacheByUserRef.current[readerId].map(markMsg);
             }
+
+            // Update active view
+            if (currentSelectedId === readerId) {
+                console.log('[DEBUG] Updating active messages with blue ticks.');
+                setMessages(prev => {
+                    const next = prev.map(markMsg);
+                    return next; // Optimization: we could check for changes but assignment is fine here
+                });
+            }
+
+            // Update sidebar
+            setUsers(prev => prev.map(u => {
+                if (String(u._id || u.id) === readerId && u.lastMessage) {
+                    const nextMsg = markMsg(u.lastMessage);
+                    if (nextMsg !== u.lastMessage) return { ...u, lastMessage: nextMsg };
+                }
+                return u;
+            }));
+
+            // Update Message Info Drawer if open
+            setInfoMessage(prev => {
+                if (!prev) return null;
+                const next = markMsg(prev);
+                return (next !== prev) ? next : prev;
+            });
+        };
+
+        const onMessagesReadBroadcast = (data) => {
+            onMessagesRead(data);
         };
 
         const onMessagesUnread = (data) => {
@@ -3354,37 +3413,18 @@ export default function Chat() {
         };
 
         const onStatusChange = (data) => {
-            console.log('Socket: user_status_change', data);
-            setUsers(prev => prev.map(u => {
-                if (String(u._id) === String(data.userId)) {
-                    return { ...u, isOnline: data.isOnline, lastSeen: data.lastSeen || u.lastSeen };
-                }
-                return u;
-            }));
-
-            const currentSelected = selectedUserRef.current;
-            if (currentSelected && String(currentSelected._id) === String(data.userId)) {
-                setSelectedUser(prev => prev ? ({
-                    ...prev,
-                    isOnline: data.isOnline,
-                    lastSeen: data.lastSeen || prev.lastSeen
-                }) : null);
-            }
-
-            const currentGroup = selectedGroupRef.current;
-            if (currentGroup && (currentGroup.members || []).some(m => String(m._id || m) === String(data.userId))) {
-                setSelectedGroup(prev => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        members: (prev.members || []).map(m =>
-                            String(m._id || m) === String(data.userId)
-                                ? { ...m, isOnline: data.isOnline, lastSeen: data.lastSeen || m.lastSeen }
-                                : m
-                        )
-                    };
+            setUsers(prev => {
+                let changed = false;
+                const newUsers = prev.map(u => {
+                    const isMatch = (u._id === data.userId || u.id === data.userId);
+                    if (isMatch && (u.online !== (data.status === 'online') || u.lastSeen !== data.lastSeen)) {
+                        changed = true;
+                        return { ...u, online: data.status === 'online', lastSeen: data.lastSeen };
+                    }
+                    return u;
                 });
-            }
+                return changed ? newUsers : prev;
+            });
         };
 
         const onMessagePinned = (data) => {
@@ -3531,6 +3571,7 @@ export default function Chat() {
         socket.io.on("reconnect_failed", onReconnectFailed);
         socket.on('receive_message', onReceiveMessage);
         socket.on('messages_read', onMessagesRead);
+        socket.on('messages_read_broadcast', onMessagesRead);
         socket.on('messages_unread', onMessagesUnread);
         socket.on('messages_unread_broadcast', (data) => {
             console.log('[CLIENT] Received broadcast test:', data);
@@ -3593,10 +3634,29 @@ export default function Chat() {
             // Do not show "message request" popup if users already have chat history.
             if (hasExistingConversation) {
                 fetchUsers();
+                fetchMessageRequests();
                 return;
             }
             setSnackbar({ message: `New message request from ${data.senderName}`, type: 'info', variant: 'system' });
+            // Live refresh request tab and sidebar state immediately.
+            setUsers(prev => {
+                const exists = prev.some(u => String(u._id || u.id) === String(data.senderId));
+                if (exists) {
+                    return prev.map(u =>
+                        String(u._id || u.id) === String(data.senderId)
+                            ? {
+                                ...u,
+                                requestStatus: 'pending',
+                                requestUpdatedAt: new Date().toISOString(),
+                                lastMessage: u.lastMessage || { content: 'New Message Request', created_at: new Date().toISOString(), type: 'text', is_request_placeholder: true }
+                            }
+                            : u
+                    );
+                }
+                return prev;
+            });
             fetchMessageRequests();
+            fetchUsers();
         };
         socket.on('new_message_request', onNewMessageRequest);
 
@@ -3881,7 +3941,7 @@ export default function Chat() {
 
                 setGroupMessages(prev => {
                     if (prev.find(m => m._id === data.message?._id)) return prev;
-                    if (isMyOwnMessage) return prev; // Avoid duplicating optimistic message
+                    if (isMyOwnMessage && !data.message?.is_system && data.message?.type !== 'system') return prev; // Avoid duplicating optimistic message, but allow system logs
                     return [...prev, data.message];
                 });
                 const nearBottom = isChatNearBottom();
@@ -4001,8 +4061,9 @@ export default function Chat() {
 
         const onGroupMessagesRead = (data) => {
             const myId = userRef.current?.id || userRef.current?._id;
+            
+            // 1. Sync sidebar for the reader
             if (String(data.readerId) === String(myId)) {
-                // If I'm the one who read the messages, sync sidebar unread count
                 setGroups(prev => prev.map(g => String(g._id) === String(data.groupId) ? { ...g, unreadCount: 0 } : g));
 
                 const clearUnread = (c) => {
@@ -4020,6 +4081,17 @@ export default function Chat() {
                 setCommunities(prev => prev.map(clearUnread));
                 setSelectedCommunity(prev => prev ? clearUnread(prev) : null);
                 fetchGroups();
+            }
+
+            // 2. Sync ticks (blue ticks) for others (especially the sender)
+            const currentSelectedGroup = selectedGroupRef?.current;
+            if (currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId)) {
+                setGroupMessages(prev => prev.map(msg => {
+                    if (data.messageIds && data.messageIds.map(String).includes(String(msg._id))) {
+                        return { ...msg, is_read: true };
+                    }
+                    return msg;
+                }));
             }
         };
         socket.on('group_messages_read', onGroupMessagesRead);
@@ -4099,6 +4171,21 @@ export default function Chat() {
         };
         socket.on('group_message_partial_read', onGroupMessagePartialRead);
 
+        const onGroupMessagesUnread = (data) => {
+            console.log('Socket: group_messages_unread', data);
+            const currentSelectedGroup = selectedGroupRef?.current;
+            if (currentSelectedGroup && String(currentSelectedGroup._id) === String(data.groupId)) {
+                setGroupMessages(prev => prev.map(msg => {
+                    const msgId = String(msg._id || msg.id || '');
+                    if (data.messageIds && data.messageIds.map(String).includes(msgId)) {
+                        return { ...msg, is_read: false };
+                    }
+                    return msg;
+                }));
+            }
+        };
+        socket.on('group_messages_unread', onGroupMessagesUnread);
+
         const onGroupAdminUpdated = (data) => {
             const { groupId, memberId, isAdmin } = data;
 
@@ -4172,6 +4259,7 @@ export default function Chat() {
             socket.io.off("reconnect_failed", onReconnectFailed);
             socket.off('receive_message', onReceiveMessage);
             socket.off('messages_read', onMessagesRead);
+            socket.off('messages_read_broadcast', onMessagesRead);
             socket.off('messages_unread', onMessagesUnread);
             socket.off('user_status_change', onStatusChange);
             socket.off('message_deleted', onMessageDeleted);
@@ -4224,38 +4312,38 @@ export default function Chat() {
                     e.preventDefault();
                     return;
                 }
-                
+
                 if (chatContextMenu) {
                     setChatContextMenu(null);
                     return;
                 }
-                
+
                 if (openDropdown) {
                     setOpenDropdown(null);
                     return;
                 }
-                
+
                 if (showMenu) {
                     setShowMenu(false);
                     return;
                 }
-                
+
                 if (isNewGroupOpen) {
                     setIsNewGroupOpen(false);
                     return;
                 }
-                
+
                 if (isNewChatOpen) {
                     setIsNewChatOpen(false);
                     return;
                 }
-                
+
                 if (selectedUser || selectedGroup || selectedCommunity) {
                     if (showUnblockModal) {
-                         setShowUnblockModal(false);
-                         return;
+                        setShowUnblockModal(false);
+                        return;
                     }
-                    
+
                     // Reset all panels and selection modes
                     handleBackToChatList();
                     setSelectedGroup(null);
@@ -4699,6 +4787,32 @@ export default function Chat() {
         }
     };
 
+    const openRequestConversation = (request) => {
+        const requestUserId = String(request?.fromUserId?._id || request?.fromUserId || '');
+        if (!requestUserId) return;
+
+        const existingUser = users.find(u => String(u._id || u.id) === requestUserId);
+        const fallbackUser = request?.fromUserId
+            ? {
+                ...request.fromUserId,
+                _id: requestUserId,
+                requestStatus: 'pending',
+                requestUpdatedAt: request.created_at
+            }
+            : null;
+
+        const targetUser = existingUser || fallbackUser;
+        if (!targetUser) return;
+
+        setIsRequestsModalOpen(false);
+        setSelectedCommunity(null);
+        setSelectedGroup(null);
+        setIsCommunityHomeOpen(false);
+        setSelectedUser(targetUser);
+        if (selectedUserRef) selectedUserRef.current = targetUser;
+        fetchP2PRequest(requestUserId);
+    };
+
     const handleEventRespond = async (msg, status) => {
         try {
             const token = localStorage.getItem('token');
@@ -4895,7 +5009,7 @@ export default function Chat() {
             });
             setOpenDropdown(null);
         } else if (pinnedIds.length >= 5) {
-            // Limit reached Ã¢â‚¬â€ open replacement modal
+            // Limit reached Ã¢â‚¬â€  open replacement modal
             setPinReplaceModal({ newId: contactId, isGroup, pinnedIds });
             setOpenDropdown(null);
         } else {
@@ -4951,15 +5065,47 @@ export default function Chat() {
         setSnackbar({ message: 'Pinned chat replaced successfully', type: 'success', variant: 'system' });
     };
 
-    const markAsRead = async (senderId) => {
+    const markAsRead = async (idOrObj) => {
+        if (!idOrObj) return;
+        const targetSenderId = String(idOrObj._id || idOrObj.id || idOrObj);
+        if (targetSenderId === "[object Object]") {
+            console.error('[DEBUG] markAsRead: Received invalid object for senderId', idOrObj);
+            return;
+        }
+
+        // Throttling: Don't mark the same user read more than once every 500ms
+        const now = Date.now();
+        if (recentlyMarkedRead.current[targetSenderId] && (now - recentlyMarkedRead.current[targetSenderId]) < 500) {
+            return;
+        }
+        recentlyMarkedRead.current[targetSenderId] = now;
+
         try {
             const token = localStorage.getItem('token');
-            await axios.post('/api/chat/messages/mark-read',
-                { userId: user.id, senderId: senderId },
+            const myId = user.id || user._id;
+            console.log(`[DEBUG] markAsRead EXECUTING: Messages from ${targetSenderId} read by ${myId}`);
+            const res = await axios.post('/api/chat/messages/mark-read',
+                { userId: myId, senderId: targetSenderId },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-            setUsers(prev => prev.map(u => u._id === senderId ? { ...u, unreadCount: 0 } : u));
-        } catch (err) { console.error(err); }
+
+            // Only update UI if server actually updated something or if we strongly believe we have unread count
+            const modCount = res.data.modifiedCount || 0;
+            setUsers(prev => {
+                let foundUnread = false;
+                const newUsers = prev.map(u => {
+                    if (String(u._id || u.id) === targetSenderId && u.unreadCount > 0) {
+                        foundUnread = true;
+                        return { ...u, unreadCount: 0 };
+                    }
+                    return u;
+                });
+                return foundUnread ? newUsers : prev;
+            });
+        } catch (err) {
+            console.error('[DEBUG] markAsRead Error:', err);
+            delete recentlyMarkedRead.current[targetSenderId]; // Allow retry on error
+        }
     };
 
     const scrollChatToLatest = (behavior = 'auto') => {
@@ -5024,6 +5170,8 @@ export default function Chat() {
             setMessages(decryptedMessages);
             messageCacheByUserRef.current[cacheKey] = decryptedMessages;
             scrollChatToLatest('auto');
+            // Ensure read receipts are pushed immediately when opening a chat.
+            markAsRead(otherId);
         } catch (err) { console.error(err); }
     };
 
@@ -5060,7 +5208,7 @@ export default function Chat() {
             setMessages([]);
         }
         fetchP2PRequest(u._id);
-        if (u.unreadCount > 0) markAsRead(u._id);
+        markAsRead(u._id);
     };
 
     useEffect(() => {
@@ -5156,21 +5304,24 @@ export default function Chat() {
             const isCommunity = communities.some(c => String(c.id) === String(targetId));
             const isGroup = groups.some(g => g._id === targetId);
 
-            if (isCommunity) {
-                setCommunities(prev => prev.map(c => String(c.id) === String(targetId) ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c));
-                setSnackbar({ message: 'Marked as unread', type: 'success', variant: 'system' });
-            } else if (isGroup) {
-                const groupObj = groups.find(g => g._id === targetId);
-                const myId = user.id || user._id;
-                const lastMsgSender = groupObj?.lastMessage?.sender_id?._id || groupObj?.lastMessage?.sender_id;
+            if (isCommunity || isGroup) {
+                const commObj = communities.find(c => String(c.id) === String(targetId));
+                const targetGroupId = isCommunity 
+                    ? String(commObj?.announcements?._id || commObj?.announcements?.id || commObj?.announcements)
+                    : targetId;
 
-                if (!groupObj?.lastMessage || String(lastMsgSender) === String(myId)) {
-                    setSnackbar({ message: 'No messages to Mark as Unread identified', type: 'info', variant: 'system' });
-                    setOpenDropdown(null);
-                    return;
+                const token = localStorage.getItem('token');
+                if (token && targetGroupId) {
+                    await axios.post(`/api/groups/${targetGroupId}/messages/mark-unread`, {}, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
                 }
 
-                setGroups(prev => prev.map(g => g._id === targetId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g));
+                if (isCommunity) {
+                    setCommunities(prev => prev.map(c => String(c.id) === String(targetId) ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c));
+                } else {
+                    setGroups(prev => prev.map(g => g._id === targetId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g));
+                }
                 setSnackbar({ message: 'Marked as unread', type: 'success', variant: 'system' });
             } else {
                 const token = localStorage.getItem('token');
@@ -6467,7 +6618,7 @@ export default function Chat() {
             // UPDATE LOCAL STATE WITH REAL MESSAGE
             if (selectedGroup) {
                 setGroupMessages(prev => prev.map(msg =>
-                    msg._id === tempId ? { ...sentMsg, reply_to: tempMsg.reply_to } : msg
+                    msg._id === tempId ? { ...sentMsg, reply_to: tempMsg.reply_to, is_read: msg.is_read || sentMsg.is_read, read_at: msg.read_at || sentMsg.read_at } : msg
                 ));
 
                 // EMIT SOCKET FOR GROUP
@@ -6482,7 +6633,7 @@ export default function Chat() {
                 fetchGroups(); // Refresh group lists for last message sync
             } else {
                 setMessages(prev => prev.map(msg =>
-                    msg._id === tempId ? { ...sentMsg, reply_to: tempMsg.reply_to } : msg
+                    msg._id === tempId ? { ...sentMsg, reply_to: tempMsg.reply_to, is_read: msg.is_read || sentMsg.is_read, read_at: msg.read_at || sentMsg.read_at } : msg
                 ));
 
                 // critically: EMIT SOCKET NOW with the REAL server file_path and reply context
@@ -6922,7 +7073,7 @@ export default function Chat() {
             // Update local message with real server ID once received
             const stillOpenWithTarget = selectedUserRef.current && String(selectedUserRef.current._id) === String(targetUserId);
             if (stillOpenWithTarget && res.data.message) {
-                setMessages(prev => prev.map(m => m._id === tempId ? { ...res.data.message, role: 'user' } : m));
+                setMessages(prev => prev.map(m => m._id === tempId ? { ...res.data.message, role: 'user', is_read: m.is_read || res.data.message.is_read, read_at: m.read_at || res.data.message.read_at } : m));
             }
         } catch (err) {
             console.error('[DEBUG] handleNotificationReply: Error sending message:', err);
@@ -6975,7 +7126,8 @@ export default function Chat() {
             });
 
             if (isChatOpenWithTarget) {
-                setGroupMessages(prev => prev.map(m => m._id === tempId ? (res.data.message || res.data) : m));
+                const updatedMsg = res.data.message || res.data;
+                setGroupMessages(prev => prev.map(m => m._id === tempId ? { ...updatedMsg, is_read: m.is_read || updatedMsg.is_read, read_at: m.read_at || updatedMsg.read_at } : m));
             }
         } catch (err) {
             console.error("[DEBUG] handleGroupNotificationReply: Error sending message:", err);
@@ -7297,7 +7449,7 @@ export default function Chat() {
 
     const renderProfileDrawer = () => (
         <div className={`wa-profile-drawer ${isProfileOpen ? 'active' : ''}`}>
-            <div className="wa-drawer-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', background: 'white', borderBottom: 'none' }}>
+            <div className="wa-drawer-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
 
                 <span style={{
                     position: 'absolute',
@@ -7305,23 +7457,23 @@ export default function Chat() {
                     textAlign: 'left',
                     fontSize: 22,
                     fontWeight: 500,
-                    color: '#3b4a54',
+                    color: '#f8fafc',
                     pointerEvents: 'none'
                 }}>
                     {t('profile_drawer.title')}
                 </span>
             </div>
             {/* Continuous White Content Area */}
-            <div className="wa-drawer-content" style={{ background: 'white', overflowY: 'auto' }}>
+            <div className="wa-drawer-content" style={{ background: 'transparent', overflowY: 'auto' }}>
 
                 {/* Profile Pic - Centered */}
-                <div className="wa-profile-pic-section" style={{ background: 'white', padding: '40px 0 30px', display: 'flex', justifyContent: 'center' }}>
+                <div className="wa-profile-pic-section" style={{ background: 'transparent', padding: '40px 0 30px', display: 'flex', justifyContent: 'center' }}>
                     <div style={{ position: 'relative', width: 160, height: 160 }}>
                         {userData.image ? (
-                            <img src={userData.image} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={userData.image} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid rgba(56, 189, 248, 0.3)' }} />
                         ) : (
-                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#dfe1e5', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <UserIcon size={80} color="#fff" />
+                            <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '4px solid rgba(56, 189, 248, 0.3)' }}>
+                                <UserIcon size={80} color="#38bdf8" />
                             </div>
                         )}
 
@@ -7332,54 +7484,54 @@ export default function Chat() {
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
 
                     <div style={{ flex: 1 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.name_label')}</div>
+                        <div className="wa-section-label" style={{ color: '#38bdf8', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.name_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             {isEditingProfileName ? (
-                                <div style={{ borderBottom: '2px solid #0EA5BE', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                <div style={{ borderBottom: '2px solid #38bdf8', flex: 1, display: 'flex', alignItems: 'center' }}>
                                     <input
                                         autoFocus
                                         className="wa-profile-edit-input"
                                         value={profileEditValue}
                                         onChange={(e) => setProfileEditValue(e.target.value)}
-                                        style={{ border: 'none', outline: 'none', fontSize: 17, color: '#111b21', width: '100%', padding: '8px 0' }}
+                                        style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 17, color: '#f8fafc', width: '100%', padding: '8px 0' }}
                                         onKeyDown={(e) => e.key === 'Enter' && saveProfileField('name')}
                                     />
-                                    <span style={{ fontSize: 12, color: '#8696a0' }}>{25 - profileEditValue.length}</span>
-                                    <CheckCheck size={20} color="#8696a0" style={{ cursor: 'pointer', marginLeft: 10 }} onClick={() => saveProfileField('name')} />
+                                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{25 - profileEditValue.length}</span>
+                                    <CheckCheck size={20} color="#38bdf8" style={{ cursor: 'pointer', marginLeft: 10 }} onClick={() => saveProfileField('name')} />
                                 </div>
                             ) : (
                                 <>
-                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#111b21' }}>{userData.name}</span>
-                                    <Pencil size={20} color="#8696a0" style={{ cursor: 'pointer' }} onClick={() => { setIsEditingProfileName(true); setProfileEditValue(userData.name || ""); }} />
+                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#f8fafc' }}>{userData.name}</span>
+                                    <Pencil size={20} color="#38bdf8" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => { setIsEditingProfileName(true); setProfileEditValue(userData.name || ""); }} />
                                 </>
                             )}
                         </div>
-                        {!isEditingProfileName && <div className="wa-section-note" style={{ fontSize: 13, color: '#8696a0', marginTop: 14 }}>{t('profile_drawer.name_desc')}</div>}
+                        {!isEditingProfileName && <div className="wa-section-note" style={{ fontSize: 13, color: '#94a3b8', marginTop: 14 }}>{t('profile_drawer.name_desc')}</div>}
                     </div>
                 </div>
 
                 {/* About Section */}
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
 
-                    <div style={{ flex: 1, borderTop: '1px solid #e9edef', paddingTop: 14 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.about_label')}</div>
+                    <div style={{ flex: 1, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 14 }}>
+                        <div className="wa-section-label" style={{ color: '#38bdf8', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.about_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             {isEditingProfileAbout ? (
-                                <div style={{ borderBottom: '2px solid #0EA5BE', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                <div style={{ borderBottom: '2px solid #38bdf8', flex: 1, display: 'flex', alignItems: 'center' }}>
                                     <input
                                         autoFocus
                                         className="wa-profile-edit-input"
                                         value={profileEditValue}
                                         onChange={(e) => setProfileEditValue(e.target.value)}
-                                        style={{ border: 'none', outline: 'none', fontSize: 17, color: '#111b21', width: '100%', padding: '8px 0' }}
+                                        style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 17, color: '#f8fafc', width: '100%', padding: '8px 0' }}
                                         onKeyDown={(e) => e.key === 'Enter' && saveProfileField('about')}
                                     />
-                                    <CheckCheck size={20} color="#8696a0" style={{ cursor: 'pointer', marginLeft: 10 }} onClick={() => saveProfileField('about')} />
+                                    <CheckCheck size={20} color="#38bdf8" style={{ cursor: 'pointer', marginLeft: 10 }} onClick={() => saveProfileField('about')} />
                                 </div>
                             ) : (
                                 <>
-                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#111b21' }}>{userData.about || t('settings.profile.status_available')}</span>
-                                    <Pencil size={20} color="#8696a0" style={{ cursor: 'pointer' }} onClick={() => { setIsEditingProfileAbout(true); setProfileEditValue(userData.about || "Available"); }} />
+                                    <span className="wa-section-value" style={{ fontSize: 17, color: '#f8fafc' }}>{userData.about || t('settings.profile.status_available')}</span>
+                                    <Pencil size={20} color="#38bdf8" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => { setIsEditingProfileAbout(true); setProfileEditValue(userData.about || "Available"); }} />
                                 </>
                             )}
                         </div>
@@ -7388,15 +7540,15 @@ export default function Chat() {
 
                 {/* Phone Section */}
                 <div className="wa-profile-row" style={{ padding: '14px 30px', display: 'flex', alignItems: 'flex-start', gap: 20 }}>
-                    <div style={{ flex: 1, borderTop: '1px solid #e9edef', paddingTop: 14 }}>
-                        <div className="wa-section-label" style={{ color: '#54656f', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.phone_label')}</div>
+                    <div style={{ flex: 1, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 14 }}>
+                        <div className="wa-section-label" style={{ color: '#38bdf8', fontSize: 13, marginBottom: 4 }}>{t('profile_drawer.phone_label')}</div>
                         <div className="wa-section-value-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <Phone size={20} color="#8696a0" fill="#8696a0" strokeWidth={0.1} style={{ marginRight: 30 }} />
-                                <span className="wa-section-value" style={{ fontSize: 17, color: '#111b21' }}>{userData.mobile || userData.phone}</span>
+                                <Phone size={20} color="#38bdf8" fill="rgba(56, 189, 248, 0.2)" strokeWidth={1} style={{ marginRight: 30 }} />
+                                <span className="wa-section-value" style={{ fontSize: 17, color: '#f8fafc' }}>{userData.mobile || userData.phone}</span>
                             </div>
                             {/* Copy Icon for Phone per Image 2 */}
-                            <Copy size={20} color="#8696a0" style={{ cursor: 'pointer' }} onClick={() => {
+                            <Copy size={20} color="#38bdf8" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => {
                                 navigator.clipboard.writeText(userData.mobile || userData.phone || '');
                                 setSnackbar({ message: "Phone number copied", type: 'success', variant: 'system' });
                             }} />
@@ -7441,11 +7593,11 @@ export default function Chat() {
                     </button>
                 </div>
 
-                <div className="wa-drawer-content" style={{ background: 'white', overflowY: 'auto', flex: 1 }}>
+                <div className="wa-drawer-content" style={{ background: 'transparent', overflowY: 'auto', flex: 1 }}>
                     {/* Search Bar */}
                     <div style={{ padding: '10px 16px' }}>
-                        <div className="wa-search-bar" style={{ background: '#f0f2f5', borderRadius: 24, padding: '6px 12px', display: 'flex', alignItems: 'center', position: 'relative' }}>
-                            <Search size={18} color="#54656f" style={{ marginRight: 15 }} />
+                        <div className="wa-search-bar" style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 24, padding: '6px 12px', display: 'flex', alignItems: 'center', position: 'relative' }}>
+                            <Search size={18} color="#cbd5e1" style={{ marginRight: 15 }} />
                             <input
                                 type="text"
                                 placeholder={t('new_chat.search_placeholder')}
@@ -7480,14 +7632,14 @@ export default function Chat() {
                     {/* Action Items */}
                     <div className="wa-new-chat-actions">
                         <div className="wa-new-chat-action-item" onClick={(e) => { e.stopPropagation(); setIsNewGroupOpen(true); setIsNewChatOpen(false); }}>
-                            <div className="wa-action-icon-circle" style={{ background: '#0EA5BE' }}><Users size={20} color="white" /></div>
-                            <span>{t('new_chat.new_group')}</span>
+                            <div className="wa-action-icon-circle" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)', boxShadow: '0 4px 15px rgba(14, 165, 233, 0.4)' }}><Users size={20} color="white" /></div>
+                            <span style={{ color: '#f8fafc', fontWeight: 500 }}>{t('new_chat.new_group')}</span>
                         </div>
 
 
                         <div className="wa-new-chat-action-item" onClick={(e) => { e.stopPropagation(); setIsNewCommunityOpen(true); setIsNewChatOpen(false); setCommunityStep(0); }}>
-                            <div className="wa-action-icon-circle" style={{ background: '#0EA5BE' }}><Users size={20} color="white" /></div>
-                            <span>{t('new_chat.new_community')}</span>
+                            <div className="wa-action-icon-circle" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)', boxShadow: '0 4px 15px rgba(14, 165, 233, 0.4)' }}><Users size={20} color="white" /></div>
+                            <span style={{ color: '#f8fafc', fontWeight: 500 }}>{t('new_chat.new_community')}</span>
                         </div>
                     </div>
 
@@ -7560,33 +7712,33 @@ export default function Chat() {
         return (
             <div className={`wa-profile-drawer wa-new-chat-drawer ${isPhoneNumberPanelOpen ? 'active' : ''}`}>
                 {/* 1st Pic: Header with Back Arrow and "Phone number" */}
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef', boxSizing: 'border-box', width: '100%' }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', width: '100%' }}>
                     <button
                         onClick={() => { setIsPhoneNumberPanelOpen(false); setPhoneNumberInput(''); }}
-                        style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', marginRight: 10, display: 'flex', alignItems: 'center', width: 32, padding: 0, flexShrink: 0 }}
+                        style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', marginRight: 10, display: 'flex', alignItems: 'center', width: 32, padding: 0, flexShrink: 0 }}
                     >
                         <ArrowLeft size={24} />
                     </button>
-                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flexShrink: 0 }}>Phone number</span>
+                    <span style={{ fontSize: 19, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', flexShrink: 0 }}>Phone number</span>
                 </div>
 
-                <div className="wa-drawer-content" style={{ background: 'white', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div className="wa-drawer-content" style={{ background: 'transparent', display: 'flex', flexDirection: 'column', height: '100%' }}>
                     {/* Input area with Green Bottom Border - Always visible */}
                     <div style={{ padding: '20px 30px' }}>
-                        <div style={{ borderBottom: '2px solid #0EA5BE', paddingBottom: '10px' }}>
+                        <div style={{ borderBottom: '2px solid #38bdf8', paddingBottom: '10px' }}>
                             <input
                                 type="text"
                                 value={phoneNumberInput}
                                 readOnly
                                 placeholder=""
-                                style={{ border: 'none', outline: 'none', width: '100%', fontSize: 24, fontWeight: 'normal', background: 'transparent', color: '#111b21' }}
+                                style={{ border: 'none', outline: 'none', width: '100%', fontSize: 24, fontWeight: 'normal', background: 'transparent', color: '#f8fafc' }}
                             />
                         </div>
                     </div>
 
                     {/* 1st Pic: "Enter a phone number..." */}
                     {!phoneNumberInput && (
-                        <div style={{ textAlign: 'center', color: '#8696a0', fontSize: 14, margin: '20px 30px' }}>
+                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, margin: '20px 30px' }}>
                             Enter a phone number to start a chat
                         </div>
                     )}
@@ -7609,16 +7761,16 @@ export default function Chat() {
                                 {matchingContact.image ? (
                                     <img src={matchingContact.image} alt="" style={{ width: 45, height: 45, borderRadius: '50%' }} />
                                 ) : (
-                                    <div style={{ width: 45, height: 45, borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <User size={24} color="white" />
+                                    <div style={{ width: 45, height: 45, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <User size={24} color="#38bdf8" />
                                     </div>
                                 )}
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 500, color: '#111b21', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <div style={{ fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 4 }}>
                                     {matchingContact.name || matchingContact.mobile || matchingContact.phone}
                                 </div>
-                                <div className="wa-user-last-msg" style={{ fontSize: 13, color: '#667781' }}>
+                                <div className="wa-user-last-msg" style={{ fontSize: 13, color: '#94a3b8' }}>
                                     {matchingContact.about || 'Hey there! I am using WhatsApp.'}
                                 </div>
                             </div>
@@ -7644,10 +7796,10 @@ export default function Chat() {
                                     }}
                                     style={{ cursor: 'pointer', userSelect: 'none' }}
                                 >
-                                    <div style={{ fontSize: 26, color: '#111b21' }}>
-                                        {item.n === 'backspace' ? <Delete size={24} /> : item.n}
+                                    <div style={{ fontSize: 26, color: '#f8fafc' }}>
+                                        {item.n === 'backspace' ? <Delete size={24} color="#38bdf8" /> : item.n}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#8696a0', marginTop: 2 }}>{item.l}</div>
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{item.l}</div>
                                 </div>
                             ))}
                         </div>
@@ -8449,7 +8601,8 @@ export default function Chat() {
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
-            background: '#e9edef', // Light Application Theme Background
+            background: 'rgba(15, 23, 42, 0.98)', 
+            backdropFilter: 'blur(20px)',
             position: 'relative',
             zIndex: 1000
         }}>
@@ -8459,23 +8612,22 @@ export default function Chat() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: '#f0f2f5',
-                color: '#111b21',
+                background: 'rgba(30, 41, 59, 0.5)',
+                color: '#f8fafc',
                 flexShrink: 0,
-                borderBottom: '1px solid #d1d7db'
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <button
                         onClick={() => {
                             setFile(null);
-                            // Cleanup object URL if needed, though browsers usually handle it
                         }}
-                        style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', padding: 4 }}
+                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}
                         title="Close preview"
                     >
                         <X size={24} />
                     </button>
-                    <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21' }}>Preview</span>
+                    <span style={{ fontSize: 16, fontWeight: 500, color: '#f8fafc' }}>Preview</span>
                 </div>
             </div>
 
@@ -8489,7 +8641,7 @@ export default function Chat() {
                 overflow: 'hidden',
                 padding: '20px 40px',
                 position: 'relative',
-                background: '#f0f2f5' // Matches chat background color generally
+                background: 'transparent' 
             }}>
                 {file && file.type.startsWith('image/') ? (
                     <img
@@ -8499,8 +8651,9 @@ export default function Chat() {
                             maxWidth: '100%',
                             maxHeight: '100%',
                             objectFit: 'contain',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                            borderRadius: 4
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                            borderRadius: 8,
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
                         }}
                     />
                 ) : file && file.type.startsWith('video/') ? (
@@ -8514,9 +8667,10 @@ export default function Chat() {
                             style={{
                                 maxWidth: '100%',
                                 maxHeight: '100%',
-                                borderRadius: 8,
-                                boxShadow: '0 8px 12px rgba(0,0,0,0.1)',
-                                background: '#111b21'
+                                borderRadius: 12,
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                background: '#0f172a',
+                                border: '1px solid rgba(255, 255, 255, 0.1)'
                             }}
                         />
                     </div>
@@ -8524,16 +8678,17 @@ export default function Chat() {
                     <div style={{
                         textAlign: 'center',
                         padding: 60,
-                        background: '#ffffff',
-                        borderRadius: 12,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                        color: '#111b21',
-                        border: '1px solid #d1d7db'
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: 16,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                        color: '#f8fafc',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        minWidth: '300px'
                     }}>
-                        <div style={{ fontSize: 48, marginBottom: 16 }}>Ã°Å¸â€œâ€ž</div>
-                        <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8, color: '#111b21' }}>{file?.name}</div>
-                        <div style={{ fontSize: 14, color: '#54656f' }}>
-                            {file?.size ? (file.size / (1024 * 1024)).toFixed(2) + ' MB' : ''} Ã¢â‚¬Â¢ {file?.type?.split('/').pop().toUpperCase()}
+                        <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
+                        <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8, color: '#f8fafc' }}>{file?.name}</div>
+                        <div style={{ fontSize: 14, color: '#94a3b8' }}>
+                            {file?.size ? (file.size / (1024 * 1024)).toFixed(2) + ' MB' : ''} • {file?.type?.split('/').pop().toUpperCase()}
                         </div>
                     </div>
                 )}
@@ -8542,19 +8697,19 @@ export default function Chat() {
             {/* Footer / Caption Input */}
             <div style={{
                 padding: '12px 24px 32px',
-                background: '#f0f2f5',
+                background: 'rgba(15, 23, 42, 0.9)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 12,
-                borderTop: '1px solid #d1d7db'
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="wa-input-pill" style={{
                         flex: 1,
-                        background: '#ffffff',
-                        borderRadius: 8,
-                        padding: '4px 12px',
-                        border: '1px solid #d1d7db'
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: 12,
+                        padding: '4px 16px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
                         <input
                             type="text"
@@ -8566,8 +8721,8 @@ export default function Chat() {
                                 background: 'transparent',
                                 border: 'none',
                                 outline: 'none',
-                                color: '#111b21',
-                                padding: '10px 0',
+                                color: '#f8fafc',
+                                padding: '12px 0',
                                 fontSize: 15
                             }}
                             placeholder="Add a caption..."
@@ -8604,7 +8759,7 @@ export default function Chat() {
 
     const renderSearchSidebar = () => (
         <div className={`wa-search-sidebar ${isMessageSearchOpen ? 'active' : ''}`}>
-            <div className="wa-header" style={{ height: 60, padding: '5px 10px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', background: '#f0f2f5', borderBottom: '1px solid #d1d7db' }}>
+            <div className="wa-header" style={{ height: 60, padding: '5px 10px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
                 <button
                     onClick={() => {
                         setIsMessageSearchOpen(false);
@@ -8613,31 +8768,31 @@ export default function Chat() {
                             setIsContactInfoOpen(true);
                         }
                     }}
-                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#0EA5BE', justifySelf: 'start' }}
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#38bdf8', justifySelf: 'start' }}
                 >
                     <span style={{ fontSize: 16, fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
                 </button>
-                <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap', justifySelf: 'center' }}>{t('chat_list.search_messages')}</span>
+                <span style={{ fontSize: 16, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap', justifySelf: 'center' }}>{t('chat_list.search_messages')}</span>
                 <div style={{ justifySelf: 'end' }} />
             </div>
 
-            <div style={{ padding: '20px 15px', background: 'white', flex: 1, overflowY: 'auto' }}>
+            <div style={{ padding: '20px 15px', background: 'transparent', flex: 1, overflowY: 'auto' }}>
 
-                <div style={{ background: '#f0f2f5', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
-                    <Search size={20} color="#54656f" style={{ marginRight: 12 }} />
+                <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+                    <Search size={20} color="#cbd5e1" style={{ marginRight: 12 }} />
                     <input
                         type="text"
                         placeholder={t('settings.search_placeholder')}
                         value={messageSearchQuery}
                         onChange={(e) => setMessageSearchQuery(e.target.value)}
-                        style={{ border: 'none', background: 'transparent', color: 'black', fontSize: 14, outline: 'none', width: '100%' }}
+                        style={{ border: 'none', background: 'transparent', color: '#f8fafc', fontSize: 14, outline: 'none', width: '100%' }}
                         autoFocus
                     />
                 </div>
 
                 <div style={{ marginTop: 20 }}>
                     {isSearching ? (
-                        <div style={{ textAlign: 'center', color: '#8696a0', fontSize: 14, marginTop: 40 }}>
+                        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginTop: 40 }}>
                             {t('chat_list.looking_for_messages')}
                         </div>
                     ) : (
@@ -8645,16 +8800,16 @@ export default function Chat() {
                             <div className="wa-search-results-list">
                                 {searchResults.map((res, idx) => (
                                     <div key={idx} className="wa-search-result-item" onClick={() => handleSearchClick(res._id)}>
-                                        <div className="wa-search-result-date">{res.time}</div>
+                                        <div className="wa-search-result-date" style={{ color: '#94a3b8' }}>{res.time}</div>
                                         <div className="wa-search-result-content">
                                             <div style={{ marginRight: 8, display: 'flex', alignItems: 'center' }}>
-                                                <CheckCheck size={16} color="#53bdeb" />
+                                                <CheckCheck size={16} color="#38bdf8" />
                                             </div>
-                                            <div className="wa-search-result-text">
+                                            <div className="wa-search-result-text" style={{ color: '#f8fafc' }}>
                                                 {/* Highlight Logic */}
                                                 {res.content.split(new RegExp(`(${messageSearchQuery})`, 'gi')).map((part, i) => (
                                                     part.toLowerCase() === messageSearchQuery.toLowerCase() ?
-                                                        <span key={i} className="wa-search-highlight">{part}</span> : part
+                                                        <span key={i} className="wa-search-highlight" style={{ color: '#38bdf8', fontWeight: 600 }}>{part}</span> : part
                                                 ))}
                                             </div>
                                         </div>
@@ -8663,11 +8818,11 @@ export default function Chat() {
                             </div>
                         ) : (
                             messageSearchQuery ? (
-                                <div style={{ textAlign: 'center', color: '#8696a0', fontSize: 14, marginTop: 40 }}>
+                                <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginTop: 40 }}>
                                     No messages found.
                                 </div>
                             ) : (
-                                <div style={{ textAlign: 'center', color: '#8696a0', fontSize: 14, marginTop: 40 }}>
+                                <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginTop: 40 }}>
                                     Search for messages with {selectedUser ? selectedUser.name : 'yourself'}.
                                 </div>
                             )
@@ -8683,19 +8838,19 @@ export default function Chat() {
         if (communityStep === 0) {
             return (
                 <div className={`wa-profile-drawer wa-new-community-drawer ${isNewCommunityOpen ? 'active' : ''}`}>
-                    <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef', position: 'relative' }}>
-                        <button onClick={() => setIsNewCommunityOpen(false)} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', position: 'absolute', left: 12, display: 'flex', alignItems: 'center', padding: 0, zIndex: 1 }}>
+                    <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
+                        <button onClick={() => setIsNewCommunityOpen(false)} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', position: 'absolute', left: 12, display: 'flex', alignItems: 'center', padding: 0, zIndex: 1 }}>
                             <ArrowLeft size={24} />
                         </button>
                         <div style={{ flex: 1, textAlign: 'center' }}>
-                            <span style={{ fontSize: 19, fontWeight: 500, color: '#0EA5BE', whiteSpace: 'nowrap' }}>New community</span>
+                            <span style={{ fontSize: 19, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>New community</span>
                         </div>
                     </div>
 
-                    <div className="wa-drawer-content" style={{ background: 'white', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1 }}>
-                        <div style={{ marginBottom: 40, width: 220, height: 220, background: '#f8f9fa', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <div className="wa-drawer-content" style={{ background: 'transparent', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1 }}>
+                        <div style={{ marginBottom: 40, width: 220, height: 220, background: 'rgba(255, 255, 255, 0.05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                             {/* Illustration Wrapper matching Picture 1 */}
-                            <div style={{ width: 140, height: 160, background: 'white', borderRadius: '16px', border: '1px solid #e9edef', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+                            <div style={{ width: 140, height: 160, background: 'rgba(15, 23, 42, 0.8)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
                                 <div style={{ height: 40, width: '100%', background: '#fdf7e7', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
                                     <div style={{ width: 10, height: 10, background: '#e9edef', borderRadius: '50%' }}></div>
                                 </div>
@@ -8705,16 +8860,16 @@ export default function Chat() {
                                     <div style={{ height: 25, width: '50%', background: '#aedc6e', opacity: 0.8, borderRadius: 4 }}></div>
                                 </div>
                             </div>
-                            <div style={{ position: 'absolute', bottom: 35, right: 35, width: 64, height: 64, background: '#0EA5BE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid #f8f9fa', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                            <div style={{ position: 'absolute', bottom: 35, right: 35, width: 64, height: 64, background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid rgba(15, 23, 42, 0.8)', boxShadow: '0 4px 15px rgba(14, 165, 233, 0.4)' }}>
                                 <Users size={32} color="white" />
                             </div>
                         </div>
 
-                        <h2 style={{ fontSize: 24, fontWeight: 500, color: '#111b21', marginBottom: 16 }}>Create a new community</h2>
-                        <p style={{ fontSize: 14, color: '#667781', lineHeight: '1.6', marginBottom: 24, maxWidth: '280px' }}>
+                        <h2 style={{ fontSize: 24, fontWeight: 500, color: '#f8fafc', marginBottom: 16 }}>Create a new community</h2>
+                        <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: '1.6', marginBottom: 24, maxWidth: '280px' }}>
                             Bring together a neighbourhood, school or more. Create topic-based groups for members, and easily send them admin announcements.
                         </p>
-                        <a href="#" style={{ color: '#0EA5BE', fontSize: 14, textDecoration: 'none', fontWeight: 500 }} onClick={(e) => e.preventDefault()}>See example communities</a>
+                        <a href="#" style={{ color: '#38bdf8', fontSize: 14, textDecoration: 'none', fontWeight: 500 }} onClick={(e) => e.preventDefault()}>See example communities</a>
 
                         <div style={{ flex: 1 }}></div>
 
@@ -8744,16 +8899,16 @@ export default function Chat() {
         // Step 1: Input details (Picture 3 & 4)
         return (
             <div className={`wa-profile-drawer wa-new-community-drawer ${isNewCommunityOpen ? 'active' : ''}`}>
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef', position: 'relative' }}>
-                    <button onClick={() => setCommunityStep(0)} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', position: 'absolute', left: 12, display: 'flex', alignItems: 'center', padding: 0, zIndex: 1 }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
+                    <button onClick={() => setCommunityStep(0)} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', position: 'absolute', left: 12, display: 'flex', alignItems: 'center', padding: 0, zIndex: 1 }}>
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ flex: 1, textAlign: 'center' }}>
-                        <span style={{ fontSize: 19, fontWeight: 500, color: '#0EA5BE', whiteSpace: 'nowrap' }}>New community</span>
+                        <span style={{ fontSize: 19, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>New community</span>
                     </div>
                 </div>
 
-                <div className="wa-drawer-content" style={{ background: 'white', flex: 1, padding: 0, display: 'flex', flexDirection: 'column' }}>
+                <div className="wa-drawer-content" style={{ background: 'transparent', flex: 1, padding: 0, display: 'flex', flexDirection: 'column' }}>
 
                     <div style={{ padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         {/* Icon Picker - Rounded Square as per Picture 3 */}
@@ -8763,7 +8918,7 @@ export default function Chat() {
                                 style={{
                                     width: 150,
                                     height: 150,
-                                    background: communityIcon ? 'none' : '#f0f2f5',
+                                    background: communityIcon ? 'none' : 'rgba(255, 255, 255, 0.05)',
                                     borderRadius: '24px',
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -8771,8 +8926,9 @@ export default function Chat() {
                                     justifyContent: 'center',
                                     cursor: 'pointer',
                                     overflow: 'hidden',
-                                    color: '#8696a0',
-                                    position: 'relative'
+                                    color: '#94a3b8',
+                                    position: 'relative',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
                                 }}
                             >
                                 {communityIcon ? (
@@ -8818,13 +8974,13 @@ export default function Chat() {
                                     placeholder="Community name"
                                     value={communityName}
                                     onChange={(e) => setCommunityName(e.target.value)}
-                                    style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 17, color: '#111b21', padding: '4px 0' }}
+                                    style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 17, color: '#f8fafc', padding: '4px 0' }}
                                 />
-                                <Smile size={24} color="#54656f" style={{ cursor: 'pointer' }} />
+                                <Smile size={24} color="#94a3b8" style={{ cursor: 'pointer' }} />
                             </div>
                         </div>
 
-                        <div style={{ width: '100%', background: '#f8f9fa', borderRadius: '8px', padding: '16px', position: 'relative', border: '1px solid #e9edef' }}>
+                        <div style={{ width: '100%', background: 'rgba(15, 23, 42, 0.78)', borderRadius: '10px', padding: '16px', position: 'relative', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
                             <div style={{ color: '#0EA5BE', fontSize: 13, marginBottom: 8 }}>Community description</div>
                             <textarea
                                 placeholder="Hi everyone! This community is for members to chat in topic-based groups and get important announcements."
@@ -8837,26 +8993,26 @@ export default function Chat() {
                                     outline: 'none',
                                     resize: 'none',
                                     fontSize: 16,
-                                    color: '#111b21',
+                                    color: '#cbd5e1',
                                     minHeight: 120,
                                     lineHeight: '1.4'
                                 }}
                             />
                             <div style={{ position: 'absolute', right: 15, bottom: 15 }}>
-                                <Smile size={24} color="#54656f" style={{ cursor: 'pointer' }} />
+                                <Smile size={24} color="#94a3b8" style={{ cursor: 'pointer' }} />
                             </div>
                         </div>
                     </div>
 
                     <div style={{ flex: 1 }}></div>
 
-                    <div style={{ padding: '20px 30px', background: '#f0f2f5', display: 'flex', justifyContent: 'center', borderTop: '1px solid #e9edef' }}>
+                    <div style={{ padding: '20px 30px', background: 'rgba(15, 23, 42, 0.9)', display: 'flex', justifyContent: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
                         <button
                             disabled={!communityName.trim()}
                             style={{
                                 width: '100%',
-                                background: communityName.trim() ? '#0EA5BE' : '#dfe5e7',
-                                color: communityName.trim() ? 'white' : '#667781',
+                                background: communityName.trim() ? '#0EA5BE' : 'rgba(148, 163, 184, 0.25)',
+                                color: communityName.trim() ? 'white' : '#94a3b8',
                                 border: 'none',
                                 padding: '14px',
                                 borderRadius: '24px',
@@ -8925,14 +9081,14 @@ export default function Chat() {
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: '8px', background: '#f0f2f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 44, height: 44, borderRadius: '14px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {selectedCommunity.icon ? (
                                 <img src={selectedCommunity.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <Users size={24} color="#8696a0" />
+                                <Users size={24} color="#38bdf8" />
                             )}
                         </div>
-                        <span style={{ fontSize: 19, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedCommunity.name}</span>
+                        <span style={{ fontSize: 19, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedCommunity.name}</span>
                     </div>
                     <button
                         style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', padding: 8 }}
@@ -8952,10 +9108,10 @@ export default function Chat() {
                     </button>
                 </div>
 
-                <div className="wa-drawer-content" style={{ background: 'white', flex: 1, padding: 0, display: 'flex', flexDirection: 'column' }}>
+                <div className="wa-drawer-content" style={{ flex: 1, padding: 0, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
                     {isRemovedFromCommunity(selectedCommunity) && (
-                        <div style={{ background: '#F8F9FA', padding: '16px 20px', borderBottom: '1px solid #E9EDEF', textAlign: 'center' }}>
-                            <p style={{ margin: 0, color: '#667781', fontSize: '14px', fontWeight: 500 }}>
+                        <div style={{ background: 'rgba(255, 65, 84, 0.1)', padding: '16px 20px', borderBottom: '1px solid rgba(255, 65, 84, 0.2)', textAlign: 'center' }}>
+                            <p style={{ margin: 0, color: '#f8fafc', fontSize: '14px', fontWeight: 500 }}>
                                 You are no longer a member in this community.
                             </p>
                         </div>
@@ -8994,20 +9150,20 @@ export default function Chat() {
                         }}
                     >
                         <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-                            <div style={{ width: 48, height: 48, background: '#0EA5BE', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 48, height: 48, background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 15px rgba(14, 165, 233, 0.4)' }}>
                                 <Megaphone size={24} color="white" />
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21' }}>Announcements</span>
-                                    <span style={{ fontSize: 12, color: '#667781' }}>
+                                    <span style={{ fontSize: 16, fontWeight: 500, color: '#f8fafc' }}>Announcements</span>
+                                    <span style={{ fontSize: 12, color: '#cbd5e1' }}>
                                         {selectedCommunity.announcements?.lastMessage
                                             ? formatTime(selectedCommunity.announcements.lastMessage.created_at)
                                             : formatTime(selectedCommunity.created_at)}
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ fontSize: 14, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                                    <div style={{ fontSize: 14, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                                         {renderLastMessagePreview(selectedCommunity.announcements?.lastMessage, true, 'Welcome to your community!')}
                                     </div>
                                     {selectedCommunity.unreadCount > 0 && (
@@ -9019,7 +9175,7 @@ export default function Chat() {
                         </div>
                     </div>
 
-                    <div style={{ padding: '16px 16px 8px', fontSize: 14, fontWeight: 600, color: '#667781' }}>Groups</div>
+                    <div style={{ padding: '16px 16px 8px', fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>Groups</div>
 
                     {/* Add Group Item */}
                     {/* Groups List */}
@@ -9051,20 +9207,20 @@ export default function Chat() {
                                 }}
                             >
                                 <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-                                    <div style={{ width: 44, height: 44, background: '#f0f2f5', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={24} color="#8696a0" />}
+                                    <div style={{ width: 48, height: 48, background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '14px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)' }}>
+                                        {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={24} color="#38bdf8" />}
                                     </div>
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                            <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name || 'Group'}</span>
+                                            <span style={{ fontSize: 16, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name || 'Group'}</span>
                                             {g.lastMessage && (
-                                                <span style={{ fontSize: 12, color: '#667781', flexShrink: 0 }}>
+                                                <span style={{ fontSize: 12, color: '#cbd5e1', flexShrink: 0 }}>
                                                     {formatTime(g.lastMessage.created_at)}
                                                 </span>
                                             )}
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ fontSize: 14, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                                            <div style={{ fontSize: 14, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                                                 {renderLastMessagePreview(g.lastMessage, true, `${(g.members?.length || 0)} members`)}
                                             </div>
                                             {g.unreadCount > 0 && (
@@ -9091,16 +9247,16 @@ export default function Chat() {
                                 }
                             }}>
                                 <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-                                    <div style={{ width: 44, height: 44, background: '#f0f2f5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <Plus size={24} color="#667781" />
+                                    <div style={{ width: 44, height: 44, background: 'rgba(56, 189, 248, 0.1)', border: '1px border rgba(56, 189, 248, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Plus size={24} color="#38bdf8" />
                                     </div>
-                                    <span style={{ fontSize: 16, color: '#111b21' }}>Add group</span>
+                                    <span style={{ fontSize: 16, color: '#f8fafc', fontWeight: 500 }}>Add group</span>
                                 </div>
                             </div>
                         );
                     })()}
 
-                    <div style={{ padding: '40px 30px', textAlign: 'center', color: '#667781' }}>
+                    <div style={{ padding: '40px 30px', textAlign: 'center', color: '#cbd5e1' }}>
                         <p style={{ fontSize: 14, lineHeight: '1.5' }}>
                             Groups added to the community will appear here. Community members can join these groups.
                         </p>
@@ -9123,13 +9279,13 @@ export default function Chat() {
             const createdAt = activeTarget.created_at || new Date().toISOString();
             const creatorName = activeTarget.creatorName || (activeTarget.members && activeTarget.members.length > 0 ? activeTarget.members[0].name : 'Group Admin');
 
-            const bgColor = '#ffffff';
-            const itemBgColor = '#ffffff';
-            const headerBgColor = '#ffffff';
-            const textColor = '#3b4a54';
-            const subTextColor = '#667781';
-            const dividerColor = '#f0f2f5';
-            const thinDivider = '1px solid #e9edef';
+            const bgColor = 'transparent';
+            const itemBgColor = 'transparent';
+            const headerBgColor = 'transparent';
+            const textColor = '#f8fafc';
+            const subTextColor = '#94a3b8';
+            const dividerColor = 'rgba(255, 255, 255, 0.06)';
+            const thinDivider = '1px solid rgba(255, 255, 255, 0.06)';
             const thickDivider = `8px solid ${dividerColor}`;
 
             return (
@@ -9143,7 +9299,7 @@ export default function Chat() {
 
                     <div className="wa-contact-info-content" style={{ flex: 1, overflowY: 'auto', background: bgColor, paddingBottom: 40, height: 'calc(100% - 60px)' }}>
                         <div style={{ background: itemBgColor, padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                            <div className="wa-contact-avatar-large" style={{ width: 200, height: 200, borderRadius: '50%', marginBottom: 20, overflow: 'hidden', background: '#dfe5e7', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <div className="wa-contact-avatar-large" style={{ width: 200, height: 200, borderRadius: '50%', marginBottom: 20, overflow: 'hidden', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
                                 {displayPhoto ? (
                                     <img src={displayPhoto} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
@@ -9157,7 +9313,7 @@ export default function Chat() {
                                     {activeTarget.isCommunityAnnouncements ? activeTarget.communityName : displayName}
                                 </span>
                                 {!activeTarget.isCommunityAnnouncements && (
-                                    <Pencil size={20} color={subTextColor} style={{ cursor: 'pointer' }} />
+                                    <Pencil size={20} color="#38bdf8" style={{ cursor: 'pointer' }} />
                                 )}
                             </div>
                             <div style={{ fontSize: 16, color: subTextColor, marginTop: 8 }}>
@@ -9165,11 +9321,11 @@ export default function Chat() {
                             </div>
 
                             <div style={{ display: 'flex', gap: 12, marginTop: 24, width: '100%', justifyContent: 'center' }}>
-                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid #e9edef', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160 }} onClick={() => { setIsGroupAddMemberOpen(true); }}>
+                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160, background: 'rgba(255, 255, 255, 0.03)' }} onClick={() => { setIsGroupAddMemberOpen(true); }}>
                                     <UserPlus size={24} color="#0EA5BE" />
                                     <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Add</span>
                                 </div>
-                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid #e9edef', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160 }} onClick={() => { setIsContactInfoOpen(false); setIsMessageSearchOpen(true); searchSource.current = 'contact_info'; }}>
+                                <div style={{ flex: 1, padding: '12px 0', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', maxWidth: 160, background: 'rgba(255, 255, 255, 0.03)' }} onClick={() => { setIsContactInfoOpen(false); setIsMessageSearchOpen(true); searchSource.current = 'contact_info'; }}>
                                     <Search size={24} color="#0EA5BE" />
                                     <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Search</span>
                                 </div>
@@ -9180,8 +9336,8 @@ export default function Chat() {
 
                         <div style={{ background: itemBgColor, padding: '14px 30px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                                <span style={{ color: '#0EA5BE', fontSize: 15 }}>{activeTarget.description || 'Add group description'}</span>
-                                {!activeTarget.isCommunityAnnouncements && <Pencil size={20} color={'#54656f'} />}
+                                <span style={{ color: '#38bdf8', fontSize: 15 }}>{activeTarget.description || 'Add group description'}</span>
+                                {!activeTarget.isCommunityAnnouncements && <Pencil size={20} color={'#38bdf8'} />}
                             </div>
                             <div style={{ color: subTextColor, fontSize: 14, marginTop: 12, lineHeight: 1.4 }}>
                                 {activeTarget.isCommunityAnnouncements ? 'Only admins can send messages' : `Group created by ${creatorName}, on ${formatDateForInfo(createdAt)} at ${new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
@@ -9206,29 +9362,29 @@ export default function Chat() {
                                             <span style={{ color: textColor, fontSize: 16 }}>Media, links and docs</span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <span style={{ color: subTextColor, fontSize: 15 }}>{totalCount}</span>
-                                                <ChevronRight size={20} color={subTextColor} />
+                                                <ChevronRight size={20} color="#38bdf8" />
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, color: subTextColor, fontSize: 14 }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Image size={16} /> {images.length} Media</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><LinkIcon size={16} /> {links.length} Links</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={16} /> {docs.length} Docs</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Image size={16} color="#38bdf8" /> {images.length} Media</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><LinkIcon size={16} color="#38bdf8" /> {links.length} Links</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={16} color="#38bdf8" /> {docs.length} Docs</span>
                                         </div>
                                     </div>
                                     <div style={{ padding: '0 30px 14px 30px', display: 'flex', gap: 6, overflowX: 'auto' }}>
                                         {previewItems.map((m, i) => {
                                             if (m.type === 'image' || m.type === 'video') {
                                                 return (
-                                                    <div key={i} onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: '#f0f2f5' }}>
+                                                    <div key={i} onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                                         <img src={m.file_path} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                 );
                                             }
                                             if (m.type === 'file') {
                                                 return (
-                                                    <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
-                                                        <FileText size={20} color="#8696a0" />
-                                                        <div style={{ fontSize: 9, color: '#667781', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
+                                                        <FileText size={20} color="#38bdf8" />
+                                                        <div style={{ fontSize: 9, color: subTextColor, textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {m.fileName || 'Document'}
                                                         </div>
                                                     </div>
@@ -9236,13 +9392,13 @@ export default function Chat() {
                                             }
                                             const lImg = m.link_preview?.image;
                                             return (
-                                                <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url || m.content, '_blank'); }}>
-                                                    {lImg ? <img src={lImg} alt="link" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <LinkIcon size={24} color="#8696a0" />}
+                                                <div key={i} style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url || m.content, '_blank'); }}>
+                                                    {lImg ? <img src={lImg} alt="link" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <LinkIcon size={24} color="#38bdf8" />}
                                                 </div>
                                             );
                                         })}
                                         {[...Array(Math.max(0, 4 - previewItems.length))].map((_, i) => (
-                                            <div key={`empty-${i}`} style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', flexShrink: 0 }}></div>
+                                            <div key={`empty-${i}`} style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}></div>
                                         ))}
                                     </div>
                                 </div>
@@ -9254,17 +9410,17 @@ export default function Chat() {
                         <div style={{ background: itemBgColor }}>
                             <div className="clickable" onClick={() => { setIsContactInfoOpen(false); setIsStarredMessagesOpen(true); }} style={{ padding: '14px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                    <Star size={24} color={subTextColor} />
+                                    <Star size={24} color="#38bdf8" />
                                     <span style={{ color: textColor, fontSize: 16 }}>Starred messages</span>
                                 </div>
-                                <ChevronRight size={20} color={subTextColor} />
+                                <ChevronRight size={20} color="#38bdf8" />
                             </div>
                             <div className="clickable" onClick={() => { setIsContactInfoOpen(false); setIsNotificationSettingsOpen(true); }} style={{ padding: '14px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                    <Bell size={24} color={subTextColor} />
+                                    <Bell size={24} color="#38bdf8" />
                                     <span style={{ color: textColor, fontSize: 16 }}>Notification settings</span>
                                 </div>
-                                <ChevronRight size={20} color={subTextColor} />
+                                <ChevronRight size={20} color="#38bdf8" />
                             </div>
                         </div>
 
@@ -9292,21 +9448,22 @@ export default function Chat() {
                                 {activeTarget.members?.map(m => {
                                     const isMe = String(m._id) === String(user.id || user._id);
                                     let phoneValue = m.mobile ? `+${m.mobile}` : '';
-                                    const isGroupAdmin = activeTarget.creatorId === m._id || activeTarget.admins?.some(a => (a._id || a) === m._id);
+                                    const isGroupAdmin = String(activeTarget.admin?._id || activeTarget.admin || activeTarget.creatorId || '') === String(m._id) || 
+                                                       (activeTarget.admins || []).some(a => String(a?._id || a) === String(m._id));
 
                                     return (
                                         <div key={m._id} className="wa-setting-item clickable" style={{ display: 'flex', alignItems: 'center', padding: '12px 30px', cursor: 'pointer', justifyContent: 'space-between' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dfe5e7', overflow: 'hidden', flexShrink: 0 }}>
-                                                    {m.image ? <img src={m.image} alt="mem" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#54656f', fontSize: 18 }}>{m.name?.charAt(0)}</span>}
+                                                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                                    {m.image ? <img src={m.image} alt="mem" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#38bdf8', fontSize: 18, fontWeight: 600 }}>{m.name?.charAt(0).toUpperCase()}</span>}
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    <span style={{ color: textColor, fontSize: 16 }}>{isMe ? 'You' : m.name}</span>
-                                                    <span style={{ color: subTextColor, fontSize: 14 }}>{m.about || 'Available'}</span>
+                                                    <span style={{ color: '#f8fafc', fontSize: 16 }}>{isMe ? 'You' : m.name}</span>
+                                                    <span style={{ color: '#94a3b8', fontSize: 14 }}>{m.about || 'Available'}</span>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                                                {isGroupAdmin && <div style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, color: '#0EA5BE', background: '#e6f2f7', fontWeight: 500 }}>Group admin</div>}
+                                                {isGroupAdmin && <div style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', fontWeight: 500, border: '1px solid rgba(56, 189, 248, 0.2)' }}>Group admin</div>}
                                                 {!isMe && phoneValue && <span style={{ color: subTextColor, fontSize: 13 }}>{phoneValue}</span>}
                                             </div>
                                         </div>
@@ -9319,12 +9476,12 @@ export default function Chat() {
 
                         <div style={{ background: itemBgColor, padding: '14px 0' }}>
                             <div className="wa-setting-item clickable danger" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24, cursor: 'pointer' }} onClick={() => { /* Exit logic */ }}>
-                                <LogOut size={24} color="#f15c6d" />
-                                <span style={{ color: '#f15c6d', fontSize: 16, width: '100%' }}>Exit group</span>
+                                <LogOut size={24} color="#f87171" />
+                                <span style={{ color: '#f87171', fontSize: 16, width: '100%', fontWeight: 500 }}>Exit group</span>
                             </div>
                             <div className="wa-setting-item clickable danger" style={{ padding: '14px 30px', display: 'flex', alignItems: 'center', gap: 24, cursor: 'pointer' }}>
-                                <ThumbsDown size={24} color="#f15c6d" />
-                                <span style={{ color: '#f15c6d', fontSize: 16, width: '100%' }}>Report group</span>
+                                <ThumbsDown size={24} color="#f87171" />
+                                <span style={{ color: '#f87171', fontSize: 16, width: '100%', fontWeight: 500 }}>Report group</span>
                             </div>
                         </div>
 
@@ -9340,13 +9497,13 @@ export default function Chat() {
 
         return (
             <div className={`wa-contact-info-panel ${isContactInfoOpen ? 'active' : ''}`}>
-                <div className="wa-contact-info-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', borderBottom: '1px solid #e9edef', background: 'white' }}>
+                <div className="wa-contact-info-header" style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'transparent' }}>
 
                     <button className="wa-contact-info-close-btn" onClick={() => setIsContactInfoOpen(false)} style={{ position: 'absolute', left: 16, zIndex: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <span style={{ fontSize: 16, color: '#0EA5BE', fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
+                        <span style={{ fontSize: 16, color: '#38bdf8', fontWeight: 500 }}>{t('lang_confirm.cancel')}</span>
                     </button>
 
-                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 22, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>
+                    <span className="wa-contact-info-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 18, fontWeight: 600, color: '#f8fafc', pointerEvents: 'none' }}>
                         {isGroup ? t('contact_info.group_title') : t('contact_info.title')}
                     </span>
 
@@ -9361,16 +9518,16 @@ export default function Chat() {
                             setIsEditContactOpen(true);
                         }}
                     >
-                        <span style={{ fontSize: 16, color: '#0EA5BE', fontWeight: 500 }}>Edit</span>
+                        <span style={{ fontSize: 16, color: '#38bdf8', fontWeight: 500 }}>Edit</span>
                     </button>
                 </div>
 
-                <div className="wa-contact-info-content">
+                <div className="wa-contact-info-content" style={{ background: 'transparent' }}>
                     {/* Pattern Background */}
-                    <div className="wa-contact-info-bg"></div>
+                    <div className="wa-contact-info-bg" style={{ opacity: 0.1 }}></div>
 
                     <div className="wa-contact-profile-section">
-                        <div className="wa-contact-avatar-large" style={{ background: '#dfe5e7' }}>
+                        <div className="wa-contact-avatar-large" style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                             {displayPhoto ? (
                                 <img src={displayPhoto} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                             ) : (
@@ -9379,8 +9536,8 @@ export default function Chat() {
                                 </span>
                             )}
                         </div>
-                        <div className="wa-contact-name-large">{displayName}</div>
-                        <div className="wa-contact-phone-large">{displaySubtext}</div>
+                        <div className="wa-contact-name-large" style={{ color: '#f8fafc' }}>{displayName}</div>
+                        <div className="wa-contact-phone-large" style={{ color: '#94a3b8' }}>{displaySubtext}</div>
 
                         {/* Action Buttons */}
                         <div className="wa-contact-actions-row">
@@ -9390,51 +9547,51 @@ export default function Chat() {
                                 searchSource.current = 'contact_info'; // Set source
                                 // Search query for selectedUser is already handled by renderSearchSidebar logic using selectedUser
                             }}>
-                                <div className="wa-action-icon-box"><Search size={20} color="#0EA5BE" /></div>
-                                <span>Search</span>
+                                <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><Search size={20} color="#38bdf8" /></div>
+                                <span style={{ color: '#38bdf8' }}>Search</span>
                             </div>
                             <div className="wa-contact-action-btn">
-                                <div className="wa-action-icon-box"><Video size={20} color="#0EA5BE" /></div>
-                                <span>Video</span>
+                                <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><Video size={20} color="#38bdf8" /></div>
+                                <span style={{ color: '#38bdf8' }}>Video</span>
                             </div>
                             <div className="wa-contact-action-btn">
-                                <div className="wa-action-icon-box"><Phone size={20} color="#0EA5BE" /></div>
-                                <span>Voice</span>
+                                <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><Phone size={20} color="#38bdf8" /></div>
+                                <span style={{ color: '#38bdf8' }}>Voice</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="wa-contact-section-divider"></div>
+                    <div className="wa-contact-section-divider" style={{ background: 'rgba(255, 255, 255, 0.08)' }}></div>
 
                     {/* About Section */}
                     <div className="wa-contact-info-item">
-                        <div className="wa-info-item-label">{t('profile_drawer.about_label')}</div>
-                        <div className="wa-info-item-value">{activeTarget.about || 'Available'}</div>
+                        <div className="wa-info-item-label" style={{ color: '#38bdf8' }}>{t('profile_drawer.about_label')}</div>
+                        <div className="wa-info-item-value" style={{ color: '#f8fafc' }}>{activeTarget.about || 'Available'}</div>
                     </div>
 
-                    <div className="wa-contact-section-divider"></div>
+                    <div className="wa-contact-section-divider" style={{ background: 'rgba(255, 255, 255, 0.08)' }}></div>
 
                     {/* Media, Links, Docs */}
                     <div className="wa-contact-info-item clickable" onClick={() => setIsSharedMediaOpen(true)}>
                         <div className="wa-info-item-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                <span className="wa-info-item-text">{t('contact_info.media_links_docs')}</span>
+                                <span className="wa-info-item-text" style={{ color: '#f8fafc' }}>{t('contact_info.media_links_docs')}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <span className="wa-info-item-count">
+                                    <span className="wa-info-item-count" style={{ color: '#f8fafc' }}>
                                         {(activeTarget.mediaCount || 0) + (activeTarget.linkCount || 0) + (activeTarget.docCount || 0)}
                                     </span>
-                                    <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                                    <ChevronDown size={20} color="#38bdf8" style={{ transform: 'rotate(-90deg)' }} />
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#667781' }}>
+                            <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#94a3b8' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <Image size={14} /> <span>{activeTarget.mediaCount || 0} Media</span>
+                                    <Image size={14} color="#38bdf8" /> <span>{activeTarget.mediaCount || 0} Media</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <LinkIcon size={14} /> <span>{activeTarget.linkCount || 0} Links</span>
+                                    <LinkIcon size={14} color="#38bdf8" /> <span>{activeTarget.linkCount || 0} Links</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <FileText size={14} /> <span>{activeTarget.docCount || 0} Docs</span>
+                                    <FileText size={14} color="#38bdf8" /> <span>{activeTarget.docCount || 0} Docs</span>
                                 </div>
                             </div>
                         </div>
@@ -9462,9 +9619,9 @@ export default function Chat() {
                                             }
                                             if (m.type === 'file') {
                                                 return (
-                                                    <div key={i} className="wa-media-thumb" style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
-                                                        <FileText size={24} color="#8696a0" />
-                                                        <div style={{ fontSize: 10, color: '#667781', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <div key={i} className="wa-media-thumb" style={{ background: 'rgba(255, 255, 255, 0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
+                                                        <FileText size={24} color="#38bdf8" />
+                                                        <div style={{ fontSize: 10, color: '#94a3b8', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {m.fileName || 'Doc'}
                                                         </div>
                                                     </div>
@@ -9479,13 +9636,13 @@ export default function Chat() {
                                                 );
                                             }
                                             return (
-                                                <div key={i} className="wa-media-thumb" style={{ background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url, '_blank'); }}>
-                                                    <LinkIcon size={24} color="#8696a0" />
+                                                <div key={i} className="wa-media-thumb" style={{ background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview?.url, '_blank'); }}>
+                                                    <LinkIcon size={24} color="#38bdf8" />
                                                 </div>
                                             );
                                         })}
                                         {[...Array(Math.max(0, 4 - previewItems.length))].map((_, i) => (
-                                            <div key={`empty-${i}`} className="wa-media-thumb" style={{ background: '#f0f2f5', flexShrink: 0 }}></div>
+                                            <div key={`empty-${i}`} className="wa-media-thumb" style={{ background: 'rgba(255, 255, 255, 0.03)', flexShrink: 0, border: '1px solid rgba(255, 255, 255, 0.05)' }}></div>
                                         ))}
                                     </>
                                 );
@@ -9501,17 +9658,17 @@ export default function Chat() {
                             setIsContactInfoOpen(false);
                             setIsStarredMessagesOpen(true);
                         }}>
-                            <div className="wa-setting-icon"><Star size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">{t('contact_info.starred_messages')}</div>
-                            <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                            <div className="wa-setting-icon"><Star size={20} color="#38bdf8" /></div>
+                            <div className="wa-setting-text" style={{ color: '#f8fafc' }}>{t('contact_info.starred_messages')}</div>
+                            <ChevronRight size={20} color="#38bdf8" style={{ transform: 'none' }} />
                         </div>
                         <div className="wa-setting-item clickable" onClick={() => {
                             setIsContactInfoOpen(false);
                             setIsNotificationSettingsOpen(true);
                         }}>
-                            <div className="wa-setting-icon"><BellOff size={20} color="#54656f" /></div>
-                            <div className="wa-setting-text">{t('contact_info.mute_notifications')}</div>
-                            <ChevronDown size={20} color="#8696a0" style={{ transform: 'rotate(-90deg)' }} />
+                            <div className="wa-setting-icon"><BellOff size={20} color="#38bdf8" /></div>
+                            <div className="wa-setting-text" style={{ color: '#f8fafc' }}>{t('contact_info.mute_notifications')}</div>
+                            <ChevronRight size={20} color="#38bdf8" style={{ transform: 'none' }} />
                         </div>
                         <div className="wa-setting-item">
                             <div className="wa-setting-icon"><CircleDashed size={20} color="#54656f" /></div>
@@ -9631,24 +9788,24 @@ export default function Chat() {
         const starredMsgs = (isGroupOrCommunity ? groupMessages : messages).filter(m => m.is_starred);
 
         return (
-            <div className={`wa-starred-messages-panel ${isStarredMessagesOpen ? 'active' : ''}`}>
-                <div className="wa-panel-header starred" style={{ position: 'relative' }}>
+            <div className={`wa-starred-messages-panel ${isStarredMessagesOpen ? 'active' : ''}`} style={{ background: 'transparent' }}>
+                <div className="wa-panel-header starred" style={{ position: 'relative', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', height: 60 }}>
                     <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%', justifyContent: 'space-between' }}>
                         <button className="wa-panel-back-btn" onClick={() => {
                             setIsStarredMessagesOpen(false);
                             if (selectedCommunity) setIsCommunityInfoOpen(true);
                             else setIsContactInfoOpen(true);
-                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0EA5BE', fontSize: '16px', fontWeight: 500, padding: 0, paddingLeft: '12px', zIndex: 10 }}>
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', fontSize: '16px', fontWeight: 600, padding: 0, paddingLeft: '12px', zIndex: 10 }}>
                             Back
                         </button>
-                        <span className="wa-panel-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 17, fontWeight: 500, color: '#3b4a54', pointerEvents: 'none' }}>Starred messages</span>
+                        <span className="wa-panel-title" style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 18, fontWeight: 600, color: '#f8fafc', pointerEvents: 'none' }}>Starred messages</span>
                         <div className="wa-panel-actions" style={{ position: 'relative', zIndex: 10 }}>
                             <button
                                 className="wa-nav-icon-btn"
                                 onClick={(e) => { e.stopPropagation(); setIsStarredMenuOpen(prev => !prev); }}
-                                style={{ background: 'none', border: 'none', padding: 0 }}
+                                style={{ background: 'none', border: 'none', padding: '0 12px' }}
                             >
-                                <MoreVertical size={20} color="#54656f" />
+                                <MoreVertical size={20} color="#94a3b8" />
                             </button>
                             {isStarredMenuOpen && (
                                 <div className="wa-starred-menu-dropdown" ref={starredMenuRef}>
@@ -9712,8 +9869,8 @@ export default function Chat() {
                                                 )}
                                                 {msg.type === 'file' && (
                                                     <div className="wa-starred-file-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                                                        <FileText size={20} color="#e53935" />
-                                                        <span style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.fileName || 'Document'}</span>
+                                                        <FileText size={20} color="#38bdf8" />
+                                                        <span style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{msg.fileName || 'Document'}</span>
                                                     </div>
                                                 )}
                                                 {msg.type === 'contact' && (() => {
@@ -9726,48 +9883,48 @@ export default function Chat() {
                                                     }
                                                     if (cDataArray.length > 1) {
                                                         return (
-                                                            <div className="wa-contact-msg-card-multiple" onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                            <div className="wa-contact-msg-card-multiple" onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }} style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                                                     <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
-                                                                        <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                            {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                        <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid rgba(15, 23, 42, 0.8)' }}>
+                                                                            {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#38bdf8" />}
                                                                         </div>
-                                                                        <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                            {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                        <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid rgba(15, 23, 42, 0.8)' }}>
+                                                                            {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#38bdf8" />}
                                                                         </div>
                                                                     </div>
-                                                                    <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
+                                                                    <div style={{ color: '#f8fafc', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
                                                                         {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
                                                                     </div>
                                                                 </div>
                                                                 <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                                                                    <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>View all</button>
+                                                                    <button style={{ background: 'none', border: 'none', color: '#38bdf8', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>View all</button>
                                                                 </div>
                                                             </div>
                                                         );
                                                     }
                                                     const cData = cDataArray[0];
                                                     return (
-                                                        <div className="wa-contact-msg-card" onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }} style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                                                                <div className="wa-avatar" style={{ width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                        <div className="wa-contact-msg-card" onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }} style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                                                <div className="wa-avatar" style={{ width: 44, height: 44, background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#38bdf8" />}
                                                                 </div>
-                                                                <div style={{ color: '#111b21', fontSize: '16px', fontWeight: 600 }}>{cData.name || 'Contact'}</div>
+                                                                <div style={{ color: '#f8fafc', fontSize: '16px', fontWeight: 600 }}>{cData.name || 'Contact'}</div>
                                                             </div>
                                                             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                                                                <button className="wa-contact-card-action" onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }} style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Message</button>
+                                                                <button className="wa-contact-card-action" onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }} style={{ background: 'none', border: 'none', color: '#38bdf8', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Message</button>
                                                             </div>
                                                         </div>
                                                     );
                                                 })()}
                                                 {msg.type === 'poll' && msg.poll && (
-                                                    <div className="wa-poll-card" style={{ background: '#ffffff', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '8px' }}>
-                                                        <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#111b21', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <List size={20} color="#0EA5BE" />
+                                                    <div className="wa-poll-card" style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', marginBottom: '8px' }}>
+                                                        <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#f8fafc', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <List size={20} color="#38bdf8" />
                                                             {msg.poll.question}
                                                         </div>
-                                                        <div style={{ color: '#8696a0', fontSize: '13px', marginBottom: '12px' }}>
+                                                        <div style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '12px' }}>
                                                             {msg.poll.allowMultipleAnswers ? 'Select one or more' : 'Select one'}
                                                         </div>
                                                         <div className="wa-poll-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -9778,25 +9935,25 @@ export default function Chat() {
                                                                 const hasAnyVote = totalVotes > 0;
 
                                                                 return (
-                                                                    <div key={idx} style={{ position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: '1px solid #e9edef', background: '#ffffff' }}>
+                                                                    <div key={idx} style={{ position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.03)' }}>
                                                                         {hasAnyVote && (
                                                                             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percentage}%`, background: 'rgba(14, 165, 190, 0.15)', zIndex: 1, transition: 'width 0.3s ease' }} />
                                                                         )}
                                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#111b21' }}>
-                                                                                <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: '2px solid #8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}></div>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#f8fafc' }}>
+                                                                                <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: '2px solid rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}></div>
                                                                                 {opt.text}
                                                                             </div>
-                                                                            {votes > 0 && <span style={{ fontSize: '12px', color: '#54656f', fontWeight: '500' }}>{votes}</span>}
+                                                                            {votes > 0 && <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>{votes}</span>}
                                                                         </div>
                                                                     </div>
                                                                 );
                                                             })}
                                                         </div>
-                                                        <div style={{ borderTop: '1px solid #e9edef', marginTop: '15px', paddingTop: '10px' }}>
+                                                        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', marginTop: '15px', paddingTop: '10px' }}>
                                                             <button
                                                                 disabled={msg.poll.options.every(o => !(o.voters?.length > 0))}
-                                                                style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#0EA5BE' : '#8696a0', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
+                                                                style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#38bdf8' : '#94a3b8', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
                                                             >View votes</button>
                                                         </div>
                                                     </div>
@@ -9896,10 +10053,10 @@ export default function Chat() {
                                                 })()}
                                             </div>
                                             <div className="wa-starred-meta">
-                                                <Star size={12} fill="#8696a0" color="#8696a0" />
-                                                <span>{formatTime(msg.created_at)}</span>
+                                                <Star size={12} fill="#38bdf8" color="#38bdf8" />
+                                                <span style={{ color: '#94a3b8' }}>{formatTime(msg.created_at)}</span>
                                                 {isMe && (
-                                                    <CheckCheck size={16} color={msg.is_read ? "#53bdeb" : "#8696a0"} />
+                                                    <CheckCheck size={16} color={msg.is_read ? "#38bdf8" : "#94a3b8"} />
                                                 )}
                                             </div>
                                         </div>
@@ -9909,8 +10066,8 @@ export default function Chat() {
                         })
                     ) : (
                         <div className="wa-no-starred">
-                            <Star size={48} color="#dfe1e5" />
-                            <p>No starred messages</p>
+                            <Star size={48} color="rgba(255, 255, 255, 0.1)" />
+                            <p style={{ color: '#94a3b8' }}>No starred messages</p>
                         </div>
                     )}
                 </div>
@@ -9934,12 +10091,12 @@ export default function Chat() {
         if (!infoMessage) return null;
 
         return (
-            <div className="wa-info-panel active" onClick={(e) => e.stopPropagation()}>
-                <div className="wa-info-header" onClick={(e) => e.stopPropagation()}>
-                    <button className="wa-info-close-btn" onClick={(e) => { e.stopPropagation(); setInfoMessage(null); }}>
-                        <X size={24} color="#54656f" />
+            <div className="wa-info-panel active" onClick={(e) => e.stopPropagation()} style={{ background: 'transparent' }}>
+                <div className="wa-info-header" onClick={(e) => e.stopPropagation()} style={{ background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', height: 60, display: 'flex', alignItems: 'center', padding: '0 16px' }}>
+                    <button className="wa-info-close-btn" onClick={(e) => { e.stopPropagation(); setInfoMessage(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                        <X size={24} color="#38bdf8" />
                     </button>
-                    <span className="wa-info-title">Message info</span>
+                    <span className="wa-info-title" style={{ fontSize: 18, fontWeight: 600, color: '#f8fafc', marginLeft: 24 }}>Message info</span>
                 </div>
 
                 <div className="wa-info-content" onClick={(e) => e.stopPropagation()}>
@@ -9957,10 +10114,10 @@ export default function Chat() {
                                 </div>
                             ) : infoMessage.type === 'file' ? (
                                 <div className="wa-msg-file">
-                                    <FileText size={32} color="#8696a0" />
+                                    <FileText size={32} color="#38bdf8" />
                                     <div className="wa-file-info">
-                                        <p>{infoMessage.fileName}</p>
-                                        <span>{infoMessage.fileSize} bytes Ã¢â‚¬Â¢ PDF</span>
+                                        <p style={{ color: '#f8fafc' }}>{infoMessage.fileName}</p>
+                                        <span style={{ color: '#94a3b8' }}>{infoMessage.fileSize} bytes · Document</span>
                                     </div>
                                 </div>
                             ) : infoMessage.type === 'contact' ? (() => {
@@ -9977,23 +10134,23 @@ export default function Chat() {
                                         <div
                                             className="wa-contact-msg-card-multiple"
                                             onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }}
-                                            style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '8px' }}
+                                            style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', marginBottom: '8px' }}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                                 <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
-                                                    <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                        {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                    <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid rgba(15, 23, 42, 0.8)' }}>
+                                                        {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#38bdf8" />}
                                                     </div>
-                                                    <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                        {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                    <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid rgba(15, 23, 42, 0.8)' }}>
+                                                        {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#38bdf8" />}
                                                     </div>
                                                 </div>
-                                                <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
+                                                <div style={{ color: '#f8fafc', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
                                                     {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                                                <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                                                <button style={{ background: 'none', border: 'none', color: '#38bdf8', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
                                                     View all
                                                 </button>
                                             </div>
@@ -10211,12 +10368,12 @@ export default function Chat() {
                                     }));
 
                                     return (
-                                        <div className="wa-info-stat-card group-stats" style={{ background: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 1px rgba(0, 0, 0, 0.06)', overflow: 'hidden' }}>
+                                        <div className="wa-info-stat-card group-stats" style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
                                             {readMems.length > 0 && (
-                                                <div className="wa-group-stat-section" style={{ padding: '16px 20px', borderBottom: deliveredMems.length > 0 ? '1px solid #f0f2f5' : 'none' }}>
+                                                <div className="wa-group-stat-section" style={{ padding: '16px 20px', borderBottom: deliveredMems.length > 0 ? '1px solid rgba(255, 255, 255, 0.08)' : 'none' }}>
                                                     <div className="wa-group-stat-header" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
                                                         <CheckCheck size={18} color="#53bdeb" style={{ marginRight: 12 }} />
-                                                        <span style={{ color: '#53bdeb', fontWeight: 500, fontSize: '15px' }}>Read by</span>
+                                                        <span style={{ color: '#38bdf8', fontWeight: 500, fontSize: '15px' }}>Read by</span>
                                                     </div>
                                                     <div className="wa-group-stat-list">
                                                         {readMems.map(rm => (
@@ -10224,11 +10381,11 @@ export default function Chat() {
                                                                 {rm.image ? (
                                                                     <img src={rm.image} alt={rm.name} style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, objectFit: 'cover' }} />
                                                                 ) : (
-                                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, background: '#f0f2f5', color: '#8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 500 }}>{rm.name?.charAt(0).toUpperCase()}</div>
+                                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, background: 'rgba(255, 255, 255, 0.05)', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 500 }}>{rm.name?.charAt(0).toUpperCase()}</div>
                                                                 )}
                                                                 <div style={{ flex: 1 }}>
-                                                                    <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{rm.name}</div>
-                                                                    <div style={{ color: '#667781', fontSize: '13px' }}>{formatDateForInfo(rm.time)} {formatTime(rm.time)}</div>
+                                                                    <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '16px' }}>{rm.name}</div>
+                                                                    <div style={{ color: '#94a3b8', fontSize: '13px' }}>{formatDateForInfo(rm.time)} {formatTime(rm.time)}</div>
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -10239,8 +10396,8 @@ export default function Chat() {
                                             {deliveredMems.length > 0 && (
                                                 <div className="wa-group-stat-section" style={{ padding: '16px 20px' }}>
                                                     <div className="wa-group-stat-header" style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                                                        <Check size={18} color="#8696a0" style={{ marginRight: 12 }} />
-                                                        <span style={{ color: '#8696a0', fontWeight: 500, fontSize: '15px' }}>Delivered to</span>
+                                                        <Check size={18} color="#94a3b8" style={{ marginRight: 12 }} />
+                                                        <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: '15px' }}>Delivered to</span>
                                                     </div>
                                                     <div className="wa-group-stat-list">
                                                         {deliveredMems.map(dm => (
@@ -10248,11 +10405,11 @@ export default function Chat() {
                                                                 {dm.image ? (
                                                                     <img src={dm.image} alt={dm.name} style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, objectFit: 'cover' }} />
                                                                 ) : (
-                                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, background: '#f0f2f5', color: '#8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 500 }}>{dm.name?.charAt(0).toUpperCase()}</div>
+                                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', marginRight: 15, background: 'rgba(255, 255, 255, 0.05)', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 500 }}>{dm.name?.charAt(0).toUpperCase()}</div>
                                                                 )}
                                                                 <div style={{ flex: 1 }}>
-                                                                    <div style={{ fontWeight: 500, color: '#111b21', fontSize: '16px' }}>{dm.name}</div>
-                                                                    <div style={{ color: '#667781', fontSize: '13px' }}>{formatDateForInfo(dm.time)} {formatTime(dm.time)}</div>
+                                                                    <div style={{ fontWeight: 500, color: '#f8fafc', fontSize: '16px' }}>{dm.name}</div>
+                                                                    <div style={{ color: '#94a3b8', fontSize: '13px' }}>{formatDateForInfo(dm.time)} {formatTime(dm.time)}</div>
                                                                 </div>
                                                             </div>
                                                         ))}
@@ -10981,14 +11138,28 @@ export default function Chat() {
         }
 
         if (type === 'community_home' || type === 'sidebar_menu' || type === 'header_chat' || type === 'header_group' || type === 'snackbar_menu') {
-            const { coords } = openDropdown;
+            const { coords } = openDropdown || {};
+            const homeMenuPadding = 10;
+            const estHomeMenuWidth = 260;
+            const estHomeMenuHeight = 360;
+            const anchorX = (coords?.x !== undefined ? coords.x : dropdownPos.x) / zoom;
+            const anchorY = (coords?.y !== undefined ? coords.y : dropdownPos.y) / zoom;
+
+            const desiredTop = (type === 'snackbar_menu' && anchorY > vHeight - 200)
+                ? (anchorY - 130) // Open upwards if too low
+                : (anchorY + 10); // Open below the trigger (three dots)
+            const clampedTop = Math.max(homeMenuPadding, Math.min(desiredTop, vHeight - estHomeMenuHeight - homeMenuPadding));
+
+            // Keep menu visually attached to the three-dots trigger while staying inside viewport.
+            const alignRightEdge = type.includes('header') || type === 'sidebar_menu' || type === 'snackbar_menu' || type === 'community_home';
+            const desiredLeft = alignRightEdge ? (anchorX - estHomeMenuWidth + 14) : (anchorX - 180);
+            const clampedLeft = Math.max(homeMenuPadding, Math.min(desiredLeft, vWidth - estHomeMenuWidth - homeMenuPadding));
+
             const menuStyleHome = {
                 position: 'fixed',
-                top: (type === 'snackbar_menu' && mouseY > vHeight - 200)
-                    ? (mouseY - 130) // Open upwards if too low
-                    : (type === 'sidebar_menu' ? (mouseY + 20) : (mouseY + 10)),
-                left: (type.includes('header') || type === 'sidebar_menu' || type === 'snackbar_menu') ? 'auto' : (mouseX - 180),
-                right: (type.includes('header') || type === 'sidebar_menu' || type === 'snackbar_menu') ? (vWidth - mouseX - 10) : 'auto',
+                top: clampedTop,
+                left: clampedLeft,
+                right: 'auto',
                 zIndex: 10002,
                 minWidth: 240,
                 background: 'white',
@@ -11014,23 +11185,23 @@ export default function Chat() {
                         {type === 'sidebar_menu' && (
                             <>
                                 <div className="wa-dropdown-item" onClick={() => { setIsNewGroupOpen(true); setOpenDropdown(null); }}>
-                                    <PlusCircle size={18} style={{ marginRight: 12, color: '#54656f' }} /> New group
+                                    <PlusCircle size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> New group
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsNewCommunityOpen(true); setOpenDropdown(null); }}>
-                                    <Users size={18} style={{ marginRight: 12, color: '#54656f' }} /> New community
+                                    <Users size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> New community
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsGlobalStarredOpen(true); setOpenDropdown(null); }}>
-                                    <Star size={18} style={{ marginRight: 12, color: '#54656f' }} /> Starred messages
+                                    <Star size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Starred messages
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsArchivedChatsOpen(true); setOpenDropdown(null); }}>
-                                    <Archive size={18} style={{ marginRight: 12, color: '#54656f' }} /> Archived
+                                    <Archive size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Archived
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsProfileOpen(true); setOpenDropdown(null); }}>
-                                    <User size={18} style={{ marginRight: 12, color: '#54656f' }} /> Profile
+                                    <User size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Profile
                                 </div>
                                 <div className="wa-dropdown-divider"></div>
                                 <div className="wa-dropdown-item" onClick={() => { logout(); setOpenDropdown(null); }}>
-                                    <LogOut size={18} style={{ marginRight: 12, color: '#ea0038' }} /> Log out
+                                    <LogOut size={18} style={{ marginRight: 12, color: '#f43f5e' }} /> Log out
                                 </div>
                             </>
                         )}
@@ -11038,48 +11209,48 @@ export default function Chat() {
                         {type === 'header_chat' && (
                             <>
                                 <div className="wa-dropdown-item" onClick={() => { setIsContactInfoOpen(true); setOpenDropdown(null); }}>
-                                    <Info size={18} style={{ marginRight: 12, color: '#54656f' }} /> Contact info
+                                    <Info size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Contact info
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsForwardingMode(true); setIsChatSelectionMode(true); setOpenDropdown(null); }}>
-                                    <CheckSquare size={18} style={{ marginRight: 12, color: '#54656f' }} /> Select messages
+                                    <CheckSquare size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Select messages
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => {
                                     if (archivedChatIds.includes(String(id))) handleUnarchiveChat(id, data.name);
                                     else handleArchiveChat(id, data.name);
                                     setOpenDropdown(null);
                                 }}>
-                                    <Archive size={18} style={{ marginRight: 12, color: '#54656f' }} /> {archivedChatIds.includes(String(id)) ? 'Unarchive chat' : 'Archive chat'}
+                                    <Archive size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> {archivedChatIds.includes(String(id)) ? 'Unarchive chat' : 'Archive chat'}
                                 </div>
                                 <div className="wa-dropdown-divider"></div>
 
                                 {/* Premium Mute Sub-Menu Style Items */}
                                 <div className="wa-dropdown-item" onClick={() => { handleUnmuteAction(id, data.name); setOpenDropdown(null); }} style={{ display: data.isMuted ? 'flex' : 'none' }}>
-                                    <Bell size={18} style={{ marginRight: 12, color: '#54656f' }} /> Turn on notifications
+                                    <Bell size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Turn on notifications
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { handleMuteAction(id, 1, data.name); setOpenDropdown(null); }}>
-                                    <BellOff size={18} style={{ marginRight: 12, color: '#54656f' }} /> Mute for 1 hour
+                                    <BellOff size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Mute for 1 hour
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { handleMuteAction(id, 8, data.name); setOpenDropdown(null); }}>
-                                    <BellOff size={18} style={{ marginRight: 12, color: '#54656f' }} /> Mute for 8 hours
+                                    <BellOff size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Mute for 8 hours
                                 </div>
                                 <div className="wa-dropdown-item" onClick={() => { handleMuteAction(id, 24, data.name); setOpenDropdown(null); }}>
-                                    <BellOff size={18} style={{ marginRight: 12, color: '#54656f' }} /> Mute for 1 day
+                                    <BellOff size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Mute for 1 day
                                 </div>
 
                                 <div className="wa-dropdown-divider"></div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsNotificationSettingsOpen(true); setOpenDropdown(null); }}>
-                                    <Settings size={18} style={{ marginRight: 12, color: '#54656f' }} /> Notification settings
+                                    <Settings size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Notification settings
                                 </div>
                                 <div className="wa-dropdown-divider"></div>
                                 <div className="wa-dropdown-item" onClick={() => { setIsClearChatConfirmOpen(true); setOpenDropdown(null); }}>
-                                    <Trash2 size={18} style={{ marginRight: 12, color: '#54656f' }} /> Clear messages
+                                    <Trash2 size={18} style={{ marginRight: 12, color: '#38bdf8' }} /> Clear messages
                                 </div>
-                                <div className="wa-dropdown-item" style={{ color: '#ea0038' }} onClick={() => {
+                                <div className="wa-dropdown-item" style={{ color: '#f43f5e' }} onClick={() => {
                                     setDeleteTarget({ _id: id, id, name: data.name, isGroup: false });
                                     setIsDeleteChatConfirmOpen(true);
                                     setOpenDropdown(null);
                                 }}>
-                                    <Trash2 size={18} style={{ marginRight: 12, color: '#ea0038' }} /> Delete chat
+                                    <Trash2 size={18} style={{ marginRight: 12, color: '#f43f5e' }} /> Delete chat
                                 </div>
                             </>
                         )}
@@ -11176,31 +11347,31 @@ export default function Chat() {
     const renderCommunityGroupsListPanel = () => {
         const community = selectedCommunity || communities.find(c => c.name === (selectedGroup?.communityName || selectedGroup?.name));
         if (!community) return null;
-        const textColor = '#3b4a54';
-        const subTextColor = '#667781';
+        const textColor = '#f8fafc';
+        const subTextColor = '#94a3b8';
 
         return (
-            <div className={`wa-contact-info-panel wa-manage-groups-drawer ${isCommunityGroupsListOpen ? 'active' : ''}`} style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'white', borderBottom: '1px solid #e9edef' }}>
-                    <button onClick={() => setIsCommunityGroupsListOpen(false)} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, width: 24 }}>
+            <div className={`wa-contact-info-panel wa-manage-groups-drawer ${isCommunityGroupsListOpen ? 'active' : ''}`} style={{ background: 'rgba(13, 22, 29, 0.95)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <button onClick={() => setIsCommunityGroupsListOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, width: 24 }}>
                         <X size={24} />
                     </button>
-                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', flex: 1, textAlign: 'center' }}>{community.name}</span>
+                    <span style={{ fontSize: 19, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap', flex: 1, textAlign: 'center' }}>{community.name}</span>
                     <div style={{ width: 24 }}></div>
                 </div>
 
                 <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ background: 'white', marginBottom: 12 }}>
+                    <div style={{ background: 'transparent', marginBottom: 12 }}>
                         {checkAddGroupPermission(community, false) && (
                             <div
                                 className="wa-manage-groups-item"
-                                style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid #f0f2f5' }}
+                                style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
                                 onClick={() => {
                                     setIsCommunityGroupsListOpen(false);
                                     setIsManageGroupsOpen(true);
                                 }}
                             >
-                                <div style={{ width: 40, height: 40, background: '#0EA5BE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: 40, height: 40, background: '#38bdf8', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={20} color="white" />
                                 </div>
                                 <span style={{ fontSize: 16, color: textColor }}>Add group</span>
@@ -11209,7 +11380,7 @@ export default function Chat() {
 
                         <div
                             className="wa-manage-groups-item"
-                            style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid #f0f2f5' }}
+                            style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
                             onClick={() => {
                                 setIsCommunityGroupsListOpen(false);
                                 setSelectedGroup({
@@ -11224,12 +11395,12 @@ export default function Chat() {
                                 setGroupMessages([...(community.announcements?.messages || [])]);
                             }}
                         >
-                            <div style={{ width: 44, height: 44, background: '#0EA5BE', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <div style={{ width: 44, height: 44, background: '#38bdf8', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <Megaphone size={22} color="white" />
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 16, color: '#111b21', fontWeight: 400 }}>Announcements</div>
-                                <div style={{ fontSize: 13, color: '#667781' }}>Community updates</div>
+                                <div style={{ fontSize: 16, color: '#f8fafc', fontWeight: 400 }}>Announcements</div>
+                                <div style={{ fontSize: 13, color: '#94a3b8' }}>Community updates</div>
                             </div>
                         </div>
 
@@ -11241,18 +11412,18 @@ export default function Chat() {
                             return (
                                 <div key={String(gId)}
                                     className="wa-manage-groups-item"
-                                    style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid #f0f2f5', background: 'white' }}
+                                    style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: 'transparent' }}
                                     onClick={() => {
                                         setIsCommunityGroupsListOpen(false);
                                         setSelectedGroup(g);
                                         setSelectedUser(null);
                                         fetchGroupMessages(g._id);
                                     }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#f0f2f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={22} color="#8696a0" />}
+                                    <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={22} color="#94a3b8" />}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 16, color: '#111b21', fontWeight: 400 }}>
+                                        <div style={{ fontSize: 16, color: '#f8fafc', fontWeight: 400 }}>
                                             {g.name || 'Group'}
                                         </div>
                                     </div>
@@ -11261,17 +11432,17 @@ export default function Chat() {
                         })}
                     </div>
 
-                    <div style={{ padding: '0', background: 'white', flex: 1 }}>
+                    <div style={{ padding: '0', background: 'transparent', flex: 1 }}>
                         <div
                             className="wa-manage-groups-item"
-                            style={{ padding: '15px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #f0f2f5' }}
+                            style={{ padding: '15px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
                             onClick={() => {
                                 setIsCommunityGroupsListOpen(false);
                                 if (!selectedCommunity && community) setSelectedCommunity(community);
                                 setIsCommunityHomeOpen(true);
                             }}
                         >
-                            <ChevronRight size={20} color="#8696a0" />
+                            <ChevronRight size={20} color="#94a3b8" />
                             <span style={{ fontSize: 16, color: textColor }}>View community</span>
                         </div>
                     </div>
@@ -11283,25 +11454,25 @@ export default function Chat() {
     const renderManageGroupsPanel = () => {
         const community = selectedCommunity || communities.find(c => c.name === (selectedGroup?.communityName || selectedGroup?.name));
         if (!community) return null;
-        const textColor = '#3b4a54';
-        const subTextColor = '#667781';
+        const textColor = '#f8fafc';
+        const subTextColor = '#94a3b8';
 
         return (
-            <div className={`wa-contact-info-panel wa-manage-groups-drawer ${isManageGroupsOpen ? 'active' : ''}`} style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef' }}>
-                    <button onClick={() => { setIsManageGroupsOpen(false); if (!selectedCommunity && community) setSelectedCommunity(community); }} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
+            <div className={`wa-contact-info-panel wa-manage-groups-drawer ${isManageGroupsOpen ? 'active' : ''}`} style={{ background: 'rgba(15, 23, 42, 0.95)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <button onClick={() => { setIsManageGroupsOpen(false); if (!selectedCommunity && community) setSelectedCommunity(community); }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingRight: '40px' }}>
-                        <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>Manage groups</span>
+                        <span style={{ fontSize: 19, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap' }}>Manage groups</span>
                     </div>
                 </div>
 
                 <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ background: 'white', marginBottom: 12 }}>
+                    <div style={{ background: 'rgba(15, 23, 42, 0.9)', marginBottom: 12 }}>
                         <div
                             className="wa-manage-groups-item"
-                            style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid #f0f2f5' }}
+                            style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}
                             onClick={() => {
                                 setIsManageGroupsOpen(false);
                                 setIsCommunityInfoOpen(false);
@@ -11337,7 +11508,7 @@ export default function Chat() {
                             <div style={{ padding: '20px', fontSize: 13, color: subTextColor, lineHeight: '1.6' }}>
                                 Members can suggest existing groups for admin approval and add new groups directly. View in <span style={{ color: '#0EA5BE', cursor: 'pointer', fontWeight: 500 }}>community settings</span>
                             </div>
-                            <div style={{ padding: '10px 20px', fontSize: 14, color: '#111b21', fontWeight: 500, marginBottom: 10 }}>Groups in this community</div>
+                            <div style={{ padding: '10px 20px', fontSize: 14, color: '#f8fafc', fontWeight: 500, marginBottom: 10 }}>Groups in this community</div>
 
                             <div className="wa-manage-groups-item" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer' }}>
                                 <div style={{ width: 44, height: 44, background: '#0EA5BE', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -11352,15 +11523,15 @@ export default function Chat() {
                                 const g = fullGroup || (typeof gItem === 'object' ? gItem : null);
                                 if (!g) return null;
                                 return (
-                                    <div key={String(gId)} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid #f0f2f5', background: 'white' }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#f0f2f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <div key={String(gId)} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(15, 23, 42, 0.9)' }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(255, 255, 255, 0.06)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={22} color="#8696a0" />}
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 16, color: '#111b21', fontWeight: 400 }}>
+                                            <div style={{ fontSize: 16, color: '#f8fafc', fontWeight: 400 }}>
                                                 {g.name || 'Group'}
                                             </div>
-                                            <div style={{ fontSize: 13, color: '#667781' }}>
+                                            <div style={{ fontSize: 13, color: '#94a3b8' }}>
                                                 {(g.members?.length || 0)} members
                                             </div>
                                         </div>
@@ -11372,7 +11543,7 @@ export default function Chat() {
                                                 setIsRemoveGroupConfirmOpen(true);
                                                 setRemoveGroupMembers(false);
                                             }}
-                                            style={{ background: 'none', border: 'none', color: '#667781', cursor: 'pointer', padding: 5, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 5, display: 'flex', alignItems: 'center', flexShrink: 0 }}
                                             title="Remove from community"
                                         >
                                             <X size={20} />
@@ -11384,7 +11555,7 @@ export default function Chat() {
                     ) : (
                         <div style={{ padding: '40px 30px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <div style={{ marginBottom: 30, display: 'flex', justifyContent: 'center' }}>
-                                <div style={{ width: 140, height: 160, background: 'white', borderRadius: '16px', border: '1px solid #e9edef', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+                                <div style={{ width: 140, height: 160, background: 'rgba(15, 23, 42, 0.9)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.12)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
                                     <div style={{ height: 40, width: '100%', background: '#fdf7e7', display: 'flex', alignItems: 'center', padding: '0 10px' }}>
                                         <div style={{ width: 10, height: 10, background: '#e9edef', borderRadius: '50%' }}></div>
                                     </div>
@@ -11395,7 +11566,7 @@ export default function Chat() {
                                     </div>
                                 </div>
                             </div>
-                            <h3 style={{ fontSize: 20, fontWeight: 500, color: '#111b21', marginBottom: 12 }}>Bring your groups together</h3>
+                            <h3 style={{ fontSize: 20, fontWeight: 500, color: '#f8fafc', marginBottom: 12 }}>Bring your groups together</h3>
                             <p style={{ fontSize: 14, color: subTextColor, lineHeight: '1.6' }}>
                                 Add more groups to this community so that members can find them in one place.
                             </p>
@@ -11517,21 +11688,21 @@ export default function Chat() {
         const subTextColor = '#667781';
 
         return (
-            <div className={`wa-contact-info-panel wa-confirm-add-groups-drawer ${isConfirmAddGroupsOpen ? 'active' : ''}`} style={{ background: 'white', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef' }}>
-                    <button onClick={() => setIsConfirmAddGroupsOpen(false)} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
+            <div className={`wa-contact-info-panel wa-confirm-add-groups-drawer ${isConfirmAddGroupsOpen ? 'active' : ''}`} style={{ background: 'transparent', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <button onClick={() => setIsConfirmAddGroupsOpen(false)} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
                         <ArrowLeft size={24} />
                     </button>
-                    <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54' }}>Add groups</span>
+                    <span style={{ fontSize: 19, fontWeight: 600, color: '#f8fafc' }}>Add groups</span>
                 </div>
 
-                <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
                     <div style={{ padding: '40px 30px', textAlign: 'center' }}>
-                        <h2 style={{ fontSize: 24, fontWeight: 400, color: '#111b21', marginBottom: 20 }}>Add these groups to your community?</h2>
-                        <p style={{ fontSize: 14, color: '#667781', lineHeight: '1.6', marginBottom: 20 }}>
+                        <h2 style={{ fontSize: 24, fontWeight: 600, color: '#f8fafc', marginBottom: 20 }}>Add these groups to your community?</h2>
+                        <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: '1.6', marginBottom: 20 }}>
                             Community members can see and join these groups.
                         </p>
-                        <p style={{ fontSize: 14, color: '#667781', lineHeight: '1.6' }}>
+                        <p style={{ fontSize: 14, color: '#94a3b8', lineHeight: '1.6' }}>
                             Admins of these groups can also join the community as members.
                         </p>
                     </div>
@@ -11539,15 +11710,15 @@ export default function Chat() {
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                         {selectedGroupsToAdd.map(g => (
                             <div key={g._id} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 15 }}>
-                                <div style={{ width: 44, height: 44, borderRadius: '8px', background: '#f0f2f5', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={22} color="#8696a0" />}
+                                <div style={{ width: 44, height: 44, borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                    {g.icon ? <img src={g.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Users size={22} color="#38bdf8" />}
                                 </div>
-                                <span style={{ fontSize: 16, color: textColor }}>{g.name}</span>
+                                <span style={{ fontSize: 16, color: '#f8fafc' }}>{g.name}</span>
                             </div>
                         ))}
                     </div>
 
-                    <div style={{ padding: '20px 30px', background: '#f0f2f5', borderTop: '1px solid #e9edef' }}>
+                    <div style={{ padding: '20px 30px', background: 'transparent', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
                         <button
                             style={{ width: '100%', background: '#0EA5BE', color: 'white', border: 'none', padding: '12px', borderRadius: '24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
                             onClick={async () => {
@@ -11591,8 +11762,8 @@ export default function Chat() {
         if (!community || !isConfirmCommunityAddMembersOpen) return null;
 
         return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: '#202c33', borderRadius: '16px', padding: '24px', width: '400px', maxWidth: '90%', color: '#e9edef' }}>
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '16px', padding: '24px', width: '400px', maxWidth: '90%', color: '#f8fafc', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                     <div style={{ fontSize: '16px', color: '#e9edef', marginBottom: '32px' }}>
                         Add {selectedCommunityMembersToAdd.map(m => m.name).join(', ')} to "{community.name}" community?
                     </div>
@@ -11685,23 +11856,23 @@ export default function Chat() {
         );
 
         return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: '#ffffff', borderRadius: '24px', width: isMobile ? '100%' : '380px', height: isMobile ? '100%' : 'auto', maxHeight: isMobile ? '100%' : '80vh', display: 'flex', flexDirection: 'column', color: '#111b21', overflow: 'hidden', boxShadow: '0 17px 50px 0 rgba(11,20,26,.19)' }}>
-                    <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <X size={24} color="#54656f" style={{ cursor: 'pointer' }} onClick={() => { setIsGroupAddMemberOpen(false); setGroupAddMemberSearchQuery(''); setSelectedGroupMembersToAdd([]); }} />
-                        <span style={{ fontSize: 16, fontWeight: 500 }}>Add member</span>
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '24px', width: isMobile ? '100%' : '380px', height: isMobile ? '100%' : 'auto', maxHeight: isMobile ? '100%' : '80vh', display: 'flex', flexDirection: 'column', color: '#f8fafc', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                    <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <X size={24} color="#38bdf8" style={{ cursor: 'pointer' }} onClick={() => { setIsGroupAddMemberOpen(false); setGroupAddMemberSearchQuery(''); setSelectedGroupMembersToAdd([]); }} />
+                        <span style={{ fontSize: 16, fontWeight: 600 }}>Add member</span>
                     </div>
 
-                    <div style={{ padding: '0 16px 12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#f0f2f5', borderRadius: '12px', padding: '8px 12px', border: 'none' }}>
-                            <Search size={18} color="#54656f" style={{ marginRight: 12 }} />
+                    <div style={{ padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '8px 12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <Search size={18} color="#38bdf8" style={{ marginRight: 12 }} />
                             <input
                                 autoFocus
                                 type="text"
                                 placeholder="Search name or number"
                                 value={groupAddMemberSearchQuery}
                                 onChange={(e) => setGroupAddMemberSearchQuery(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 14, color: '#111b21' }}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 14, color: '#f8fafc' }}
                             />
                         </div>
                     </div>
@@ -11714,7 +11885,15 @@ export default function Chat() {
                             return (
                                 <div
                                     key={u._id}
-                                    style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', transition: 'background 0.2s' }}
+                                    style={{
+                                        padding: '12px 24px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 15,
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s',
+                                        background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'transparent'
+                                    }}
                                     onClick={() => {
                                         if (isSelected) {
                                             setSelectedGroupMembersToAdd(selectedGroupMembersToAdd.filter(item => item._id !== u._id));
@@ -11722,8 +11901,8 @@ export default function Chat() {
                                             setSelectedGroupMembersToAdd([...selectedGroupMembersToAdd, u]);
                                         }
                                     }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f5f6f6'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = isSelected ? 'rgba(56, 189, 248, 0.26)' : 'rgba(255, 255, 255, 0.06)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = isSelected ? 'rgba(56, 189, 248, 0.2)' : 'transparent'}
                                 >
                                     <div style={{
                                         width: 20,
@@ -11737,19 +11916,19 @@ export default function Chat() {
                                     }}>
                                         {isSelected && <Check size={14} color="#ffffff" />}
                                     </div>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dfe5e7', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {u.profile_photo || u.image ? <img src={u.profile_photo || u.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={20} color="#8696a0" />}
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                        {u.profile_photo || u.image ? <img src={u.profile_photo || u.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={20} color="#38bdf8" />}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 16, color: '#111b21', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
-                                        <div style={{ fontSize: 13, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.about || 'Available'}</div>
+                                        <div style={{ fontSize: 16, color: '#f8fafc', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                                        <div style={{ fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.about || 'Available'}</div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                     {selectedGroupMembersToAdd.length > 0 && (
-                        <div style={{ padding: '16px', background: '#ffffff', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ padding: '16px', background: 'transparent', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'center' }}>
                             <div
                                 onClick={() => { setIsConfirmGroupAddMembersOpen(true); }}
                                 style={{ width: 44, height: 44, borderRadius: '50%', background: '#0EA5BE', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
@@ -11767,8 +11946,8 @@ export default function Chat() {
         if (!isConfirmGroupAddMembersOpen || !selectedGroup) return null;
 
         return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: '#202c33', borderRadius: '16px', padding: '24px', width: '400px', maxWidth: '90%', color: '#e9edef' }}>
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '16px', padding: '24px', width: '400px', maxWidth: '90%', color: '#f8fafc', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                     <div style={{ fontSize: '16px', color: '#e9edef', marginBottom: '32px' }}>
                         Add {selectedGroupMembersToAdd.map(m => m.name).join(', ')} to "{selectedGroup.name}" group?
                     </div>
@@ -11847,23 +12026,23 @@ export default function Chat() {
         );
 
         return (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: '#ffffff', borderRadius: '24px', width: '380px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', color: '#111b21', overflow: 'hidden', boxShadow: '0 17px 50px 0 rgba(11,20,26,.19)' }}>
-                    <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <X size={24} color="#54656f" style={{ cursor: 'pointer' }} onClick={() => { setIsCommunityAddMemberOpen(false); setCommunityAddMemberSearchQuery(''); setSelectedCommunityMembersToAdd([]); }} />
-                        <span style={{ fontSize: 16, fontWeight: 500 }}>Add member</span>
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '24px', width: '380px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', color: '#f8fafc', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                    <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <X size={24} color="#38bdf8" style={{ cursor: 'pointer' }} onClick={() => { setIsCommunityAddMemberOpen(false); setCommunityAddMemberSearchQuery(''); setSelectedCommunityMembersToAdd([]); }} />
+                        <span style={{ fontSize: 16, fontWeight: 600 }}>Add member</span>
                     </div>
 
-                    <div style={{ padding: '0 16px 12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#f0f2f5', borderRadius: '12px', padding: '8px 12px', border: 'none' }}>
-                            <Search size={18} color="#54656f" style={{ marginRight: 12 }} />
+                    <div style={{ padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '8px 12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <Search size={18} color="#38bdf8" style={{ marginRight: 12 }} />
                             <input
                                 autoFocus
                                 type="text"
                                 placeholder="Search name or number"
                                 value={communityAddMemberSearchQuery}
                                 onChange={(e) => setCommunityAddMemberSearchQuery(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 14, color: '#111b21' }}
+                                style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 14, color: '#f8fafc' }}
                             />
                         </div>
                     </div>
@@ -11876,7 +12055,15 @@ export default function Chat() {
                             return (
                                 <div
                                     key={u._id}
-                                    style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 15, cursor: 'pointer', transition: 'background 0.2s' }}
+                                    style={{
+                                        padding: '12px 24px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 15,
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s',
+                                        background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'transparent'
+                                    }}
                                     onClick={() => {
                                         if (isSelected) {
                                             setSelectedCommunityMembersToAdd(selectedCommunityMembersToAdd.filter(item => item._id !== u._id));
@@ -11884,8 +12071,8 @@ export default function Chat() {
                                             setSelectedCommunityMembersToAdd([...selectedCommunityMembersToAdd, u]);
                                         }
                                     }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f5f6f6'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = isSelected ? 'rgba(56, 189, 248, 0.26)' : 'rgba(255, 255, 255, 0.06)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = isSelected ? 'rgba(56, 189, 248, 0.2)' : 'transparent'}
                                 >
                                     <div style={{
                                         width: 20,
@@ -11899,19 +12086,19 @@ export default function Chat() {
                                     }}>
                                         {isSelected && <Check size={14} color="#ffffff" />}
                                     </div>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dfe5e7', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {u.profile_photo || u.image ? <img src={u.profile_photo || u.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={20} color="#8696a0" />}
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                        {u.profile_photo || u.image ? <img src={u.profile_photo || u.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={20} color="#38bdf8" />}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 16, color: '#111b21', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
-                                        <div style={{ fontSize: 13, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.about || 'Available'}</div>
+                                        <div style={{ fontSize: 16, color: '#f8fafc', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                                        <div style={{ fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.about || 'Available'}</div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                     {selectedCommunityMembersToAdd.length > 0 && (
-                        <div style={{ padding: '16px', background: '#ffffff', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ padding: '16px', background: 'transparent', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'center' }}>
                             <div
                                 onClick={() => { setIsConfirmCommunityAddMembersOpen(true); }}
                                 style={{ width: 44, height: 44, borderRadius: '50%', background: '#0EA5BE', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
@@ -11932,11 +12119,11 @@ export default function Chat() {
         const community = selectedCommunity || communities.find(c => c.name === (selectedGroup?.communityName || selectedGroup?.name));
         if (!community) return null;
 
-        const bgColor = '#ffffff';
-        const textColor = '#3b4a54';
-        const subTextColor = '#667781';
-        const thinDivider = '1px solid #e9edef';
-        const thickDivider = '8px solid #f0f2f5';
+        const bgColor = 'transparent';
+        const textColor = '#f8fafc';
+        const subTextColor = '#94a3b8';
+        const thinDivider = '1px solid rgba(255, 255, 255, 0.08)';
+        const thickDivider = '8px solid rgba(255, 255, 255, 0.05)';
 
         const myId = user.id || user._id;
         const isMeOwner = String(community.creator?._id || community.creator) === String(myId);
@@ -11958,7 +12145,7 @@ export default function Chat() {
                     overflow: 'hidden'
                 }}
             >
-                <div className="wa-contact-info-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 16px', background: 'white', borderBottom: thinDivider, color: textColor, flexShrink: 0 }}>
+                <div className="wa-contact-info-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 16px', background: 'transparent', borderBottom: thinDivider, color: textColor, flexShrink: 0 }}>
                     <button
                         onClick={() => {
                             setIsCommunityInfoOpen(false);
@@ -11967,26 +12154,26 @@ export default function Chat() {
                         }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 24, padding: 0 }}
                     >
-                        <X size={24} color="#54656f" />
-                        <span style={{ fontSize: 16, fontWeight: 500, color: textColor }}>Community info</span>
+                        <X size={24} color="#38bdf8" />
+                        <span style={{ fontSize: 16, fontWeight: 600, color: textColor }}>Community info</span>
                     </button>
                 </div>
 
                 <div className="wa-contact-info-content" style={{ flex: 1, overflowY: 'auto', background: bgColor }}>
                     <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                        <div style={{ width: 140, height: 140, borderRadius: '24px', background: '#dfe5e7', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                        <div style={{ width: 140, height: 140, borderRadius: '24px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                             {community.icon ? (
                                 <img src={community.icon} alt="community" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Users size={60} color="#8696a0" />
-                                    <span style={{ fontSize: 12, color: '#8696a0', marginTop: 4 }}>Add community icon</span>
+                                    <Users size={60} color="#38bdf8" />
+                                    <span style={{ fontSize: 12, color: '#38bdf8', marginTop: 4 }}>Add community icon</span>
                                 </div>
                             )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 24, fontWeight: 400, color: textColor }}>{community.name}</span>
-                            {canIManage && <Pencil size={20} color="#54656f" style={{ cursor: 'pointer' }} onClick={() => { /* name/description edit handler */ }} />}
+                            <span style={{ fontSize: 24, fontWeight: 500, color: textColor }}>{community.name}</span>
+                            {canIManage && <Pencil size={20} color="#38bdf8" style={{ cursor: 'pointer' }} onClick={() => { /* name/description edit handler */ }} />}
                         </div>
                         {(() => {
                             const allIds = new Set();
@@ -12013,11 +12200,11 @@ export default function Chat() {
                             {canIManage && (
                                 <>
                                     <div className="wa-community-info-action" onClick={() => { /* invite handler */ }}>
-                                        <LinkIcon size={24} color="#0EA5BE" />
+                                        <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><LinkIcon size={24} color="#38bdf8" /></div>
                                         <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Invite</span>
                                     </div>
                                     <div className="wa-community-info-action" onClick={() => setIsCommunityAddMemberOpen(true)}>
-                                        <UserPlus size={24} color="#0EA5BE" />
+                                        <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><UserPlus size={24} color="#38bdf8" /></div>
                                         <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Add members</span>
                                     </div>
                                     <div className="wa-community-info-action" onClick={() => {
@@ -12025,7 +12212,7 @@ export default function Chat() {
                                             setIsManageGroupsOpen(true);
                                         }
                                     }}>
-                                        <Users size={24} color="#0EA5BE" />
+                                        <div className="wa-action-icon-box" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}><Users size={24} color="#38bdf8" /></div>
                                         <span style={{ fontSize: 14, color: textColor, fontWeight: 500 }}>Add groups</span>
                                     </div>
                                 </>
@@ -12045,8 +12232,8 @@ export default function Chat() {
                             style={{
                                 padding: '15px 40px',
                                 textAlign: 'center',
-                                color: '#0EA5BE',
-                                borderBottom: '3px solid #0EA5BE',
+                                color: '#38bdf8',
+                                borderBottom: '3px solid #38bdf8',
                                 fontWeight: 500,
                                 cursor: 'default'
                             }}
@@ -12059,7 +12246,7 @@ export default function Chat() {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <div style={{ flex: 1, color: textColor, fontSize: 14, lineHeight: '1.4' }}>
                                 {community.description || 'Welcome to our community!'}
-                                <span style={{ color: '#0EA5BE', cursor: 'pointer', marginLeft: 4 }}>Read more</span>
+                                <span style={{ color: '#38bdf8', cursor: 'pointer', marginLeft: 4 }}>Read more</span>
                             </div>
                             <div style={{ width: 20 }}></div>
                         </div>
@@ -12070,7 +12257,7 @@ export default function Chat() {
 
                     <div style={{ width: '100%', borderBottom: thickDivider }}></div>
 
-                    <div style={{ background: '#ffffff' }}>
+                    <div style={{ background: 'transparent' }}>
                         {(() => {
                             const isAnnouncementsActive = selectedGroup && (selectedGroup.isCommunityAnnouncements || String(selectedGroup._id) === String(community.announcements?._id || community.announcements));
                             const cChatMsgs = isAnnouncementsActive ? (groupMessages || []) : (community.announcements?.messages || groupMessages || []);
@@ -12087,13 +12274,13 @@ export default function Chat() {
                                             <span style={{ color: textColor, fontSize: 16 }}>Media, links and docs</span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <span style={{ color: subTextColor, fontSize: 15 }}>{cImages.length + cLinks.length + cDocs.length}</span>
-                                                <ChevronRight size={20} color={subTextColor} />
+                                                <ChevronRight size={20} color="#38bdf8" />
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, color: subTextColor, fontSize: 14 }}>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Image size={16} /> {cImages.length} Media</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><LinkIcon size={16} /> {cLinks.length} Links</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={16} /> {cDocs.length} Docs</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Image size={16} color="#38bdf8" /> {cImages.length} Media</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><LinkIcon size={16} color="#38bdf8" /> {cLinks.length} Links</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={16} color="#38bdf8" /> {cDocs.length} Docs</span>
                                         </div>
                                     </div>
 
@@ -12101,16 +12288,16 @@ export default function Chat() {
                                         {cPreviewItems.map((m, i) => {
                                             if (m.type === 'image' || m.type === 'video') {
                                                 return (
-                                                    <div key={i} className="wa-media-thumb" onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: '#f0f2f5' }}>
+                                                    <div key={i} className="wa-media-thumb" onClick={(e) => { e.stopPropagation(); setViewingImage(m); }} style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                                         <img src={m.file_path} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                 );
                                             }
                                             if (m.type === 'file') {
                                                 return (
-                                                    <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
-                                                        <FileText size={24} color="#8696a0" />
-                                                        <div style={{ fontSize: 10, color: '#667781', textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDownload(m.file_path, m.fileName); }}>
+                                                        <FileText size={24} color="#38bdf8" />
+                                                        <div style={{ fontSize: 10, color: subTextColor, textAlign: 'center', marginTop: 4, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {m.fileName || 'Doc'}
                                                         </div>
                                                     </div>
@@ -12118,20 +12305,20 @@ export default function Chat() {
                                             }
                                             if (m.link_preview && m.link_preview.image) {
                                                 return (
-                                                    <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: '#f0f2f5' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview.url, '_blank'); }}>
+                                                    <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0, cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={(e) => { e.stopPropagation(); window.open(m.link_preview.url, '_blank'); }}>
                                                         <img src={m.link_preview.image} alt="link" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                 );
                                             }
                                             const fallbackLink = m.link_preview?.url || m.content?.match(/(https?:\/\/[^\s]+)/)?.[0];
                                             return (
-                                                <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (fallbackLink) window.open(fallbackLink, '_blank'); }}>
-                                                    <LinkIcon size={24} color="#8696a0" />
+                                                <div key={i} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (fallbackLink) window.open(fallbackLink, '_blank'); }}>
+                                                    <LinkIcon size={24} color="#38bdf8" />
                                                 </div>
                                             );
                                         })}
                                         {[...Array(Math.max(0, 4 - cPreviewItems.length))].map((_, i) => (
-                                            <div key={`empty-${i}`} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: '#f0f2f5', flexShrink: 0 }}></div>
+                                            <div key={`empty-${i}`} className="wa-media-thumb" style={{ width: 72, height: 72, borderRadius: 8, background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}></div>
                                         ))}
                                     </div>
                                 </>
@@ -12175,9 +12362,9 @@ export default function Chat() {
                                 }}
                                 onClick={item.onClick}
                             >
-                                <div style={{ color: '#54656f', marginRight: 20 }}>{item.icon}</div>
+                                <div style={{ color: '#38bdf8', marginRight: 20 }}>{item.icon}</div>
                                 <span style={{ flex: 1, color: textColor, fontSize: 15 }}>{item.label}</span>
-                                <ChevronRight size={20} color="#aebac1" />
+                                <ChevronRight size={20} color="#38bdf8" />
                             </div>
                         ))}
                     </div>
@@ -12206,25 +12393,25 @@ export default function Chat() {
                                                 onClick={() => setIsCommunityMemberSearchOpen(true)}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
                                             >
-                                                <Search size={18} color="#54656f" />
+                                                <Search size={18} color="#38bdf8" />
                                             </button>
                                         ) : (
                                             <div style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                background: 'white',
+                                                background: 'rgba(15, 23, 42, 0.5)',
                                                 borderRadius: 8,
                                                 padding: '0 2px 0 10px',
                                                 flex: 1,
                                                 maxWidth: 280,
-                                                border: '2px solid #0EA5BE',
-                                                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1), 0 2px 8px rgba(2, 126, 181, 0.15)',
+                                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
                                                 animation: 'wa-slide-left 0.2s ease-out',
                                                 height: 40,
                                                 overflow: 'hidden',
                                                 position: 'relative'
                                             }}>
-                                                <Search size={16} color="#0EA5BE" style={{ marginRight: 8, flexShrink: 0 }} />
+                                                <Search size={16} color="#38bdf8" style={{ marginRight: 8, flexShrink: 0 }} />
                                                 <input
                                                     autoFocus
                                                     type="text"
@@ -12238,7 +12425,7 @@ export default function Chat() {
                                                         outline: 'none',
                                                         fontSize: 14,
                                                         padding: '8px 0',
-                                                        color: '#111b21',
+                                                        color: '#f8fafc',
                                                         fontWeight: '500',
                                                         width: '100%',
                                                         paddingRight: 40
@@ -12277,8 +12464,8 @@ export default function Chat() {
                         })()}
                         {canIManage && (
                             <div onClick={() => setIsCommunityAddMemberOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 20, cursor: 'pointer' }}>
-                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#0EA5BE', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    <UserPlus size={20} color="white" />
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(56, 189, 248, 0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                                    <UserPlus size={20} color="#38bdf8" />
                                 </div>
                                 <span style={{ color: textColor, fontSize: 16 }}>Add member</span>
                             </div>
@@ -12297,7 +12484,7 @@ export default function Chat() {
                             const displayMobile = communityOwner.mobile || '';
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginBottom: 15 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dfe5e7', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                         {communityOwner.profile_photo ? (
                                             <img src={communityOwner.profile_photo} alt={communityOwner.name || 'owner'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
@@ -12483,19 +12670,19 @@ export default function Chat() {
         if (!selectedUser) return null;
 
         return (
-            <div className={`wa-contact-info-panel edit-panel ${isEditContactOpen ? 'active' : ''}`} style={{ boxSizing: 'border-box' }}>
-                <div className="wa-contact-info-header" style={{ height: 60, padding: '5px 15px', display: 'grid', gridTemplateColumns: 'minmax(60px, auto) 1fr minmax(60px, auto)', alignItems: 'center', background: '#f0f2f5', borderBottom: '1px solid #d1d7db', boxSizing: 'border-box' }}>
+            <div className={`wa-contact-info-panel edit-panel ${isEditContactOpen ? 'active' : ''}`} style={{ boxSizing: 'border-box', background: 'transparent' }}>
+                <div className="wa-contact-info-header" style={{ height: 60, padding: '5px 15px', display: 'grid', gridTemplateColumns: 'minmax(60px, auto) 1fr minmax(60px, auto)', alignItems: 'center', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', boxSizing: 'border-box' }}>
                     <button
                         onClick={() => setIsEditContactOpen(false)}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#0EA5BE', justifySelf: 'start' }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#38bdf8', justifySelf: 'start' }}
                     >
                         <span style={{ fontSize: 16, fontWeight: 500 }}>Back</span>
                     </button>
-                    <span style={{ fontSize: 16, fontWeight: 500, color: '#111b21', textAlign: 'center', justifySelf: 'center', whiteSpace: 'nowrap' }}>Edit contact</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc', textAlign: 'center', justifySelf: 'center', whiteSpace: 'nowrap' }}>Edit contact</span>
                     <div style={{ width: 60 }} /> {/* Spacer to balance the Close button */}
                 </div>
 
-                <div className="wa-contact-info-content" style={{ background: 'white', overflowX: 'visible' }}>
+                <div className="wa-contact-info-content" style={{ background: 'transparent', overflowX: 'visible' }}>
                     <div style={{ padding: '28px 20px', boxSizing: 'border-box' }}>
 
                         {/* Name Fields */}
@@ -12761,23 +12948,23 @@ export default function Chat() {
         };
 
         return (
-            <div className={`wa-contact-info-panel shared-media-panel ${isSharedMediaOpen ? 'active' : ''}`}>
-                <div className="wa-contact-info-header" style={{ background: '#fff', borderBottom: 'none', height: 60, display: 'flex', alignItems: 'center', padding: '0 15px' }}>
+            <div className={`wa-contact-info-panel shared-media-panel ${isSharedMediaOpen ? 'active' : ''}`} style={{ background: 'transparent' }}>
+                <div className="wa-contact-info-header" style={{ background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', height: 60, display: 'flex', alignItems: 'center', padding: '0 15px' }}>
                     {isSelectionMode ? (
                         <div className="wa-selection-header-grid">
                             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                                <button onClick={() => setSelectedMediaMsgs([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0EA5BE', fontSize: '16px', fontWeight: 500, padding: 0, width: 'auto' }}>
+                                <button onClick={() => setSelectedMediaMsgs([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', fontSize: '16px', fontWeight: 500, padding: 0, width: 'auto' }}>
                                     {t('lang_confirm.cancel')}
                                 </button>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                <span style={{ fontSize: 18, fontWeight: 500, whiteSpace: 'nowrap' }}>{t('chat_window.selected_count', { count: selectedMediaMsgs.length })}</span>
+                                <span style={{ fontSize: 18, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>{t('chat_window.selected_count', { count: selectedMediaMsgs.length })}</span>
                             </div>
                             <div className="wa-selection-header-actions">
-                                <Copy size={22} color="#54656f" className="wa-copy-icon-mobile" style={{ cursor: 'pointer' }} onClick={handleBulkCopy} />
-                                <Star size={22} color="#54656f" style={{ cursor: 'pointer' }} onClick={handleBulkStar} />
-                                <Trash2 size={22} color="#54656f" style={{ cursor: 'pointer' }} onClick={handleBulkDelete} />
-                                <Forward size={22} color="#54656f" style={{ cursor: 'pointer' }} onClick={handleBulkForward} />
+                                <Copy size={22} color="#38bdf8" className="wa-copy-icon-mobile" style={{ cursor: 'pointer' }} onClick={handleBulkCopy} />
+                                <Star size={22} color="#38bdf8" style={{ cursor: 'pointer' }} onClick={handleBulkStar} />
+                                <Trash2 size={22} color="#f87171" style={{ cursor: 'pointer' }} onClick={handleBulkDelete} />
+                                <Forward size={22} color="#38bdf8" style={{ cursor: 'pointer' }} onClick={handleBulkForward} />
                             </div>
                         </div>
                     ) : <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', width: '100%', height: '100%' }}>
@@ -12786,12 +12973,12 @@ export default function Chat() {
                                 setIsSharedMediaOpen(false);
                                 if (selectedCommunity) setIsCommunityInfoOpen(true);
                                 else setIsContactInfoOpen(true);
-                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0EA5BE', fontSize: '16px', fontWeight: 500, padding: 0 }}>
+                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', fontSize: '16px', fontWeight: 500, padding: 0 }}>
                                 {t('chat_window.back')}
                             </button>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
-                            <span style={{ fontSize: 16, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('contact_info.media_links_docs')}</span>
+                            <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('contact_info.media_links_docs')}</span>
                         </div>
                         <div /> {/* Spacer */}
                     </div>
@@ -12818,7 +13005,7 @@ export default function Chat() {
                     </div>
                 )}
 
-                <div className="wa-contact-info-content" style={{ background: '#fff' }}>
+                <div className="wa-contact-info-content" style={{ background: 'transparent' }}>
                     {currentItems.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8696a0', padding: 40, textAlign: 'center' }}>
                             <div style={{ fontSize: 14 }}>{t('chat_window.no_media_shared', { tab: t(`shared_media.tabs.${sharedMediaTab}`) })}</div>
@@ -13122,28 +13309,28 @@ export default function Chat() {
     };
 
     const renderAddToListModal = () => (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'white', zIndex: 110, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 23px', borderBottom: '1px solid #e9edef', background: '#f0f2f5' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'transparent', zIndex: 110, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 23px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: 'transparent' }}>
                 <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: 20 }} onClick={() => setIsAddToListModalOpen(false)}>
-                    <X size={24} color="#54656f" />
+                    <X size={24} color="#38bdf8" />
                 </button>
-                <span style={{ fontSize: '16px', color: '#111b21', fontWeight: 500 }}>Add to list</span>
+                <span style={{ fontSize: '18px', color: '#f8fafc', fontWeight: 600 }}>Add to list</span>
             </div>
 
             <div style={{ padding: '14px' }}>
-                <div style={{ background: '#f0f2f5', borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
-                    <Search size={20} color="#54656f" />
+                <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
+                    <Search size={20} color="#38bdf8" />
                     <input
                         type="text"
                         placeholder="Search name or number"
                         value={searchListQuery}
                         onChange={(e) => setSearchListQuery(e.target.value)}
-                        style={{ width: '100%', background: 'transparent', border: 'none', color: '#111b21', padding: '8px 10px', outline: 'none' }}
+                        style={{ width: '100%', background: 'transparent', border: 'none', color: '#f8fafc', padding: '8px 10px', outline: 'none' }}
                     />
                 </div>
             </div>
 
-            <div style={{ padding: '4px 14px', color: '#8696a0', fontSize: '14px' }}>Chats</div>
+            <div style={{ padding: '4px 14px', color: '#0EA5BE', fontSize: '14px', fontWeight: 600 }}>Chats</div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 14px' }}>
                 {[...users, ...groups, ...communities].filter(item => {
@@ -13163,16 +13350,18 @@ export default function Chat() {
                         <div key={id} onClick={() => {
                             if (isSelected) setNewListMembers(prev => prev.filter(m => m !== id));
                             else setNewListMembers(prev => [...prev, id]);
-                        }} style={{ display: 'flex', alignItems: 'center', marginBottom: 20, cursor: 'pointer' }}>
-                            <div style={{ width: 22, height: 22, borderRadius: '4px', border: isSelected ? 'none' : '2px solid #8696a0', background: isSelected ? '#0EA5BE' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, flexShrink: 0 }}>
+                        }} style={{ display: 'flex', alignItems: 'center', marginBottom: 20, cursor: 'pointer', padding: '8px', borderRadius: '12px', transition: 'background 0.2s' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                            <div style={{ width: 22, height: 22, borderRadius: '4px', border: isSelected ? 'none' : '2px solid rgba(255, 255, 255, 0.2)', background: isSelected ? '#0EA5BE' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, flexShrink: 0 }}>
                                 {isSelected && <Check size={16} color="white" strokeWidth={3} />}
                             </div>
-                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, overflow: 'hidden', flexShrink: 0 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, overflow: 'hidden', flexShrink: 0 }}>
                                 {avatar ? <img src={avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : icon}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '16px', color: '#111b21', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                <div style={{ fontSize: '13px', color: '#667781', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: '16px', color: '#f8fafc', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                <div style={{ fontSize: '13px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {isComm ? 'Community' : (isGroup ? 'Group' : 'Contact')}
                                 </div>
                             </div>
@@ -13196,15 +13385,15 @@ export default function Chat() {
     );
 
     const renderCreateListDrawer = () => (
-        <div className={`wa-drawer ${isCreateListOpen ? 'open' : ''}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 100, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
-            <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', borderBottom: '1px solid #e9edef', position: 'relative', padding: '0 20px' }}>
+        <div className={`wa-drawer ${isCreateListOpen ? 'open' : ''}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 100, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+            <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative', padding: '0 20px' }}>
                 <button className="wa-back-btn" style={{ position: 'absolute', left: 20, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setIsCreateListOpen(false)}>
-                    <ArrowLeft size={24} color="#54656f" />
+                    <ArrowLeft size={24} color="#38bdf8" />
                 </button>
-                <span className="wa-drawer-title" style={{ fontSize: 16, fontWeight: 500, color: '#111b21', whiteSpace: 'nowrap' }}>Create new list</span>
+                <span className="wa-drawer-title" style={{ fontSize: 18, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap' }}>Create new list</span>
             </div>
 
-            <div className="wa-drawer-content" style={{ padding: '20px', background: '#f0f2f5', color: '#111b21', display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div className="wa-drawer-content" style={{ padding: '20px', background: 'transparent', color: '#f8fafc', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div style={{ position: 'relative', marginBottom: 20 }}>
                     <input
                         type="text"
@@ -13213,23 +13402,23 @@ export default function Chat() {
                         onChange={(e) => setNewListName(e.target.value)}
                         style={{
                             width: '100%', background: 'transparent', border: 'none',
-                            borderBottom: '2px solid #0EA5BE', color: '#111b21', fontSize: '15px',
+                            borderBottom: '2px solid #0EA5BE', color: '#f8fafc', fontSize: '16px',
                             padding: '10px 40px 10px 0', outline: 'none'
                         }}
                     />
-                    <Smile size={20} color="#54656f" style={{ position: 'absolute', right: 5, top: 12, cursor: 'pointer' }} />
+                    <Smile size={20} color="#38bdf8" style={{ position: 'absolute', right: 5, top: 12, cursor: 'pointer' }} />
                 </div>
 
-                <div style={{ fontSize: '14px', color: '#667781', marginBottom: 15 }}>Included</div>
+                <div style={{ fontSize: '14px', color: '#0EA5BE', marginBottom: 15, fontWeight: 600 }}>Included</div>
 
                 <div
                     onClick={() => setIsAddToListModalOpen(true)}
                     style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 20 }}
                 >
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0EA5BE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, flexShrink: 0 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#0EA5BE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, flexShrink: 0, boxShadow: '0 4px 12px rgba(14, 165, 190, 0.3)' }}>
                         <Plus size={24} color="white" />
                     </div>
-                    <span style={{ fontSize: '15px', color: '#111b21' }}>Add people or groups</span>
+                    <span style={{ fontSize: '15px', color: '#f8fafc', fontWeight: 500 }}>Add people or groups</span>
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -13249,12 +13438,12 @@ export default function Chat() {
                         return (
                             <div key={member} style={{ display: 'flex', alignItems: 'center', marginBottom: 20, justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, overflow: 'hidden', flexShrink: 0 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 15, overflow: 'hidden', flexShrink: 0 }}>
                                         {avatar ? <img src={avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : icon}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
-                                        <div style={{ fontSize: '16px', color: '#111b21', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                        <div style={{ fontSize: '13px', color: '#667781', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isComm ? 'Community' : (isGroup ? 'Group' : 'Contact')}</div>
+                                        <div style={{ fontSize: '16px', color: '#f8fafc', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                        <div style={{ fontSize: '13px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isComm ? 'Community' : (isGroup ? 'Group' : 'Contact')}</div>
                                     </div>
                                 </div>
                                 <Trash2
@@ -13288,10 +13477,11 @@ export default function Chat() {
                             setNewListMembers([]);
                         }}
                         style={{
-                            background: (!newListName.trim() || newListMembers.length === 0) ? '#e9edef' : '#0EA5BE',
-                            color: (!newListName.trim() || newListMembers.length === 0) ? '#a6b0b5' : 'white',
+                            background: (!newListName.trim() || newListMembers.length === 0) ? 'rgba(255, 255, 255, 0.05)' : '#0EA5BE',
+                            color: (!newListName.trim() || newListMembers.length === 0) ? '#94a3b8' : 'white',
                             border: 'none', padding: '10px 24px', borderRadius: '24px',
-                            fontSize: '14px', fontWeight: 500, cursor: (!newListName.trim() || newListMembers.length === 0) ? 'default' : 'pointer'
+                            fontSize: '14px', fontWeight: 600, cursor: (!newListName.trim() || newListMembers.length === 0) ? 'default' : 'pointer',
+                            boxShadow: (!newListName.trim() || newListMembers.length === 0) ? 'none' : '0 4px 12px rgba(14, 165, 190, 0.3)'
                         }}
                     >
                         Create list
@@ -13315,32 +13505,32 @@ export default function Chat() {
             {isArchivedChatsOpen && renderArchivedChatsDrawer()}
             {isGlobalStarredOpen && renderGlobalStarredDrawer()}
             {isRemindersModalOpen && (
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'white', zIndex: 500, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px 23px', borderBottom: '1px solid #e9edef', background: '#f0f2f5', position: 'relative', minHeight: '59px' }}>
-                        <button 
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'absolute', left: 23, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }} 
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#111b32', zIndex: 500, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px 23px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: '#111b32', position: 'relative', minHeight: '59px' }}>
+                        <button
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'absolute', left: 23, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}
                             onClick={() => setIsRemindersModalOpen(false)}
                         >
-                            <ArrowLeft size={24} color="#54656f" />
+                            <ArrowLeft size={24} color="#38bdf8" />
                         </button>
-                        <span style={{ fontSize: '18px', color: '#111b21', fontWeight: 600, whiteSpace: 'nowrap' }}>Event Reminders</span>
+                        <span style={{ fontSize: '18px', color: '#f8fafc', fontWeight: 600, whiteSpace: 'nowrap' }}>Event Reminders</span>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', paddingBottom: isMobile ? '70px' : '10px' }}>
                         {(() => {
                             const now = new Date();
                             const approachingEvents = [];
-                            
+
                             // Sort logic: Active first, then by createdAt desc
                             const sortedEvents = [...remindersList].sort((a, b) => {
                                 const aEv = a.event;
                                 const bEv = b.event;
                                 if (!aEv || !bEv) return 0;
-                                
+
                                 // 1. Active (not cancelled) first
                                 if (aEv.cancelled !== bEv.cancelled) {
                                     return aEv.cancelled ? 1 : -1;
                                 }
-                                
+
                                 // 2. Recently created (newest first)
                                 return new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0);
                             });
@@ -13348,14 +13538,14 @@ export default function Chat() {
                             sortedEvents.forEach((m) => {
                                 const ev = m.event;
                                 if (!ev) return;
-                                
+
                                 let isAttending = false;
                                 if (m.isGroup) {
-                                     isAttending = ev.responses && ev.responses.some(r => String(r.user_id?._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
-                                     if (String(m.sender_id?._id || m.sender_id) === String(user.id)) isAttending = true;
+                                    isAttending = ev.responses && ev.responses.some(r => String(r.user_id?._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
+                                    if (String(m.sender_id?._id || m.sender_id) === String(user.id)) isAttending = true;
                                 } else {
-                                     isAttending = ev.responses && ev.responses.some(r => String(r.user_id?._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
-                                     if (String(m.user_id?._id || m.user_id) === String(user.id)) isAttending = true;
+                                    isAttending = ev.responses && ev.responses.some(r => String(r.user_id?._id || r.user_id) === String(user.id) && ['Going', 'Maybe'].includes(r.status));
+                                    if (String(m.user_id?._id || m.user_id) === String(user.id)) isAttending = true;
                                 }
 
                                 if (isAttending && !ev.cancelled) {
@@ -13364,7 +13554,7 @@ export default function Chat() {
                                     const startObj = new Date(startStr);
                                     if (isNaN(startObj.getTime())) return;
                                     const diffMs = startObj.getTime() - now.getTime();
-                                    
+
                                     const rt = ev.reminderTiming || 'default';
                                     let targetMs = 24 * 60 * 60 * 1000;
                                     if (rt === '15m') targetMs = 15 * 60 * 1000;
@@ -13398,8 +13588,8 @@ export default function Chat() {
                                     }
                                 };
                                 return (
-                                    <div 
-                                        key={keyStr} 
+                                    <div
+                                        key={keyStr}
                                         onClick={() => {
                                             const targetMsgId = m._id || m.id;
 
@@ -13407,7 +13597,7 @@ export default function Chat() {
                                                 const targetGrpId = String(m.group_id?._id || m.group_id);
                                                 let groupObj = groups.find(g => String(g._id) === targetGrpId);
                                                 let foundCommunity = null;
-                                                
+
                                                 if (!groupObj) {
                                                     for (const c of communities) {
                                                         const annId = String(c.announcements?._id || c.announcements?.id || c.announcements);
@@ -13431,11 +13621,11 @@ export default function Chat() {
                                                         }
                                                     }
                                                 }
-                                                
+
                                                 if (!groupObj && m.group_id) {
                                                     groupObj = { _id: targetGrpId, name: m.group_id.name || 'Group', icon: m.group_id.icon, members: [user.id] };
                                                 }
-                                                
+
                                                 if (groupObj) {
                                                     setSelectedGroup(groupObj);
                                                     setSelectedCommunity(foundCommunity);
@@ -13443,30 +13633,30 @@ export default function Chat() {
                                                     setIsCommunityHomeOpen(false);
                                                     if (selectedUserRef) selectedUserRef.current = null;
                                                     if (selectedGroupRef) selectedGroupRef.current = groupObj;
-                                                    
+
                                                     // Ensure the server accurately rehydrates the announcement messages array
                                                     fetchGroupMessages(groupObj._id || groupObj.id);
-                                                    
+
                                                     scrollToMsg(targetMsgId);
                                                 }
                                             } else {
                                                 const p2pSenderId = m.user_id?._id || m.user_id || m.sender_id?._id || m.sender_id;
                                                 const p2pReceiverId = m.receiver_id?._id || m.receiver_id;
                                                 const currentUserId = user.id || user._id;
-                                                
-                                                const otherId = String(p2pSenderId) === String(currentUserId) 
-                                                    ? p2pReceiverId 
+
+                                                const otherId = String(p2pSenderId) === String(currentUserId)
+                                                    ? p2pReceiverId
                                                     : p2pSenderId;
-                                                
+
                                                 let userObj = users.find(u => String(u._id || u.id) === String(otherId));
-                                                
+
                                                 if (!userObj) {
-                                                   const fallbackName = String(p2pSenderId) === String(otherId) 
-                                                    ? (m.user_id?.name || m.sender_id?.name) 
-                                                    : m.receiver_id?.name;
-                                                   userObj = { _id: otherId, name: fallbackName || 'User' };
+                                                    const fallbackName = String(p2pSenderId) === String(otherId)
+                                                        ? (m.user_id?.name || m.sender_id?.name)
+                                                        : m.receiver_id?.name;
+                                                    userObj = { _id: otherId, name: fallbackName || 'User' };
                                                 }
-                                                
+
                                                 if (userObj) {
                                                     // Explicitly ensure the fallback object isn't triggering a restricted status by injecting default accepted state
                                                     if (!userObj.requestStatus) userObj.requestStatus = 'accepted';
@@ -13479,29 +13669,29 @@ export default function Chat() {
                                             // but since user explicitly requested "the left panel should stay put until i manually exit back"
                                             // we will not force close it.
                                         }}
-                                        style={{ 
-                                            padding: '15px', 
-                                            background: isImportant ? '#e6f7ff' : '#f0f2f5', 
-                                            borderRadius: '8px', 
-                                            marginBottom: '10px', 
-                                            border: isImportant ? '1px solid #1890ff' : 'none',
+                                        style={{
+                                            padding: '15px',
+                                            background: isImportant ? 'rgba(14, 165, 190, 0.2)' : 'rgba(15, 23, 42, 0.82)',
+                                            borderRadius: '10px',
+                                            marginBottom: '10px',
+                                            border: isImportant ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)',
                                             cursor: 'pointer',
                                             transition: 'background 0.2s'
                                         }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = isImportant ? '#bae7ff' : '#e9edef'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = isImportant ? '#e6f7ff' : '#f0f2f5'}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = isImportant ? 'rgba(14, 165, 190, 0.28)' : 'rgba(30, 41, 59, 0.9)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = isImportant ? 'rgba(14, 165, 190, 0.2)' : 'rgba(15, 23, 42, 0.82)'}
                                     >
-                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#111b21', marginBottom: 4 }}>{ev.name}</div>
+                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#f8fafc', marginBottom: 4 }}>{ev.name}</div>
                                         {isCancelled ? (
                                             <div style={{ color: '#ef4444', fontSize: '14px', fontWeight: 'bold' }}>Event Cancelled</div>
                                         ) : (
                                             <>
-                                                <div style={{ fontSize: '14px', color: '#54656f', marginBottom: 8 }}>{ev.description}</div>
-                                                <div style={{ fontSize: '13px', color: '#8696a0', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: 2 }}>
+                                                <div style={{ fontSize: '14px', color: '#cbd5e1', marginBottom: 8 }}>{ev.description}</div>
+                                                <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: 2 }}>
                                                     <Calendar size={14} /> {formatEventTimeString(ev.startDate, ev.startTime, ev.endDate, ev.endTime)}
                                                 </div>
                                                 {ev.location && (
-                                                    <div style={{ fontSize: '13px', color: '#8696a0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                         <MapPin size={14} /> {ev.location}
                                                     </div>
                                                 )}
@@ -13519,11 +13709,11 @@ export default function Chat() {
                                             {approachingEvents.map((m, i) => renderEventCard(m, `near-${m._id || i}`, true))}
                                         </div>
                                     )}
-                                    
+
                                     <div>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#54656f', marginBottom: 10, paddingLeft: 4 }}>All Scheduled Events</div>
+                                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#cbd5e1', marginBottom: 10, paddingLeft: 4 }}>All Scheduled Events</div>
                                         {sortedEvents.length === 0 ? (
-                                            <div style={{ textAlign: 'center', color: '#8696a0', marginTop: 40 }}>No events scheduled.</div>
+                                            <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: 40 }}>No events scheduled.</div>
                                         ) : (
                                             sortedEvents.map((m, i) => renderEventCard(m, `all-${m._id || i}`, false))
                                         )}
@@ -13537,7 +13727,7 @@ export default function Chat() {
 
 
             {/* Chat List Header */}
-            <div className="wa-header" style={{ background: 'white' }}>
+            <div className="wa-header" style={{ background: 'transparent' }}>
                 <span className="wa-header-title">{t('chat_list.title')}</span>
                 <div className="wa-header-icons">
                     <div style={{ position: 'relative' }}>
@@ -13711,8 +13901,8 @@ export default function Chat() {
 
             {/* Search */}
             <div className="wa-search-section">
-                <div className="wa-search-bar" style={{ position: 'relative' }}>
-                    <Search size={18} color="#54656f" />
+                <div className="wa-search-bar" style={{ position: 'relative', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <Search size={18} color="#0EA5BE" />
                     <input
                         type="text"
                         id="chat-search-input"
@@ -13722,7 +13912,7 @@ export default function Chat() {
                         className="wa-search-input"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ paddingRight: searchQuery ? '36px' : '12px' }}
+                        style={{ paddingRight: searchQuery ? '36px' : '12px', color: '#f8fafc' }}
                     />
                     {searchQuery && (
                         <button
@@ -13732,7 +13922,7 @@ export default function Chat() {
                                 right: '12px',
                                 top: '50%',
                                 transform: 'translateY(-50%)',
-                                background: '#D1D7DB',
+                                background: 'rgba(255, 255, 255, 0.1)',
                                 border: 'none',
                                 borderRadius: '50%',
                                 width: '18px',
@@ -13745,7 +13935,7 @@ export default function Chat() {
                                 zIndex: 5
                             }}
                         >
-                            <X size={10} color="#54656f" strokeWidth={4} />
+                            <X size={10} color="#f8fafc" strokeWidth={4} />
                         </button>
                     )}
                 </div>
@@ -13762,7 +13952,7 @@ export default function Chat() {
                         style={{ position: 'relative' }}
                     >
                         Requests
-                        <span style={{ position: 'absolute', top: -5, right: -5, background: '#0EA5BE', color: 'white', borderRadius: '50%', width: 18, height: 18, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', border: '2px solid white' }}>
+                        <span style={{ position: 'absolute', top: -5, right: -5, background: '#0EA5BE', color: 'white', borderRadius: '50%', width: 18, height: 18, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', border: '2px solid rgba(15, 23, 42, 0.9)' }}>
                             {messageRequests.length}
                         </span>
                     </button>
@@ -13798,9 +13988,9 @@ export default function Chat() {
                         <button
                             className={`wa-nav-icon-btn wa-filter-plus-btn ${showCustomListsDropdown ? 'active' : ''}`}
                             onClick={(e) => { e.stopPropagation(); setShowCustomListsDropdown(!showCustomListsDropdown); }}
-                            style={{ width: 26, height: 26, padding: 0, justifyContent: 'center', display: 'flex', alignItems: 'center', background: showCustomListsDropdown ? '#e9edef' : '#f0f2f5', borderRadius: '50%' }}
+                            style={{ width: 26, height: 26, padding: 0, justifyContent: 'center', display: 'flex', alignItems: 'center', background: showCustomListsDropdown ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.05)', borderRadius: '50%', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                         >
-                            <ChevronDown size={14} color="#54656f" />
+                            <ChevronDown size={14} color="#38bdf8" />
                         </button>
                     </div>
                 )}
@@ -13812,7 +14002,7 @@ export default function Chat() {
                         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
                         onClick={(e) => { e.stopPropagation(); setShowCustomListsDropdown(false); }}
                     />
-                    <div style={{ position: 'absolute', top: 150, right: 15, width: 220, zIndex: 1000, background: '#ffffff', borderRadius: '8px', padding: '8px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #e9edef' }}>
+                    <div style={{ position: 'absolute', top: 150, right: 15, width: 220, zIndex: 1000, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(20px)', borderRadius: '12px', padding: '8px 0', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                         {customLists.map(list => {
                             const unreadCount = getCustomListUnread(list);
                             return (
@@ -13820,14 +14010,14 @@ export default function Chat() {
                                     key={list._id || list.id}
                                     className="wa-menu-item"
                                     onClick={(e) => { e.stopPropagation(); setFilterType('custom_' + (list._id || list.id)); setShowCustomListsDropdown(false); }}
-                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', cursor: 'pointer', color: '#111b21', backgroundColor: '#ffffff' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f2f5'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', cursor: 'pointer', color: '#f8fafc', background: 'transparent' }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
                                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px', fontSize: '15px' }}>{list.name}</span>
                                     {unreadCount > 0 && (
                                         <span style={{
-                                            background: '#027eb5',
+                                            background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)',
                                             color: '#ffffff',
                                             fontSize: '12px',
                                             fontWeight: 'bold',
@@ -13846,15 +14036,15 @@ export default function Chat() {
                                 </div>
                             )
                         })}
-                        <div style={{ borderTop: '1px solid #e9edef', margin: '4px 0' }}></div>
+                        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '4px 0' }}></div>
                         <div
                             className="wa-menu-item"
                             onClick={(e) => { e.stopPropagation(); setIsCreateListOpen(true); setShowCustomListsDropdown(false); }}
-                            style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', cursor: 'pointer', color: '#111b21', backgroundColor: '#ffffff' }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f2f5'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                            style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', cursor: 'pointer', color: '#f8fafc', background: 'transparent' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                            <Plus size={18} style={{ marginRight: 15, color: '#54656f' }} />
+                            <Plus size={18} style={{ marginRight: 15, color: '#38bdf8' }} />
                             <span style={{ fontSize: '15px' }}>New list</span>
                         </div>
                     </div>
@@ -13936,11 +14126,11 @@ export default function Chat() {
                             if (displayItems.length === 0) {
                                 if (!searchQuery.trim() && filterType === 'all') {
                                     return (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 30px', textAlign: 'center', color: '#8696a0' }}>
-                                            <div style={{ background: 'rgba(2, 126, 181, 0.05)', borderRadius: '50%', padding: '24px', marginBottom: '16px' }}>
-                                                <Plus size={40} color="#0EA5BE" style={{ opacity: 0.6 }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 30px', textAlign: 'center', color: '#94a3b8' }}>
+                                            <div style={{ background: 'rgba(56, 189, 248, 0.05)', borderRadius: '50%', padding: '24px', marginBottom: '16px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+                                                <Plus size={40} color="#0EA5BE" style={{ opacity: 0.8 }} />
                                             </div>
-                                            <p style={{ fontSize: '15px', color: '#111b21', marginBottom: '8px', fontWeight: '500' }}>No chats yet</p>
+                                            <p style={{ fontSize: '15px', color: '#f8fafc', marginBottom: '8px', fontWeight: '600' }}>No chats yet</p>
                                             <p style={{ fontSize: '13px', lineHeight: '1.5', marginBottom: '24px' }}>Start a fresh conversation with your colleagues or friends.</p>
                                             <button
                                                 className="wa-nav-icon-btn"
@@ -13996,12 +14186,11 @@ export default function Chat() {
                                         return <img src={item.icon} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '12px', objectFit: 'cover' }} />;
                                     }
                                     return (
-                                        <div style={{ position: 'relative', width: '100%', height: '100%', background: '#dfe5e7', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <div style={{ position: 'absolute', bottom: 4, left: 4, width: 20, height: 20, background: '#8696a0', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dfe5e7' }}>
+                                        <div style={{ position: 'relative', width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 15px rgba(56, 189, 248, 0.1)' }}>
+                                            <div style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, background: 'linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%)', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(15, 23, 42, 0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
                                                 <Users size={12} />
                                             </div>
-                                            <Users size={24} color="#8696a0" />
-                                            <div style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, background: '#8696a0', opacity: 0.6, borderRadius: '50%', border: '1px solid #dfe5e7' }}></div>
+                                            <Users size={24} color="#38bdf8" style={{ filter: 'drop-shadow(0 0 8px rgba(56, 189, 248, 0.4))' }} />
                                         </div>
                                     );
                                 };
@@ -14052,17 +14241,17 @@ export default function Chat() {
                                         onTouchEnd={() => clearTimeout(longPressTimer.current)}
                                         onTouchMove={() => clearTimeout(longPressTimer.current)}
                                     >
-                                        <div className="wa-avatar" style={(isGroup || item.is_community) ? { background: '#dfe5e7', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: item.is_community ? '12px' : '50%' } : {}}>
+                                        <div className="wa-avatar" style={(isGroup || item.is_community) ? { background: 'rgba(56, 189, 248, 0.1)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: item.is_community ? '12px' : '50%', border: '1px solid rgba(56, 189, 248, 0.2)' } : {}}>
                                             {item.is_community ? (
                                                 renderCommunityAvatar()
                                             ) : isGroup ? (
                                                 item.icon ? (
                                                     <img src={item.icon} alt={displayName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                                 ) : (
-                                                    <Users size={22} color="#8696a0" />
+                                                    <Users size={22} color="#38bdf8" />
                                                 )
                                             ) : (
-                                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#54656f' }}>
+                                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#38bdf8' }}>
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </span>
                                             )}
@@ -14124,50 +14313,51 @@ export default function Chat() {
                     alignItems: 'center',
                     justifyContent: 'space-around',
                     height: '60px',
-                    backgroundColor: '#ffffff',
-                    borderTop: '1px solid #e9edef',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
                     zIndex: 9999,
-                    boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
+                    boxShadow: '0 -2px 10px rgba(0,0,0,0.2)'
                 }}>
-                   <button 
-                       onClick={(e) => {
+                    <button
+                        onClick={(e) => {
                             e.stopPropagation();
                             setIsRemindersModalOpen(false);
                             setFilterType('all');
-                       }} 
-                       style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: !isRemindersModalOpen && filterType !== 'communities' ? '#111b21' : '#54656f', gap: '4px', cursor: 'pointer', flex: 1 }}>
-                       <MessageSquare size={24} />
-                       <span style={{ fontSize: '12px', fontWeight: !isRemindersModalOpen && filterType !== 'communities' ? 600 : 400 }}>Chats</span>
-                   </button>
+                        }}
+                        style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: !isRemindersModalOpen && filterType !== 'communities' ? '#38bdf8' : '#94a3b8', gap: '4px', cursor: 'pointer', flex: 1 }}>
+                        <MessageSquare size={24} color={!isRemindersModalOpen && filterType !== 'communities' ? '#38bdf8' : '#94a3b8'} />
+                        <span style={{ fontSize: '12px', fontWeight: !isRemindersModalOpen && filterType !== 'communities' ? 600 : 400 }}>Chats</span>
+                    </button>
 
-                   <button 
-                       onClick={(e) => {
-                           e.stopPropagation();
-                           const uid = user?.id || user?._id;
-                           if (uid) {
-                               localStorage.setItem(`lastRemindersChecked_${uid}`, Date.now().toString());
-                               setUnreadRemindersCount(0);
-                           }
-                           fetchReminders();
-                           setIsRemindersModalOpen(true);
-                           setFilterType('all');
-                       }} 
-                       style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: isRemindersModalOpen ? '#111b21' : '#54656f', gap: '4px', position: 'relative', cursor: 'pointer', flex: 1 }}>
-                       <Calendar size={24} />
-                       {unreadRemindersCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: 'calc(50% - 18px)', background: '#0ea5be', color: 'white', borderRadius: '50%', minWidth: '16px', padding: '2px 4px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{unreadRemindersCount}</span>}
-                       <span style={{ fontSize: '12px', fontWeight: isRemindersModalOpen ? 600 : 400 }}>Reminders</span>
-                   </button>
-                   
-                   <button 
-                       onClick={(e) => {
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const uid = user?.id || user?._id;
+                            if (uid) {
+                                localStorage.setItem(`lastRemindersChecked_${uid}`, Date.now().toString());
+                                setUnreadRemindersCount(0);
+                            }
+                            fetchReminders();
+                            setIsRemindersModalOpen(true);
+                            setFilterType('all');
+                        }}
+                        style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: isRemindersModalOpen ? '#38bdf8' : '#94a3b8', gap: '4px', position: 'relative', cursor: 'pointer', flex: 1 }}>
+                        <Calendar size={24} />
+                        {unreadRemindersCount > 0 && <span style={{ position: 'absolute', top: '-4px', right: 'calc(50% - 18px)', background: '#38bdf8', color: 'white', borderRadius: '50%', minWidth: '16px', padding: '2px 4px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{unreadRemindersCount}</span>}
+                        <span style={{ fontSize: '12px', fontWeight: isRemindersModalOpen ? 600 : 400 }}>Reminders</span>
+                    </button>
+
+                    <button
+                        onClick={(e) => {
                             e.stopPropagation();
                             setIsRemindersModalOpen(false);
                             setFilterType('communities');
-                       }} 
-                       style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: !isRemindersModalOpen && filterType === 'communities' ? '#111b21' : '#54656f', gap: '4px', cursor: 'pointer', flex: 1 }}>
-                       <Users size={24} />
-                       <span style={{ fontSize: '12px', fontWeight: !isRemindersModalOpen && filterType === 'communities' ? 600 : 400 }}>Communities</span>
-                   </button>
+                        }}
+                        style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: !isRemindersModalOpen && filterType === 'communities' ? '#38bdf8' : '#94a3b8', gap: '4px', cursor: 'pointer', flex: 1 }}>
+                        <Users size={24} color={!isRemindersModalOpen && filterType === 'communities' ? '#38bdf8' : '#94a3b8'} />
+                        <span style={{ fontSize: '12px', fontWeight: !isRemindersModalOpen && filterType === 'communities' ? 600 : 400 }}>Communities</span>
+                    </button>
                 </div>
             )}
 
@@ -14808,7 +14998,7 @@ export default function Chat() {
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
                                         <span style={{ fontWeight: 'bold', fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUser.name}</span>
-                                        <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderUserStatus(selectedUser)}</span>
+                                        <span style={{ fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{renderUserStatus(selectedUser)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -14925,7 +15115,7 @@ export default function Chat() {
                             }
 
                             return (
-                                <div className="wa-pinned-messages-banner" style={{ background: 'white', padding: '8px 16px', borderBottom: '1px solid #d1d7db', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                                <div className="wa-pinned-messages-banner" style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '8px 16px', borderBottom: '1px solid rgba(56, 189, 248, 0.25)', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                                     onClick={() => {
                                         navigateToMessage(msg);
                                         setCurrentPinnedIndex((safeIndex + 1) % pinnedMessages.length);
@@ -14934,17 +15124,17 @@ export default function Chat() {
                                     {pinnedMessages.length > 1 && (
                                         <div style={{ marginRight: 12, display: 'flex', flexDirection: 'column', gap: 4, height: 36, justifyContent: 'center' }}>
                                             {Array.from({ length: pinnedMessages.length }).map((_, i) => (
-                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#008069' : '#d1d7db' }} />
+                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#38bdf8' : 'rgba(148, 163, 184, 0.5)' }} />
                                             ))}
                                         </div>
                                     )}
 
                                     <div style={{ display: 'flex', flexDirection: 'column', marginRight: 16, justifyContent: 'center' }}>
-                                        <Pin size={18} color="#8696a0" />
+                                        <Pin size={18} color="#38bdf8" />
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                                        <span style={{ fontWeight: 500, fontSize: 13, color: '#111b21', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                        <span style={{ fontWeight: 500, fontSize: 13, color: '#f8fafc', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                                             {(() => {
                                                 if (msg.type === 'contact') {
                                                     try {
@@ -14960,7 +15150,7 @@ export default function Chat() {
                                                 return msg.sender_id?.name || msg.sender_id?.firstName || selectedUser?.name || 'Contact';
                                             })()}
                                         </span>
-                                        <span style={{ fontSize: 13, color: '#54656f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: 13, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {msg.type === 'contact' && <UserIcon size={14} color="#8696a0" />}
                                             {msg.type === 'poll' && <List size={14} color="#0EA5BE" />}
                                             {(() => {
@@ -15135,682 +15325,682 @@ export default function Chat() {
                                                         {unreadSeparator}
                                                         <div
                                                             key={msgId || msgIdx}
-                                                        id={`msg-${msg._id}`}
-                                                        className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
-                                                        onDoubleClick={() => { if (!isForwardingMode) setReplyingTo(msg); }}
-                                                        onClick={() => {
-                                                            if (isForwardingMode) {
-                                                                const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
-                                                                if (isSelected) {
-                                                                    setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
-                                                                } else {
-                                                                    if (!msg._id && !msg.id) {
-                                                                        setSnackbar({ message: "Please wait for message to sync before selecting", type: 'info' });
-                                                                        return;
+                                                            id={`msg-${msg._id}`}
+                                                            className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
+                                                            onDoubleClick={() => { if (!isForwardingMode) setReplyingTo(msg); }}
+                                                            onClick={() => {
+                                                                if (isForwardingMode) {
+                                                                    const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
+                                                                    if (isSelected) {
+                                                                        setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
+                                                                    } else {
+                                                                        if (!msg._id && !msg.id) {
+                                                                            setSnackbar({ message: "Please wait for message to sync before selecting", type: 'info' });
+                                                                            return;
+                                                                        }
+                                                                        setForwardSelectedMsgs(prev => [...prev, msg]);
                                                                     }
-                                                                    setForwardSelectedMsgs(prev => [...prev, msg]);
                                                                 }
-                                                            }
-                                                        }}
-                                                    >
-                                                        {isForwardingMode && (
-                                                            <div className="wa-msg-checkbox">
-                                                                {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
-                                                                    <CheckSquare size={24} color="white" fill="#0EA5BE" /> :
-                                                                    <div className="wa-checkbox-empty" />
-                                                                }
-                                                            </div>
-                                                        )}
-                                                        <div
-                                                            className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'} ${msg.link_preview ? 'has-link-preview' : ''}`}
-                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
-                                                            onTouchStart={(e) => { if (!isForwardingMode) { e.persist(); longPressTimer.current = setTimeout(() => { handleMsgDropdownOpen(e, msg._id, msg); }, 600); } }}
-                                                            onTouchEnd={() => clearTimeout(longPressTimer.current)}
-                                                            onTouchMove={() => clearTimeout(longPressTimer.current)}
+                                                            }}
                                                         >
-                                                            {(msg.isForwarded || msg.is_forwarded) && !isMe && (
-                                                                <div className="wa-forwarded-tag">
-                                                                    <Forward size={12} style={{ marginRight: 4 }} />
-                                                                    {(msg.forward_count || 0) >= 4 ? 'Forwarded many times' : 'Forwarded'}
+                                                            {isForwardingMode && (
+                                                                <div className="wa-msg-checkbox">
+                                                                    {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
+                                                                        <CheckSquare size={24} color="white" fill="#0EA5BE" /> :
+                                                                        <div className="wa-checkbox-empty" />
+                                                                    }
                                                                 </div>
                                                             )}
-                                                            {!isForwardingMode && (
-                                                                <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
-                                                                    <ChevronDown size={18} />
-                                                                </div>
-                                                            )}
-
-                                                            {/* Reply Context Rendering */}
-                                                            {msg.reply_to && (
-                                                                <div className="wa-reply-context">
-                                                                    <div className="wa-reply-context-name">
-                                                                        {isMeMsg(msg.reply_to) ? 'You' : (selectedUser.name || 'User')}
+                                                            <div
+                                                                className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'} ${msg.link_preview ? 'has-link-preview' : ''}`}
+                                                                onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
+                                                                onTouchStart={(e) => { if (!isForwardingMode) { e.persist(); longPressTimer.current = setTimeout(() => { handleMsgDropdownOpen(e, msg._id, msg); }, 600); } }}
+                                                                onTouchEnd={() => clearTimeout(longPressTimer.current)}
+                                                                onTouchMove={() => clearTimeout(longPressTimer.current)}
+                                                            >
+                                                                {(msg.isForwarded || msg.is_forwarded) && !isMe && (
+                                                                    <div className="wa-forwarded-tag">
+                                                                        <Forward size={12} style={{ marginRight: 4 }} />
+                                                                        {(msg.forward_count || 0) >= 4 ? 'Forwarded many times' : 'Forwarded'}
                                                                     </div>
-                                                                    <div className="wa-reply-context-text">
-                                                                        {(() => {
-                                                                            if (msg.reply_to.type === 'image') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Camera size={14} color="#027EB5" /> <span>Photo</span></span>;
-                                                                            if (msg.reply_to.type === 'file') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileText size={14} color="#027EB5" /> <span>File</span></span>;
-                                                                            if (msg.reply_to.type === 'poll') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 <span>{msg.reply_to.poll?.question || 'Poll'}</span></span>;
-                                                                            if (msg.reply_to.type === 'voice' || msg.reply_to.type === 'audio') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mic size={14} color="#027EB5" /> <span>Voice message</span></span>;
-                                                                            if (msg.reply_to.type === 'contact') {
-                                                                                try {
-                                                                                    const parsed = JSON.parse(msg.reply_to.content);
-                                                                                    const txt = Array.isArray(parsed) ? `${parsed.length} contacts` : (parsed.name || parsed.mobile || 'Contact');
-                                                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>{txt}</span></span>;
-                                                                                } catch (e) {
-                                                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>Contact</span></span>;
+                                                                )}
+                                                                {!isForwardingMode && (
+                                                                    <div className="wa-dropdown-trigger msg-trigger" onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
+                                                                        <ChevronDown size={18} />
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Reply Context Rendering */}
+                                                                {msg.reply_to && (
+                                                                    <div className="wa-reply-context">
+                                                                        <div className="wa-reply-context-name">
+                                                                            {isMeMsg(msg.reply_to) ? 'You' : (selectedUser.name || 'User')}
+                                                                        </div>
+                                                                        <div className="wa-reply-context-text">
+                                                                            {(() => {
+                                                                                if (msg.reply_to.type === 'image') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Camera size={14} color="#027EB5" /> <span>Photo</span></span>;
+                                                                                if (msg.reply_to.type === 'file') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileText size={14} color="#027EB5" /> <span>File</span></span>;
+                                                                                if (msg.reply_to.type === 'poll') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 <span>{msg.reply_to.poll?.question || 'Poll'}</span></span>;
+                                                                                if (msg.reply_to.type === 'voice' || msg.reply_to.type === 'audio') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mic size={14} color="#027EB5" /> <span>Voice message</span></span>;
+                                                                                if (msg.reply_to.type === 'contact') {
+                                                                                    try {
+                                                                                        const parsed = JSON.parse(msg.reply_to.content);
+                                                                                        const txt = Array.isArray(parsed) ? `${parsed.length} contacts` : (parsed.name || parsed.mobile || 'Contact');
+                                                                                        return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>{txt}</span></span>;
+                                                                                    } catch (e) {
+                                                                                        return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>Contact</span></span>;
+                                                                                    }
                                                                                 }
-                                                                            }
-                                                                            return msg.reply_to.content || '';
-                                                                        })()}
+                                                                                return msg.reply_to.content || '';
+                                                                            })()}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            )}
+                                                                )}
 
-                                                            {msg.is_deleted_by_admin ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <Trash2 size={16} /> {t('chat_window.deleted_admin')}
-                                                                </div>
-                                                            ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_me')}
-                                                                </div>
-                                                            ) : msg.is_deleted_by_user ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_other')}
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {/* Image Rendering */}
-                                                                    {msg.type === 'image' && (
-                                                                        <div className="wa-msg-image-container" onClick={(e) => {
-                                                                            if (isForwardingMode) return;
-                                                                            e.stopPropagation();
-                                                                            setViewingImage(msg);
-                                                                        }}>
-                                                                            <img src={msg.file_path} alt="Sent" className="wa-msg-image" />
-                                                                        </div>
-                                                                    )}
-                                                                    {/* File Rendering */}
-                                                                    {msg.type === 'file' && (
-                                                                        <div
-                                                                            className="wa-msg-doc-bubble"
-                                                                            onClick={() => handleDownload(msg.file_path, msg.fileName)}
-                                                                            style={{ cursor: 'pointer' }}
-                                                                        >
-                                                                            {/* Top: Preview */}
-                                                                            <div className="wa-doc-preview-area">
-                                                                                {/* Simulated Page Content */}
-                                                                                <div className="wa-doc-preview-simulated">
-                                                                                    {/* Simulate text lines */}
-                                                                                    <div style={{ width: '80%', height: 6, background: '#d1d7db', marginBottom: 6 }}></div>
-                                                                                    <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-                                                                                    <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-                                                                                    <div style={{ width: '90%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
-
-                                                                                    <div style={{ marginTop: 10, width: '40%', height: 20, background: '#e9edef' }}></div> {/* Image placeholder */}
-
-                                                                                    <div style={{ flex: 1 }}></div>
-                                                                                    <div style={{ fontSize: 8, color: '#999', textAlign: 'center' }}>Page 1</div>
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {/* Bottom: Info Footer */}
-                                                                            <div className="wa-doc-info-area">
-                                                                                <div className="wa-doc-icon" style={{ background: 'transparent', padding: 0 }}>
-                                                                                    <FileText size={30} color="#e53935" strokeWidth={1.5} />
-                                                                                </div>
-                                                                                <div className="wa-doc-details">
-                                                                                    <div className="wa-doc-filename" title={msg.fileName || 'Document'}>
-                                                                                        {msg.fileName || 'Document.pdf'}
-                                                                                    </div>
-                                                                                    <div className="wa-doc-meta">
-                                                                                        {msg.pageCount || 1} pages • {(msg.fileName || msg.file_path)?.split('.').pop()?.toUpperCase() || 'PDF'} • {msg.fileSize ? Math.ceil(msg.fileSize / 1024) + ' kB' : 'Unknown size'}
-                                                                                    </div>
-                                                                                </div>
-
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    {/* Audio Rendering */}
-                                                                    {msg.type === 'audio' && (
-                                                                        <div
-                                                                            className={`wa-voice-bubble-content ${String(playingAudioId) === String(msg._id || msg.id) ? 'wa-glassy-playing' : ''} ${msg.is_view_once ? 'wa-view-once-glassy' : ''} ${msg.is_view_once && msg.is_viewed ? 'spent' : ''}`}
-                                                                            onClick={(e) => {
+                                                                {msg.is_deleted_by_admin ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <Trash2 size={16} /> {t('chat_window.deleted_admin')}
+                                                                    </div>
+                                                                ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <XCircle size={16} /> {t('chat_window.deleted_user_me')}
+                                                                    </div>
+                                                                ) : msg.is_deleted_by_user ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <XCircle size={16} /> {t('chat_window.deleted_user_other')}
+                                                                    </div>
+                                                                ) : (
+                                                                    <>
+                                                                        {/* Image Rendering */}
+                                                                        {msg.type === 'image' && (
+                                                                            <div className="wa-msg-image-container" onClick={(e) => {
                                                                                 if (isForwardingMode) return;
-                                                                                if (msg.is_view_once && msg.is_viewed && !isMeMsg(msg)) {
-                                                                                    setSnackbar({ message: "This voice message has already been played.", type: 'info', variant: 'system' });
-                                                                                    return;
-                                                                                }
                                                                                 e.stopPropagation();
-                                                                                handlePlayAudio(msg);
-                                                                            }}
-                                                                            style={{
-                                                                                background: 'rgba(255, 255, 255, 0.82)',
-                                                                                backdropFilter: 'blur(20px)',
-                                                                                WebkitBackdropFilter: 'blur(20px)',
-                                                                                borderRadius: '16px',
-                                                                                border: '1px solid rgba(2, 126, 181, 0.18)',
-                                                                                boxShadow: '0 4px 20px rgba(2, 126, 181, 0.06)',
-                                                                                padding: '10px 14px',
-                                                                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                                margin: '2px 0',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                gap: isMobile ? '8px' : '12px',
-                                                                                minWidth: isMobile ? '200px' : '280px'
-                                                                            }}
-                                                                        >
-                                                                            {msg.is_view_once && msg.is_viewed && !isMeMsg(msg) && String(playingAudioId) !== String(msg._id || msg.id) ? (
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px' }}>
-                                                                                    <div className="wa-voice-bubble-avatar" style={{ opacity: 0.6, background: '#f0f2f5' }}>
-                                                                                        <Mic size={18} color="#8696a0" />
-                                                                                    </div>
-                                                                                    <div className="wa-voice-bubble-player">
-                                                                                        <div style={{ color: '#8696a0', fontSize: '15px', fontWeight: 500 }}>Voice message</div>
-                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                                            <div className="wa-view-once-badge spent">
-                                                                                                <span className="wa-view-once-circle" style={{ borderColor: '#8696a0', color: '#8696a0', transform: 'scale(0.8)' }}>1</span>
-                                                                                            </div>
-                                                                                            <span style={{ color: '#8696a0', fontSize: '13px' }}>Opened</span>
-                                                                                        </div>
+                                                                                setViewingImage(msg);
+                                                                            }}>
+                                                                                <img src={msg.file_path} alt="Sent" className="wa-msg-image" />
+                                                                            </div>
+                                                                        )}
+                                                                        {/* File Rendering */}
+                                                                        {msg.type === 'file' && (
+                                                                            <div
+                                                                                className="wa-msg-doc-bubble"
+                                                                                onClick={() => handleDownload(msg.file_path, msg.fileName)}
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            >
+                                                                                {/* Top: Preview */}
+                                                                                <div className="wa-doc-preview-area">
+                                                                                    {/* Simulated Page Content */}
+                                                                                    <div className="wa-doc-preview-simulated">
+                                                                                        {/* Simulate text lines */}
+                                                                                        <div style={{ width: '80%', height: 6, background: '#d1d7db', marginBottom: 6 }}></div>
+                                                                                        <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+                                                                                        <div style={{ width: '100%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+                                                                                        <div style={{ width: '90%', height: 4, background: '#e9edef', marginBottom: 3 }}></div>
+
+                                                                                        <div style={{ marginTop: 10, width: '40%', height: 20, background: '#e9edef' }}></div> {/* Image placeholder */}
+
+                                                                                        <div style={{ flex: 1 }}></div>
+                                                                                        <div style={{ fontSize: 8, color: '#999', textAlign: 'center' }}>Page 1</div>
                                                                                     </div>
                                                                                 </div>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                                                                                        <div className="wa-voice-bubble-avatar" style={{ position: 'relative', margin: 0 }}>
-                                                                                            {String(playingAudioId) === String(msg._id || msg.id) ? (
-                                                                                                <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
-                                                                                                    {msg.is_view_once ? viewOncePlaybackSpeed : playbackSpeed}x
+
+                                                                                {/* Bottom: Info Footer */}
+                                                                                <div className="wa-doc-info-area">
+                                                                                    <div className="wa-doc-icon" style={{ background: 'transparent', padding: 0 }}>
+                                                                                        <FileText size={30} color="#e53935" strokeWidth={1.5} />
+                                                                                    </div>
+                                                                                    <div className="wa-doc-details">
+                                                                                        <div className="wa-doc-filename" title={msg.fileName || 'Document'}>
+                                                                                            {msg.fileName || 'Document.pdf'}
+                                                                                        </div>
+                                                                                        <div className="wa-doc-meta">
+                                                                                            {msg.pageCount || 1} pages • {(msg.fileName || msg.file_path)?.split('.').pop()?.toUpperCase() || 'PDF'} • {msg.fileSize ? Math.ceil(msg.fileSize / 1024) + ' kB' : 'Unknown size'}
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {/* Audio Rendering */}
+                                                                        {msg.type === 'audio' && (
+                                                                            <div
+                                                                                className={`wa-voice-bubble-content ${String(playingAudioId) === String(msg._id || msg.id) ? 'wa-glassy-playing' : ''} ${msg.is_view_once ? 'wa-view-once-glassy' : ''} ${msg.is_view_once && msg.is_viewed ? 'spent' : ''}`}
+                                                                                onClick={(e) => {
+                                                                                    if (isForwardingMode) return;
+                                                                                    if (msg.is_view_once && msg.is_viewed && !isMeMsg(msg)) {
+                                                                                        setSnackbar({ message: "This voice message has already been played.", type: 'info', variant: 'system' });
+                                                                                        return;
+                                                                                    }
+                                                                                    e.stopPropagation();
+                                                                                    handlePlayAudio(msg);
+                                                                                }}
+                                                                                style={{
+                                                                                    background: 'rgba(255, 255, 255, 0.82)',
+                                                                                    backdropFilter: 'blur(20px)',
+                                                                                    WebkitBackdropFilter: 'blur(20px)',
+                                                                                    borderRadius: '16px',
+                                                                                    border: '1px solid rgba(2, 126, 181, 0.18)',
+                                                                                    boxShadow: '0 4px 20px rgba(2, 126, 181, 0.06)',
+                                                                                    padding: '10px 14px',
+                                                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                                    margin: '2px 0',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: isMobile ? '8px' : '12px',
+                                                                                    minWidth: isMobile ? '200px' : '280px'
+                                                                                }}
+                                                                            >
+                                                                                {msg.is_view_once && msg.is_viewed && !isMeMsg(msg) && String(playingAudioId) !== String(msg._id || msg.id) ? (
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px' }}>
+                                                                                        <div className="wa-voice-bubble-avatar" style={{ opacity: 0.6, background: '#f0f2f5' }}>
+                                                                                            <Mic size={18} color="#8696a0" />
+                                                                                        </div>
+                                                                                        <div className="wa-voice-bubble-player">
+                                                                                            <div style={{ color: '#8696a0', fontSize: '15px', fontWeight: 500 }}>Voice message</div>
+                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                                <div className="wa-view-once-badge spent">
+                                                                                                    <span className="wa-view-once-circle" style={{ borderColor: '#8696a0', color: '#8696a0', transform: 'scale(0.8)' }}>1</span>
                                                                                                 </div>
-                                                                                            ) : (
-                                                                                                <>
-                                                                                                    {isMe ? (
-                                                                                                        (userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) ? (
-                                                                                                            <img
-                                                                                                                src={userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo}
-                                                                                                                alt="me"
-                                                                                                                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                                                                                                                onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
-                                                                                                            />
-                                                                                                        ) : null
-                                                                                                    ) : (
-                                                                                                        (msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar) ? (
-                                                                                                            <img
-                                                                                                                src={msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar}
-                                                                                                                alt="user"
-                                                                                                                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                                                                                                                onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
-                                                                                                            />
-                                                                                                        ) : null
-                                                                                                    )}
-                                                                                                    <div className="wa-avatar-letter" style={{ display: (isMe ? (userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) : (msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar)) ? 'none' : 'flex' }}>
-                                                                                                        {isMe ? (userData?.name || user?.name || 'M')[0].toUpperCase() : (msg.sender_id?.name || selectedUser?.name || 'U')[0].toUpperCase()}
-                                                                                                    </div>
-                                                                                                </>
-                                                                                            )}
-                                                                                            <div className="wa-voice-mic-badge">
-                                                                                                <Mic size={12} color={msg.is_read ? '#53bdeb' : (msg.is_view_once ? '#0EA5BE' : '#8696a0')} />
+                                                                                                <span style={{ color: '#8696a0', fontSize: '13px' }}>Opened</span>
                                                                                             </div>
                                                                                         </div>
-                                                                                        <span style={{
-                                                                                            color: (String(playingAudioId) === String(msg._id || msg.id) || (msg.is_view_once && !msg.is_viewed)) ? '#0EA5BE' : '#8696a0',
-                                                                                            fontSize: '11px',
-                                                                                            fontWeight: 500,
-                                                                                            marginTop: '2px'
-                                                                                        }}>
-                                                                                            {String(playingAudioId) === String(msg._id || msg.id) ? formatVoiceTime(viewOnceElapsed) : formatVoiceTime(msg.duration || 0)}
-                                                                                        </span>
                                                                                     </div>
-                                                                                    <div className="wa-voice-bubble-player" style={{ flex: 1, minWidth: 0 }}>
-                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                                            <button className="wa-voice-play-btn" style={{ background: 'none', border: 'none', color: (String(playingAudioId) === String(msg._id || msg.id) || msg.is_view_once) ? '#0EA5BE' : '#54656f', padding: 0, cursor: 'pointer', transition: 'transform 0.2s' }}>
-                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
-                                                                                            </button>
-                                                                                            <div
-                                                                                                className="wa-voice-waveform-static"
-                                                                                                style={{
-                                                                                                    display: 'flex',
-                                                                                                    alignItems: 'center',
-                                                                                                    height: '24px',
-                                                                                                    position: 'relative',
-                                                                                                    cursor: 'pointer',
-                                                                                                    outline: 'none',
-                                                                                                    width: '144px',
-                                                                                                    flexShrink: 0,
-                                                                                                    overflow: 'hidden',
-                                                                                                    padding: '0 2px'
-                                                                                                }}
-                                                                                                onMouseDown={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                                                    const updateSeek = (moveEvent) => {
-                                                                                                        const x = moveEvent.clientX - rect.left;
-                                                                                                        const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                                                                                                        if (String(playingAudioId) === String(msg._id || msg.id) && audioInstanceRef.current) {
-                                                                                                            audioInstanceRef.current.currentTime = (percent / 100) * (msg.duration || 1);
-                                                                                                        } else {
-                                                                                                            handlePlayAudio(msg, (percent / 100) * (msg.duration || 1));
-                                                                                                        }
-                                                                                                    };
-                                                                                                    const onMouseMove = (moveEvent) => updateSeek(moveEvent);
-                                                                                                    const onMouseUp = () => {
-                                                                                                        window.removeEventListener('mousemove', onMouseMove);
-                                                                                                        window.removeEventListener('mouseup', onMouseUp);
-                                                                                                    };
-                                                                                                    window.addEventListener('mousemove', onMouseMove);
-                                                                                                    window.addEventListener('mouseup', onMouseUp);
-                                                                                                    updateSeek(e);
-                                                                                                }}
-                                                                                            >
-                                                                                                {/* WAVEFORM BARS BASES (GRAY) */}
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%', justifyContent: 'space-between', opacity: 0.3 }}>
-                                                                                                    {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
-                                                                                                        <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#8696a0', borderRadius: '4px' }} />
-                                                                                                    ))}
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                                                                            <div className="wa-voice-bubble-avatar" style={{ position: 'relative', margin: 0 }}>
+                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? (
+                                                                                                    <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
+                                                                                                        {msg.is_view_once ? viewOncePlaybackSpeed : playbackSpeed}x
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <>
+                                                                                                        {isMe ? (
+                                                                                                            (userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) ? (
+                                                                                                                <img
+                                                                                                                    src={userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo}
+                                                                                                                    alt="me"
+                                                                                                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                                                                                                    onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
+                                                                                                                />
+                                                                                                            ) : null
+                                                                                                        ) : (
+                                                                                                            (msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar) ? (
+                                                                                                                <img
+                                                                                                                    src={msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar}
+                                                                                                                    alt="user"
+                                                                                                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                                                                                                    onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
+                                                                                                                />
+                                                                                                            ) : null
+                                                                                                        )}
+                                                                                                        <div className="wa-avatar-letter" style={{ display: (isMe ? (userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) : (msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar || selectedUser?.profile_photo || selectedUser?.avatar)) ? 'none' : 'flex' }}>
+                                                                                                            {isMe ? (userData?.name || user?.name || 'M')[0].toUpperCase() : (msg.sender_id?.name || selectedUser?.name || 'U')[0].toUpperCase()}
+                                                                                                        </div>
+                                                                                                    </>
+                                                                                                )}
+                                                                                                <div className="wa-voice-mic-badge">
+                                                                                                    <Mic size={12} color={msg.is_read ? '#53bdeb' : (msg.is_view_once ? '#0EA5BE' : '#8696a0')} />
                                                                                                 </div>
+                                                                                            </div>
+                                                                                            <span style={{
+                                                                                                color: (String(playingAudioId) === String(msg._id || msg.id) || (msg.is_view_once && !msg.is_viewed)) ? '#0EA5BE' : '#8696a0',
+                                                                                                fontSize: '11px',
+                                                                                                fontWeight: 500,
+                                                                                                marginTop: '2px'
+                                                                                            }}>
+                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? formatVoiceTime(viewOnceElapsed) : formatVoiceTime(msg.duration || 0)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="wa-voice-bubble-player" style={{ flex: 1, minWidth: 0 }}>
+                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                                <button className="wa-voice-play-btn" style={{ background: 'none', border: 'none', color: (String(playingAudioId) === String(msg._id || msg.id) || msg.is_view_once) ? '#0EA5BE' : '#54656f', padding: 0, cursor: 'pointer', transition: 'transform 0.2s' }}>
+                                                                                                    {String(playingAudioId) === String(msg._id || msg.id) ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                                                                                                </button>
+                                                                                                <div
+                                                                                                    className="wa-voice-waveform-static"
+                                                                                                    style={{
+                                                                                                        display: 'flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        height: '24px',
+                                                                                                        position: 'relative',
+                                                                                                        cursor: 'pointer',
+                                                                                                        outline: 'none',
+                                                                                                        width: '144px',
+                                                                                                        flexShrink: 0,
+                                                                                                        overflow: 'hidden',
+                                                                                                        padding: '0 2px'
+                                                                                                    }}
+                                                                                                    onMouseDown={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                                                        const updateSeek = (moveEvent) => {
+                                                                                                            const x = moveEvent.clientX - rect.left;
+                                                                                                            const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                                                                                                            if (String(playingAudioId) === String(msg._id || msg.id) && audioInstanceRef.current) {
+                                                                                                                audioInstanceRef.current.currentTime = (percent / 100) * (msg.duration || 1);
+                                                                                                            } else {
+                                                                                                                handlePlayAudio(msg, (percent / 100) * (msg.duration || 1));
+                                                                                                            }
+                                                                                                        };
+                                                                                                        const onMouseMove = (moveEvent) => updateSeek(moveEvent);
+                                                                                                        const onMouseUp = () => {
+                                                                                                            window.removeEventListener('mousemove', onMouseMove);
+                                                                                                            window.removeEventListener('mouseup', onMouseUp);
+                                                                                                        };
+                                                                                                        window.addEventListener('mousemove', onMouseMove);
+                                                                                                        window.addEventListener('mouseup', onMouseUp);
+                                                                                                        updateSeek(e);
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {/* WAVEFORM BARS BASES (GRAY) */}
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%', justifyContent: 'space-between', opacity: 0.3 }}>
+                                                                                                        {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
+                                                                                                            <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#8696a0', borderRadius: '4px' }} />
+                                                                                                        ))}
+                                                                                                    </div>
 
-                                                                                                {/* WAVEFORM PROGRESS (BLUE) - SMOOTH CLIPPING */}
-                                                                                                <div style={{
-                                                                                                    display: 'flex',
-                                                                                                    alignItems: 'center',
-                                                                                                    gap: '3px',
-                                                                                                    width: '100%',
-                                                                                                    justifyContent: 'space-between',
-                                                                                                    position: 'absolute',
-                                                                                                    left: 2,
-                                                                                                    right: 2,
-                                                                                                    clipPath: `inset(0 ${100 - ((String(playingAudioId) === String(msg._id || msg.id) ? viewOnceElapsed : 0) / (msg.duration || 1)) * 100}% 0 0)`,
-                                                                                                    transition: String(playingAudioId) === String(msg._id || msg.id) ? 'none' : 'clip-path 0.3s ease'
-                                                                                                }}>
-                                                                                                    {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
-                                                                                                        <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#0EA5BE', borderRadius: '4px' }} />
-                                                                                                    ))}
-                                                                                                </div>
-
-                                                                                                {/* PLAYHEAD CIRCULAR DOT (THUMB) */}
-                                                                                                {String(playingAudioId) === String(msg._id || msg.id) && (
+                                                                                                    {/* WAVEFORM PROGRESS (BLUE) - SMOOTH CLIPPING */}
                                                                                                     <div style={{
+                                                                                                        display: 'flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        gap: '3px',
+                                                                                                        width: '100%',
+                                                                                                        justifyContent: 'space-between',
                                                                                                         position: 'absolute',
-                                                                                                        left: `${(viewOnceElapsed / (msg.duration || 1)) * 100}%`,
-                                                                                                        width: '10px',
-                                                                                                        height: '10px',
-                                                                                                        backgroundColor: '#0EA5BE',
-                                                                                                        borderRadius: '50%',
-                                                                                                        transform: 'translate(-50%, -50%)',
-                                                                                                        top: '50%',
-                                                                                                        zIndex: 11,
-                                                                                                        boxShadow: '0 0 4px rgba(2, 126, 181, 0.4)'
-                                                                                                    }} />
+                                                                                                        left: 2,
+                                                                                                        right: 2,
+                                                                                                        clipPath: `inset(0 ${100 - ((String(playingAudioId) === String(msg._id || msg.id) ? viewOnceElapsed : 0) / (msg.duration || 1)) * 100}% 0 0)`,
+                                                                                                        transition: String(playingAudioId) === String(msg._id || msg.id) ? 'none' : 'clip-path 0.3s ease'
+                                                                                                    }}>
+                                                                                                        {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
+                                                                                                            <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#0EA5BE', borderRadius: '4px' }} />
+                                                                                                        ))}
+                                                                                                    </div>
+
+                                                                                                    {/* PLAYHEAD CIRCULAR DOT (THUMB) */}
+                                                                                                    {String(playingAudioId) === String(msg._id || msg.id) && (
+                                                                                                        <div style={{
+                                                                                                            position: 'absolute',
+                                                                                                            left: `${(viewOnceElapsed / (msg.duration || 1)) * 100}%`,
+                                                                                                            width: '10px',
+                                                                                                            height: '10px',
+                                                                                                            backgroundColor: '#0EA5BE',
+                                                                                                            borderRadius: '50%',
+                                                                                                            transform: 'translate(-50%, -50%)',
+                                                                                                            top: '50%',
+                                                                                                            zIndex: 11,
+                                                                                                            boxShadow: '0 0 4px rgba(2, 126, 181, 0.4)'
+                                                                                                        }} />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="wa-voice-meta-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
+                                                                                                {msg.is_view_once && (
+                                                                                                    <div className="wa-view-once-badge">
+                                                                                                        <span className="wa-view-once-circle" style={{ borderColor: msg.is_viewed ? '#8696a0' : '#0EA5BE', color: msg.is_viewed ? '#8696a0' : '#0EA5BE', fontSize: '10px', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '1.5px solid currentColor', fontWeight: 'bold' }}>1</span>
+                                                                                                    </div>
                                                                                                 )}
                                                                                             </div>
                                                                                         </div>
-                                                                                        <div className="wa-voice-meta-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
-                                                                                            {msg.is_view_once && (
-                                                                                                <div className="wa-view-once-badge">
-                                                                                                    <span className="wa-view-once-circle" style={{ borderColor: msg.is_viewed ? '#8696a0' : '#0EA5BE', color: msg.is_viewed ? '#8696a0' : '#0EA5BE', fontSize: '10px', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '1.5px solid currentColor', fontWeight: 'bold' }}>1</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+
+
+                                                                        {/* Link Preview Card */}
+                                                                        {(() => {
+                                                                            let lp = msg.link_preview;
+                                                                            const ytId = (msg.content && typeof msg.content === 'string') ? getYouTubeVideoId(msg.content) : null;
+                                                                            if ((!lp || !lp.title) && ytId) {
+                                                                                lp = { url: msg.content, title: 'YouTube Video', domain: 'youtube.com', image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` };
+                                                                            }
+                                                                            if (!lp || !lp.title) return null;
+                                                                            return (
+                                                                                <div
+                                                                                    className={`wa-link-preview-card ${!lp.image ? 'no-image' : ''} ${((lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
+                                                                                    onClick={(e) => { e.stopPropagation(); window.open(lp.url, '_blank'); }}
+                                                                                    style={{ cursor: 'pointer', transition: 'none' }}
+                                                                                >
+                                                                                    {lp.image && (
+                                                                                        <div className="wa-link-preview-image">
+                                                                                            <img src={lp.image} alt={lp.title} />
+                                                                                            {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) && (
+                                                                                                <div className="wa-link-preview-play-btn">
+                                                                                                    <div className="wa-play-icon"><Play size={32} color="white" fill="white" /></div>
                                                                                                 </div>
                                                                                             )}
                                                                                         </div>
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-
-                                                                    {/* Link Preview Card */}
-                                                                    {(() => {
-                                                                        let lp = msg.link_preview;
-                                                                        const ytId = (msg.content && typeof msg.content === 'string') ? getYouTubeVideoId(msg.content) : null;
-                                                                        if ((!lp || !lp.title) && ytId) {
-                                                                            lp = { url: msg.content, title: 'YouTube Video', domain: 'youtube.com', image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` };
-                                                                        }
-                                                                        if (!lp || !lp.title) return null;
-                                                                        return (
-                                                                            <div
-                                                                                className={`wa-link-preview-card ${!lp.image ? 'no-image' : ''} ${((lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
-                                                                                onClick={(e) => { e.stopPropagation(); window.open(lp.url, '_blank'); }}
-                                                                                style={{ cursor: 'pointer', transition: 'none' }}
-                                                                            >
-                                                                                {lp.image && (
-                                                                                    <div className="wa-link-preview-image">
-                                                                                        <img src={lp.image} alt={lp.title} />
-                                                                                        {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) && (
-                                                                                            <div className="wa-link-preview-play-btn">
-                                                                                                <div className="wa-play-icon"><Play size={32} color="white" fill="white" /></div>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
-                                                                                <div className="wa-link-preview-content">
-                                                                                    <div className="wa-link-preview-title">{lp.title}</div>
-                                                                                    {lp.description && <div className="wa-link-preview-description">{lp.description}</div>}
-                                                                                    <div className="wa-link-preview-domain">
-                                                                                        {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) ? (
-                                                                                            <>
-                                                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
-                                                                                                </svg>
-                                                                                                <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{lp.domain}</span>
-                                                                                            </>
-                                                                                        ) : (
-                                                                                            <>
-                                                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                                </svg>
-                                                                                                <span>{lp.domain}</span>
-                                                                                            </>
-                                                                                        )}
+                                                                                    )}
+                                                                                    <div className="wa-link-preview-content">
+                                                                                        <div className="wa-link-preview-title">{lp.title}</div>
+                                                                                        {lp.description && <div className="wa-link-preview-description">{lp.description}</div>}
+                                                                                        <div className="wa-link-preview-domain">
+                                                                                            {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) ? (
+                                                                                                <>
+                                                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
+                                                                                                    </svg>
+                                                                                                    <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{lp.domain}</span>
+                                                                                                </>
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                                    </svg>
+                                                                                                    <span>{lp.domain}</span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                    {msg.type === 'contact' && (() => {
-                                                                        let cDataArray;
-                                                                        try {
-                                                                            const rawData = JSON.parse(msg.content);
-                                                                            cDataArray = Array.isArray(rawData) ? rawData : [rawData];
-                                                                        } catch (e) {
-                                                                            cDataArray = [{ name: 'Contact' }];
-                                                                        }
+                                                                            );
+                                                                        })()}
+                                                                        {msg.type === 'contact' && (() => {
+                                                                            let cDataArray;
+                                                                            try {
+                                                                                const rawData = JSON.parse(msg.content);
+                                                                                cDataArray = Array.isArray(rawData) ? rawData : [rawData];
+                                                                            } catch (e) {
+                                                                                cDataArray = [{ name: 'Contact' }];
+                                                                            }
 
-                                                                        if (cDataArray.length > 1) {
-                                                                            return (
-                                                                                <div
-                                                                                    className="wa-contact-msg-card-multiple"
-                                                                                    onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }}
-                                                                                    style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
-                                                                                >
-                                                                                    <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                                                                                        <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
-                                                                                            <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                                                {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                            if (cDataArray.length > 1) {
+                                                                                return (
+                                                                                    <div
+                                                                                        className="wa-contact-msg-card-multiple"
+                                                                                        onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }}
+                                                                                        style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+                                                                                    >
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                                                            <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
+                                                                                                <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
+                                                                                                    {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                                </div>
+                                                                                                <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
+                                                                                                    {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                                </div>
                                                                                             </div>
-                                                                                            <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                                                {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                            <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
+                                                                                                {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
                                                                                             </div>
                                                                                         </div>
-                                                                                        <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
-                                                                                            {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                                                                                            <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                                                                                                View all
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            const cData = cDataArray[0];
+                                                                            return (
+                                                                                <div
+                                                                                    className="wa-contact-msg-card"
+                                                                                    onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }}
+                                                                                    style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+                                                                                >
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                                                        <div className="wa-avatar" style={{ width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                            {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                        </div>
+                                                                                        <div style={{ color: '#111b21', fontSize: '16px', fontWeight: 600 }}>
+                                                                                            {cData.name || 'Contact'}
                                                                                         </div>
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                                                                                        <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-                                                                                            View all
+                                                                                        <button
+                                                                                            className="wa-contact-card-action"
+                                                                                            onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }}
+                                                                                            style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+                                                                                        >
+                                                                                            Message
                                                                                         </button>
                                                                                     </div>
                                                                                 </div>
                                                                             );
-                                                                        }
+                                                                        })()}
 
-                                                                        const cData = cDataArray[0];
-                                                                        return (
-                                                                            <div
-                                                                                className="wa-contact-msg-card"
-                                                                                onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }}
-                                                                                style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
-                                                                            >
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                                                                                    <div className="wa-avatar" style={{ width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                        {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
-                                                                                    </div>
-                                                                                    <div style={{ color: '#111b21', fontSize: '16px', fontWeight: 600 }}>
-                                                                                        {cData.name || 'Contact'}
-                                                                                    </div>
+                                                                        {msg.type === 'poll' && msg.poll && (
+                                                                            <div className="wa-poll-card" style={{ background: '#ffffff', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                                                                                <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#111b21', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <List size={20} color="#0EA5BE" />
+                                                                                    {msg.poll.question}
                                                                                 </div>
-                                                                                <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                                                                                <div style={{ color: '#8696a0', fontSize: '13px', marginBottom: '12px' }}>
+                                                                                    {msg.poll.allowMultipleAnswers ? 'Select one or more' : 'Select one'}
+                                                                                </div>
+                                                                                <div className="wa-poll-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                    {msg.poll.options.map((opt, idx) => {
+                                                                                        const totalVotes = msg.poll.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
+                                                                                        const votes = opt.voters?.length || 0;
+                                                                                        const percentage = totalVotes === 0 ? 0 : Math.round((votes / totalVotes) * 100);
+                                                                                        const myId = String(user.id || user._id);
+                                                                                        const hasVotedOpt = (opt.voters || []).some(v => String(v) === myId || String(v?._id || v) === myId);
+                                                                                        const hasAnyVote = totalVotes > 0;
+
+                                                                                        return (
+                                                                                            <div
+                                                                                                key={idx}
+                                                                                                onClick={(e) => { e.stopPropagation(); handleVotePoll(msg, idx); }}
+                                                                                                style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: hasVotedOpt ? '1px solid #0EA5BE' : '1px solid #e9edef', background: hasVotedOpt ? 'rgba(14, 165, 190, 0.05)' : '#ffffff', transition: 'all 0.2s' }}
+                                                                                            >
+                                                                                                {hasAnyVote && (
+                                                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percentage}%`, background: 'rgba(14, 165, 190, 0.15)', zIndex: 1, transition: 'width 0.3s ease' }} />
+                                                                                                )}
+                                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#111b21' }}>
+                                                                                                        <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: hasVotedOpt ? '2px solid #0EA5BE' : '2px solid #8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                            {hasVotedOpt && <div style={{ width: '10px', height: '10px', borderRadius: msg.poll.allowMultipleAnswers ? '2px' : '50%', background: '#0EA5BE' }} />}
+                                                                                                        </div>
+                                                                                                        {opt.text}
+                                                                                                    </div>
+                                                                                                    {votes > 0 && <span style={{ fontSize: '12px', color: '#54656f', fontWeight: '500' }}>{votes}</span>}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                                <div style={{ borderTop: '1px solid #e9edef', marginTop: '15px', paddingTop: '10px' }}>
                                                                                     <button
-                                                                                        className="wa-contact-card-action"
-                                                                                        onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }}
-                                                                                        style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+                                                                                        onClick={(e) => { e.stopPropagation(); setPollDetails(msg.poll); setIsPollDetailsOpen(true); }}
+                                                                                        disabled={msg.poll.options.every(o => !(o.voters?.length > 0))}
+                                                                                        style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#0EA5BE' : '#8696a0', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
                                                                                     >
-                                                                                        Message
+                                                                                        View votes
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
-                                                                        );
-                                                                    })()}
+                                                                        )}
 
-                                                                    {msg.type === 'poll' && msg.poll && (
-                                                                        <div className="wa-poll-card" style={{ background: '#ffffff', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                                            <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#111b21', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                <List size={20} color="#0EA5BE" />
-                                                                                {msg.poll.question}
-                                                                            </div>
-                                                                            <div style={{ color: '#8696a0', fontSize: '13px', marginBottom: '12px' }}>
-                                                                                {msg.poll.allowMultipleAnswers ? 'Select one or more' : 'Select one'}
-                                                                            </div>
-                                                                            <div className="wa-poll-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                                {msg.poll.options.map((opt, idx) => {
-                                                                                    const totalVotes = msg.poll.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
-                                                                                    const votes = opt.voters?.length || 0;
-                                                                                    const percentage = totalVotes === 0 ? 0 : Math.round((votes / totalVotes) * 100);
-                                                                                    const myId = String(user.id || user._id);
-                                                                                    const hasVotedOpt = (opt.voters || []).some(v => String(v) === myId || String(v?._id || v) === myId);
-                                                                                    const hasAnyVote = totalVotes > 0;
+                                                                        {msg.type === 'event' && msg.event && (() => {
+                                                                            const myId = String(user.id || user._id);
+                                                                            const myResponse = (msg.event.responses || []).find(r => String(r.user_id) === myId);
 
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={idx}
-                                                                                            onClick={(e) => { e.stopPropagation(); handleVotePoll(msg, idx); }}
-                                                                                            style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: hasVotedOpt ? '1px solid #0EA5BE' : '1px solid #e9edef', background: hasVotedOpt ? 'rgba(14, 165, 190, 0.05)' : '#ffffff', transition: 'all 0.2s' }}
-                                                                                        >
-                                                                                            {hasAnyVote && (
-                                                                                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percentage}%`, background: 'rgba(14, 165, 190, 0.15)', zIndex: 1, transition: 'width 0.3s ease' }} />
-                                                                                            )}
-                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#111b21' }}>
-                                                                                                    <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: hasVotedOpt ? '2px solid #0EA5BE' : '2px solid #8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                                        {hasVotedOpt && <div style={{ width: '10px', height: '10px', borderRadius: msg.poll.allowMultipleAnswers ? '2px' : '50%', background: '#0EA5BE' }} />}
-                                                                                                    </div>
-                                                                                                    {opt.text}
-                                                                                                </div>
-                                                                                                {votes > 0 && <span style={{ fontSize: '12px', color: '#54656f', fontWeight: '500' }}>{votes}</span>}
+                                                                            return (
+                                                                                <div className="wa-event-card" onClick={(e) => { e.stopPropagation(); openEventDetails(msg); }} style={{ background: '#ffffff', borderRadius: '12px', overflow: 'visible', width: '280px', maxWidth: '100%', cursor: 'pointer', opacity: msg.event.cancelled ? 0.7 : 1, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                                                                                    <div style={{ background: 'rgba(14, 165, 190, 0.05)', padding: '14px 16px', color: '#111b21', position: 'relative', borderRadius: '12px' }}>
+                                                                                        <div style={{ display: 'flex', gap: '14px' }}>
+                                                                                            <div style={{ background: 'white', border: '1px solid #e9edef', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                                                <Calendar size={24} color="#0EA5BE" />
                                                                                             </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                            <div style={{ borderTop: '1px solid #e9edef', marginTop: '15px', paddingTop: '10px' }}>
-                                                                                <button
-                                                                                    onClick={(e) => { e.stopPropagation(); setPollDetails(msg.poll); setIsPollDetailsOpen(true); }}
-                                                                                    disabled={msg.poll.options.every(o => !(o.voters?.length > 0))}
-                                                                                    style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#0EA5BE' : '#8696a0', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
-                                                                                >
-                                                                                    View votes
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {msg.type === 'event' && msg.event && (() => {
-                                                                        const myId = String(user.id || user._id);
-                                                                        const myResponse = (msg.event.responses || []).find(r => String(r.user_id) === myId);
-
-                                                                        return (
-                                                                            <div className="wa-event-card" onClick={(e) => { e.stopPropagation(); openEventDetails(msg); }} style={{ background: '#ffffff', borderRadius: '12px', overflow: 'visible', width: '280px', maxWidth: '100%', cursor: 'pointer', opacity: msg.event.cancelled ? 0.7 : 1, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                                                <div style={{ background: 'rgba(14, 165, 190, 0.05)', padding: '14px 16px', color: '#111b21', position: 'relative', borderRadius: '12px' }}>
-                                                                                    <div style={{ display: 'flex', gap: '14px' }}>
-                                                                                        <div style={{ background: 'white', border: '1px solid #e9edef', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                                            <Calendar size={24} color="#0EA5BE" />
-                                                                                        </div>
-                                                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                                                            <div style={{ fontSize: '17px', fontWeight: 'bold', marginBottom: '4px', textDecoration: msg.event.cancelled ? 'line-through' : 'none', wordBreak: 'break-word', color: '#111b21' }}>{msg.event.name}</div>
-                                                                                            <div style={{ fontSize: '14px', color: '#667781' }}>
-                                                                                                {formatEventTimeString(msg.event.startDate, msg.event.startTime, msg.event.endDate, msg.event.endTime)}
-                                                                                            </div>
-                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-                                                                                                <div style={{ display: 'flex', position: 'relative', width: '20px', height: '20px' }}>
-                                                                                                    <div style={{ position: 'absolute', width: '20px', height: '20px', borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                                                                        {msg.event.participants?.length > 0 ? (
-                                                                                                            (() => {
-                                                                                                                const p = users.find(u => String(u._id || u.id) === String(msg.event.participants[0]));
-                                                                                                                return p && (p.avatar || p.image || p.profile_photo) ? <img src={p.avatar || p.image || p.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />;
-                                                                                                            })()
-                                                                                                        ) : (
-                                                                                                            <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />
-                                                                                                        )}
-                                                                                                    </div>
+                                                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                                <div style={{ fontSize: '17px', fontWeight: 'bold', marginBottom: '4px', textDecoration: msg.event.cancelled ? 'line-through' : 'none', wordBreak: 'break-word', color: '#111b21' }}>{msg.event.name}</div>
+                                                                                                <div style={{ fontSize: '14px', color: '#667781' }}>
+                                                                                                    {formatEventTimeString(msg.event.startDate, msg.event.startTime, msg.event.endDate, msg.event.endTime)}
                                                                                                 </div>
-                                                                                                <span onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }} style={{ fontSize: '14px', color: '#0EA5BE', fontWeight: 500, cursor: 'pointer' }}>{msg.event.responses?.length || 0} responded</span>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                                                                                                    <div style={{ display: 'flex', position: 'relative', width: '20px', height: '20px' }}>
+                                                                                                        <div style={{ position: 'absolute', width: '20px', height: '20px', borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                                                                            {msg.event.participants?.length > 0 ? (
+                                                                                                                (() => {
+                                                                                                                    const p = users.find(u => String(u._id || u.id) === String(msg.event.participants[0]));
+                                                                                                                    return p && (p.avatar || p.image || p.profile_photo) ? <img src={p.avatar || p.image || p.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />;
+                                                                                                                })()
+                                                                                                            ) : (
+                                                                                                                <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <span onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }} style={{ fontSize: '14px', color: '#0EA5BE', fontWeight: 500, cursor: 'pointer' }}>{msg.event.responses?.length || 0} responded</span>
+                                                                                                </div>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>
-                                                                                </div>
-                                                                                <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f2f5', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', gap: '8px' }}>
-                                                                                    {msg.event.cancelled ? (
-                                                                                        <span style={{ color: '#667781', fontWeight: '600', fontSize: '15px' }}>Event cancelled</span>
-                                                                                    ) : (() => {
-                                                                                        const dateValue = msg.event.endDate || msg.event.startDate;
-                                                                                        if (!dateValue || typeof dateValue !== 'string') return null;
-                                                                                        const dStr = dateValue.split('T')[0];
-                                                                                        const endStr = `${dStr}T${msg.event.endTime || '23:59'}:00`;
-                                                                                        const isEnded = new Date(endStr) <= new Date();
-                                                                                        const startDValue = msg.event.startDate || '';
-                                                                                        if (!startDValue || typeof startDValue !== 'string') return null;
-                                                                                        const startDStr = startDValue.split('T')[0];
-                                                                                        const startStr = `${startDStr}T${msg.event.startTime || '00:00'}:00`;
-                                                                                        const isStarted = new Date(startStr) <= new Date();
+                                                                                    <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f2f5', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', gap: '8px' }}>
+                                                                                        {msg.event.cancelled ? (
+                                                                                            <span style={{ color: '#667781', fontWeight: '600', fontSize: '15px' }}>Event cancelled</span>
+                                                                                        ) : (() => {
+                                                                                            const dateValue = msg.event.endDate || msg.event.startDate;
+                                                                                            if (!dateValue || typeof dateValue !== 'string') return null;
+                                                                                            const dStr = dateValue.split('T')[0];
+                                                                                            const endStr = `${dStr}T${msg.event.endTime || '23:59'}:00`;
+                                                                                            const isEnded = new Date(endStr) <= new Date();
+                                                                                            const startDValue = msg.event.startDate || '';
+                                                                                            if (!startDValue || typeof startDValue !== 'string') return null;
+                                                                                            const startDStr = startDValue.split('T')[0];
+                                                                                            const startStr = `${startDStr}T${msg.event.startTime || '00:00'}:00`;
+                                                                                            const isStarted = new Date(startStr) <= new Date();
 
-                                                                                        if (isStarted || isEnded) {
+                                                                                            if (isStarted || isEnded) {
+                                                                                                return (
+                                                                                                    <>
+                                                                                                        {isMe && !isEnded && (
+                                                                                                            <div
+                                                                                                                onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }}
+                                                                                                                style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
+                                                                                                            >
+                                                                                                                Edit event
+                                                                                                            </div>
+                                                                                                        )}
+                                                                                                        <div style={{ width: '100%', textAlign: 'center' }}>
+                                                                                                            <span key={`started-p2p-${eventTick}`} style={{ color: isEnded ? '#667781' : '#0EA5BE', fontWeight: '600', fontSize: '15px' }}>
+                                                                                                                {isEnded ? 'Event ended' : 'Event started'}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    </>
+                                                                                                );
+                                                                                            }
+
                                                                                             return (
                                                                                                 <>
-                                                                                                    {isMe && !isEnded && (
-                                                                                                        <div 
-                                                                                                            onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }} 
+                                                                                                    {isMe && (
+                                                                                                        <div
+                                                                                                            onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }}
                                                                                                             style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
                                                                                                         >
                                                                                                             Edit event
                                                                                                         </div>
                                                                                                     )}
                                                                                                     <div style={{ width: '100%', textAlign: 'center' }}>
-                                                                                                        <span key={`started-p2p-${eventTick}`} style={{ color: isEnded ? '#667781' : '#0EA5BE', fontWeight: '600', fontSize: '15px' }}>
-                                                                                                            {isEnded ? 'Event ended' : 'Event started'}
-                                                                                                        </span>
+                                                                                                        <div
+                                                                                                            onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }}
+                                                                                                            style={{ color: '#0EA5BE', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                                                                                                        >
+                                                                                                            {myResponse ? myResponse.status : 'Respond'}
+                                                                                                            <ChevronDown size={18} />
+                                                                                                        </div>
                                                                                                     </div>
                                                                                                 </>
                                                                                             );
-                                                                                        }
-                                                                                        
-                                                                                        return (
-                                                                                            <>
-                                                                                                {isMe && (
-                                                                                                    <div 
-                                                                                                        onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }} 
-                                                                                                        style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
-                                                                                                    >
-                                                                                                        Edit event
-                                                                                                    </div>
-                                                                                                )}
-                                                                                                <div style={{ width: '100%', textAlign: 'center' }}>
+                                                                                        })()}
+
+                                                                                        {openEventRespondId === msg._id && !msg.event.cancelled && (
+                                                                                            <div style={{
+                                                                                                position: 'absolute',
+                                                                                                bottom: 'calc(100% + 5px)',
+                                                                                                left: '50%',
+                                                                                                transform: 'translateX(-50%)',
+                                                                                                background: '#ffffff',
+                                                                                                borderRadius: '10px',
+                                                                                                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                                                                                                zIndex: 1000,
+                                                                                                minWidth: '130px',
+                                                                                                padding: '4px 0',
+                                                                                                overflow: 'hidden',
+                                                                                                border: '1px solid #e9edef'
+                                                                                            }}>
+                                                                                                {['Going', 'Maybe', 'Not going'].map(status => (
                                                                                                     <div
-                                                                                                        onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }}
-                                                                                                        style={{ color: '#0EA5BE', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                                                                                                        key={status}
+                                                                                                        onClick={(e) => { e.stopPropagation(); handleEventRespond(msg, status); setOpenEventRespondId(null); }}
+                                                                                                        style={{
+                                                                                                            padding: '12px 16px',
+                                                                                                            fontSize: '14px',
+                                                                                                            color: '#111b21',
+                                                                                                            textAlign: 'left',
+                                                                                                            cursor: 'pointer',
+                                                                                                            borderBottom: status !== 'Not going' ? '1px solid #f0f2f5' : 'none',
+                                                                                                            background: myResponse?.status === status ? '#f0f2f5' : 'white',
+                                                                                                            fontWeight: myResponse?.status === status ? '600' : 'normal',
+                                                                                                            display: 'flex',
+                                                                                                            alignItems: 'center',
+                                                                                                            justifyContent: 'space-between'
+                                                                                                        }}
                                                                                                     >
-                                                                                                        {myResponse ? myResponse.status : 'Respond'}
-                                                                                                        <ChevronDown size={18} />
+                                                                                                        {status}
+                                                                                                        {myResponse?.status === status && <Check size={14} color="#0EA5BE" />}
                                                                                                     </div>
-                                                                                                </div>
-                                                                                            </>
-                                                                                        );
-                                                                                    })()}
-
-                                                                                    {openEventRespondId === msg._id && !msg.event.cancelled && (
-                                                                                        <div style={{
-                                                                                            position: 'absolute',
-                                                                                            bottom: 'calc(100% + 5px)',
-                                                                                            left: '50%',
-                                                                                            transform: 'translateX(-50%)',
-                                                                                            background: '#ffffff',
-                                                                                            borderRadius: '10px',
-                                                                                            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                                                                                            zIndex: 1000,
-                                                                                            minWidth: '130px',
-                                                                                            padding: '4px 0',
-                                                                                            overflow: 'hidden',
-                                                                                            border: '1px solid #e9edef'
-                                                                                        }}>
-                                                                                            {['Going', 'Maybe', 'Not going'].map(status => (
-                                                                                                <div
-                                                                                                    key={status}
-                                                                                                    onClick={(e) => { e.stopPropagation(); handleEventRespond(msg, status); setOpenEventRespondId(null); }}
-                                                                                                    style={{
-                                                                                                        padding: '12px 16px',
-                                                                                                        fontSize: '14px',
-                                                                                                        color: '#111b21',
-                                                                                                        textAlign: 'left',
-                                                                                                        cursor: 'pointer',
-                                                                                                        borderBottom: status !== 'Not going' ? '1px solid #f0f2f5' : 'none',
-                                                                                                        background: myResponse?.status === status ? '#f0f2f5' : 'white',
-                                                                                                        fontWeight: myResponse?.status === status ? '600' : 'normal',
-                                                                                                        display: 'flex',
-                                                                                                        alignItems: 'center',
-                                                                                                        justifyContent: 'space-between'
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {status}
-                                                                                                    {myResponse?.status === status && <Check size={14} color="#0EA5BE" />}
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
+                                                                            );
+                                                                        })()}
 
-                                                                    {msg.content && msg.type !== 'contact' && msg.type !== 'poll' && msg.type !== 'event' && (
-                                                                        <span>{renderContent(msg.content)}</span>
-                                                                    )}
-                                                                </>
-                                                            )}
-
-                                                            <div className="wa-msg-meta">
-                                                                {msg.is_edited && <span style={{ fontSize: '10px', color: '#667781', marginRight: '2px', opacity: 0.9 }}>Edited</span>}
-                                                                {msg.is_pinned && <Pin size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3, transform: 'rotate(45deg)' }} />}
-                                                                {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3 }} />}
-                                                                <span>{formatTime(msg.created_at)}</span>
-                                                                {isMe && (
-                                                                    msg.is_read
-                                                                        ? <CheckCheck size={14} color="#53bdeb" />
-                                                                        : <CheckCheck size={14} color="#9ca3af" />
+                                                                        {msg.content && msg.type !== 'contact' && msg.type !== 'poll' && msg.type !== 'event' && (
+                                                                            <span>{renderContent(msg.content)}</span>
+                                                                        )}
+                                                                    </>
                                                                 )}
-                                                            </div>
-                                                            {/* Reaction display badges - P2P */}
-                                                            {msg.reactions && msg.reactions.length > 0 && (() => {
-                                                                const currentUserId = user.id || user._id;
-                                                                const grouped = msg.reactions.reduce((acc, r) => {
-                                                                    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reactedByMe: false, userNames: [] };
-                                                                    acc[r.emoji].count++;
-                                                                    const isMeReaction = String(r.user_id) === String(currentUserId);
-                                                                    if (isMeReaction) acc[r.emoji].reactedByMe = true;
 
-                                                                    const uName = isMeReaction ? 'You' : (users.find(u => String(u._id || u.id) === String(r.user_id))?.name || 'User');
-                                                                    if (!acc[r.emoji].userNames.includes(uName)) {
-                                                                        acc[r.emoji].userNames.push(uName);
-                                                                    }
-                                                                    return acc;
-                                                                }, {});
-                                                                return (
-                                                                    <div className={`wa-reaction-badges ${isMe ? 'wa-reaction-badges-sent' : 'wa-reaction-badges-recv'}`}>
-                                                                        {Object.entries(grouped).map(([emoji, { count, reactedByMe, userNames }]) => (
-                                                                            <span
-                                                                                key={emoji}
-                                                                                className={`wa-reaction-badge ${reactedByMe ? 'reacted' : ''}`}
-                                                                                onClick={(e) => { e.stopPropagation(); const bubble = e.currentTarget.closest('.wa-message-bubble') || e.currentTarget.closest('.wa-msg-sent') || e.currentTarget.closest('.wa-msg-recv'); setReactionDetails({ msg, isGroup: false, rect: (bubble || e.currentTarget).getBoundingClientRect() }); }}
-                                                                            >
-                                                                                {emoji}{count > 1 && <span className="wa-reaction-count">{count}</span>}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                );
-                                                            })()}
+                                                                <div className="wa-msg-meta">
+                                                                    {msg.is_edited && <span style={{ fontSize: '10px', color: '#667781', marginRight: '2px', opacity: 0.9 }}>Edited</span>}
+                                                                    {msg.is_pinned && <Pin size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3, transform: 'rotate(45deg)' }} />}
+                                                                    {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3 }} />}
+                                                                    <span>{formatTime(msg.created_at)}</span>
+                                                                    {isMe && (
+                                                                        msg.is_read
+                                                                            ? <CheckCheck size={14} color="#53bdeb" />
+                                                                            : <CheckCheck size={14} color="#9ca3af" />
+                                                                    )}
+                                                                </div>
+                                                                {/* Reaction display badges - P2P */}
+                                                                {msg.reactions && msg.reactions.length > 0 && (() => {
+                                                                    const currentUserId = user.id || user._id;
+                                                                    const grouped = msg.reactions.reduce((acc, r) => {
+                                                                        if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reactedByMe: false, userNames: [] };
+                                                                        acc[r.emoji].count++;
+                                                                        const isMeReaction = String(r.user_id) === String(currentUserId);
+                                                                        if (isMeReaction) acc[r.emoji].reactedByMe = true;
+
+                                                                        const uName = isMeReaction ? 'You' : (users.find(u => String(u._id || u.id) === String(r.user_id))?.name || 'User');
+                                                                        if (!acc[r.emoji].userNames.includes(uName)) {
+                                                                            acc[r.emoji].userNames.push(uName);
+                                                                        }
+                                                                        return acc;
+                                                                    }, {});
+                                                                    return (
+                                                                        <div className={`wa-reaction-badges ${isMe ? 'wa-reaction-badges-sent' : 'wa-reaction-badges-recv'}`}>
+                                                                            {Object.entries(grouped).map(([emoji, { count, reactedByMe, userNames }]) => (
+                                                                                <span
+                                                                                    key={emoji}
+                                                                                    className={`wa-reaction-badge ${reactedByMe ? 'reacted' : ''}`}
+                                                                                    onClick={(e) => { e.stopPropagation(); const bubble = e.currentTarget.closest('.wa-message-bubble') || e.currentTarget.closest('.wa-msg-sent') || e.currentTarget.closest('.wa-msg-recv'); setReactionDetails({ msg, isGroup: false, rect: (bubble || e.currentTarget).getBoundingClientRect() }); }}
+                                                                                >
+                                                                                    {emoji}{count > 1 && <span className="wa-reaction-count">{count}</span>}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
-                                                    </div>
                                                     </React.Fragment>
                                                 );
                                             })}
@@ -16177,10 +16367,10 @@ export default function Chat() {
                                         )}
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                                        <span style={{ fontWeight: 500, fontSize: 16, color: '#111b21', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <span style={{ fontWeight: 500, fontSize: 16, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {selectedGroup.isCommunityAnnouncements ? selectedGroup.communityName : (selectedGroup.name || 'Unnamed Group')}
                                         </span>
-                                        <span style={{ fontSize: 12, color: '#667781', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <span style={{ fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {renderGroupStatus(selectedGroup)}
                                         </span>
                                     </div>
@@ -16269,7 +16459,7 @@ export default function Chat() {
                             }
 
                             return (
-                                <div className="wa-pinned-messages-banner" style={{ background: 'white', padding: '8px 16px', borderBottom: '1px solid #d1d7db', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                                <div className="wa-pinned-messages-banner" style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '8px 16px', borderBottom: '1px solid rgba(56, 189, 248, 0.25)', display: 'flex', alignItems: 'center', zIndex: 10, position: 'relative', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
                                     onClick={() => {
                                         navigateToMessage(msg);
                                         setCurrentPinnedIndex((safeIndex + 1) % pinnedMessages.length);
@@ -16278,22 +16468,22 @@ export default function Chat() {
                                     {pinnedMessages.length > 1 && (
                                         <div style={{ marginRight: 12, display: 'flex', flexDirection: 'column', gap: 4, height: 36, justifyContent: 'center' }}>
                                             {Array.from({ length: pinnedMessages.length }).map((_, i) => (
-                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#008069' : '#d1d7db' }} />
+                                                <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: i === safeIndex ? '#38bdf8' : 'rgba(148, 163, 184, 0.5)' }} />
                                             ))}
                                         </div>
                                     )}
 
                                     <div style={{ display: 'flex', flexDirection: 'column', marginRight: 16, justifyContent: 'center' }}>
-                                        <Pin size={18} color="#8696a0" />
+                                        <Pin size={18} color="#38bdf8" />
                                     </div>
 
                                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                                         {msg.type !== 'poll' && (
-                                            <span style={{ fontWeight: 500, fontSize: 13, color: '#111b21', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                                            <span style={{ fontWeight: 500, fontSize: 13, color: '#f8fafc', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                                                 {(msg.sender_id === user.id || msg.sender_id === user._id || msg.user_id === user.id || msg.user_id === user._id) ? 'You' : (msg.sender_id?.name || 'User')}
                                             </span>
                                         )}
-                                        <span style={{ fontSize: 13, color: '#54656f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: 13, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {msg.type === 'contact' && <UserIcon size={14} color="#8696a0" />}
                                             {msg.type === 'poll' && <List size={14} color="#0EA5BE" />}
                                             {(() => {
@@ -16538,80 +16728,80 @@ export default function Chat() {
                                                             {unreadSeparator}
                                                             <div key={msg._id} style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                                                                 <div style={{
-                                                                background: '#F3FDFE',
-                                                                borderRadius: '12px',
-                                                                padding: '24px',
-                                                                width: '100%',
-                                                                maxWidth: '430px',
-                                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
-                                                                color: '#111b21',
-                                                                textAlign: 'center'
-                                                            }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '24px' }}>
-                                                                    <div style={{ padding: '10px', background: '#e1f5fe', borderRadius: '50%', border: '2px solid #e1f5fe' }}>
-                                                                        <Users size={22} color="#0EA5BE" />
-                                                                    </div>
-                                                                    <ArrowRight size={22} color="#8696a0" />
-                                                                    <div style={{ padding: '10px', background: '#e1f5fe', borderRadius: '50%', border: '2px solid #e1f5fe' }}>
-                                                                        <Users size={22} color="#0EA5BE" />
-                                                                    </div>
-                                                                </div>
-                                                                <div style={{ fontSize: '17px', fontWeight: '500', marginBottom: '16px', lineHeight: '1.4' }}>
-                                                                    {content}
-                                                                </div>
-                                                                <ul style={{
-                                                                    textAlign: 'left',
-                                                                    listStyle: 'none',
-                                                                    padding: 0,
-                                                                    margin: '0 0 24px 0',
-                                                                    fontSize: '14.5px',
-                                                                    color: '#54656f',
-                                                                    lineHeight: '1.6'
+                                                                    background: '#F3FDFE',
+                                                                    borderRadius: '12px',
+                                                                    padding: '24px',
+                                                                    width: '100%',
+                                                                    maxWidth: '430px',
+                                                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
+                                                                    color: '#111b21',
+                                                                    textAlign: 'center'
                                                                 }}>
-                                                                    <li style={{ display: 'flex', marginBottom: '8px', alignItems: 'flex-start' }}>
-                                                                        <span style={{ marginRight: '10px', marginTop: '2px' }}>•</span>
-                                                                        <span>Members in this group are now community members.</span>
-                                                                    </li>
-                                                                    <li style={{ display: 'flex', alignItems: 'flex-start' }}>
-                                                                        <span style={{ marginRight: '10px', marginTop: '2px' }}>•</span>
-                                                                        <span>Anyone in the community can join this group.</span>
-                                                                    </li>
-                                                                </ul>
-                                                                <div style={{ height: '1px', background: '#e9edef', margin: '0 -24px 20px -24px' }}></div>
-                                                                <div
-                                                                    onClick={async () => {
-                                                                        if (!commId) return;
-                                                                        try {
-                                                                            const token = localStorage.getItem('token');
-                                                                            const res = await axios.get(`/api/communities/my-communities`, {
-                                                                                headers: { 'Authorization': `Bearer ${token}` }
-                                                                            });
-                                                                            const comm = (res.data || []).find(c => String(c._id || c.id) === String(commId));
-                                                                            if (comm) {
-                                                                                const id = String(comm._id || comm.id);
-                                                                                const pinnedKey = `pinnedCommunities_${user.id || user._id}`;
-                                                                                const pinnedIds = JSON.parse(localStorage.getItem(pinnedKey)) || [];
-                                                                                const formatted = { ...comm, id, isPinned: pinnedIds.includes(id) };
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '24px' }}>
+                                                                        <div style={{ padding: '10px', background: '#e1f5fe', borderRadius: '50%', border: '2px solid #e1f5fe' }}>
+                                                                            <Users size={22} color="#0EA5BE" />
+                                                                        </div>
+                                                                        <ArrowRight size={22} color="#8696a0" />
+                                                                        <div style={{ padding: '10px', background: '#e1f5fe', borderRadius: '50%', border: '2px solid #e1f5fe' }}>
+                                                                            <Users size={22} color="#0EA5BE" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '17px', fontWeight: '500', marginBottom: '16px', lineHeight: '1.4' }}>
+                                                                        {content}
+                                                                    </div>
+                                                                    <ul style={{
+                                                                        textAlign: 'left',
+                                                                        listStyle: 'none',
+                                                                        padding: 0,
+                                                                        margin: '0 0 24px 0',
+                                                                        fontSize: '14.5px',
+                                                                        color: '#54656f',
+                                                                        lineHeight: '1.6'
+                                                                    }}>
+                                                                        <li style={{ display: 'flex', marginBottom: '8px', alignItems: 'flex-start' }}>
+                                                                            <span style={{ marginRight: '10px', marginTop: '2px' }}>•</span>
+                                                                            <span>Members in this group are now community members.</span>
+                                                                        </li>
+                                                                        <li style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                                                            <span style={{ marginRight: '10px', marginTop: '2px' }}>•</span>
+                                                                            <span>Anyone in the community can join this group.</span>
+                                                                        </li>
+                                                                    </ul>
+                                                                    <div style={{ height: '1px', background: '#e9edef', margin: '0 -24px 20px -24px' }}></div>
+                                                                    <div
+                                                                        onClick={async () => {
+                                                                            if (!commId) return;
+                                                                            try {
+                                                                                const token = localStorage.getItem('token');
+                                                                                const res = await axios.get(`/api/communities/my-communities`, {
+                                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                                });
+                                                                                const comm = (res.data || []).find(c => String(c._id || c.id) === String(commId));
+                                                                                if (comm) {
+                                                                                    const id = String(comm._id || comm.id);
+                                                                                    const pinnedKey = `pinnedCommunities_${user.id || user._id}`;
+                                                                                    const pinnedIds = JSON.parse(localStorage.getItem(pinnedKey)) || [];
+                                                                                    const formatted = { ...comm, id, isPinned: pinnedIds.includes(id) };
 
-                                                                                setSelectedCommunity(formatted);
-                                                                                setIsCommunityInfoOpen(true);
+                                                                                    setSelectedCommunity(formatted);
+                                                                                    setIsCommunityInfoOpen(true);
+                                                                                }
+                                                                            } catch (e) {
+                                                                                console.error('Failed to open community from link:', e);
                                                                             }
-                                                                        } catch (e) {
-                                                                            console.error('Failed to open community from link:', e);
-                                                                        }
-                                                                    }}
-                                                                    style={{
-                                                                        color: '#0EA5BE',
-                                                                        fontWeight: '600',
-                                                                        fontSize: '14px',
-                                                                        cursor: 'pointer',
-                                                                        display: 'inline-block',
-                                                                        transition: 'color 0.2s'
-                                                                    }}
-                                                                    className="wa-manage-community-text"
-                                                                >
-                                                                    Manage the community
-                                                                </div>
+                                                                        }}
+                                                                        style={{
+                                                                            color: '#0EA5BE',
+                                                                            fontWeight: '600',
+                                                                            fontSize: '14px',
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-block',
+                                                                            transition: 'color 0.2s'
+                                                                        }}
+                                                                        className="wa-manage-community-text"
+                                                                    >
+                                                                        Manage the community
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </React.Fragment>
@@ -16623,676 +16813,676 @@ export default function Chat() {
                                                         {unreadSeparator}
                                                         <div
                                                             key={msg._id}
-                                                        id={`msg-${msg._id}`}
-                                                        className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
-                                                        onDoubleClick={() => { if (!isForwardingMode) setReplyingTo(msg); }}
-                                                        onClick={() => {
-                                                            if (isForwardingMode) {
-                                                                const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
-                                                                if (isSelected) {
-                                                                    setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
-                                                                } else {
-                                                                    setForwardSelectedMsgs(prev => [...prev, msg]);
+                                                            id={`msg-${msg._id}`}
+                                                            className={`wa-message-container ${isForwardingMode ? 'forward-mode' : ''}`}
+                                                            onDoubleClick={() => { if (!isForwardingMode) setReplyingTo(msg); }}
+                                                            onClick={() => {
+                                                                if (isForwardingMode) {
+                                                                    const isSelected = forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id));
+                                                                    if (isSelected) {
+                                                                        setForwardSelectedMsgs(prev => prev.filter(m => String(m._id || m.id) !== String(msg._id || msg.id)));
+                                                                    } else {
+                                                                        setForwardSelectedMsgs(prev => [...prev, msg]);
+                                                                    }
                                                                 }
-                                                            }
-                                                        }}
-                                                    >
-                                                        {isForwardingMode && (
-                                                            <div className="wa-msg-checkbox">
-                                                                {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
-                                                                    <CheckSquare size={24} color="white" fill="#0EA5BE" /> :
-                                                                    <div className="wa-checkbox-empty" />
-                                                                }
-                                                            </div>
-                                                        )}
-                                                        <div
-                                                            className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'}`}
-                                                            onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
+                                                            }}
                                                         >
-                                                            {!isForwardingMode && (
-                                                                <div className={`wa-dropdown-trigger msg-trigger ${(openDropdown?.type === "msg" && openDropdown?.id === msg._id) ? "active" : ""}`} onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
-                                                                    <ChevronDown size={18} />
+                                                            {isForwardingMode && (
+                                                                <div className="wa-msg-checkbox">
+                                                                    {forwardSelectedMsgs.find(m => String(m._id || m.id) === String(msg._id || msg.id)) ?
+                                                                        <CheckSquare size={24} color="white" fill="#0EA5BE" /> :
+                                                                        <div className="wa-checkbox-empty" />
+                                                                    }
                                                                 </div>
                                                             )}
-
-                                                            {msg.reply_to && (
-                                                                <div className="wa-reply-context">
-                                                                    <div className="wa-reply-context-name">
-                                                                        {isMeMsg(msg.reply_to) ? 'You' : (msg.reply_to.sender_id?.name || 'User')}
+                                                            <div
+                                                                className={`wa-message-bubble ${isMe ? 'wa-msg-sent' : 'wa-msg-rec'}`}
+                                                                onContextMenu={(e) => { if (!isForwardingMode) { e.preventDefault(); handleMsgDropdownOpen(e, msg._id, msg); } }}
+                                                            >
+                                                                {!isForwardingMode && (
+                                                                    <div className={`wa-dropdown-trigger msg-trigger ${(openDropdown?.type === "msg" && openDropdown?.id === msg._id) ? "active" : ""}`} onClick={(e) => handleMsgDropdownOpen(e, msg._id, msg)}>
+                                                                        <ChevronDown size={18} />
                                                                     </div>
-                                                                    <div className="wa-reply-context-text">
-                                                                        {(() => {
-                                                                            if (msg.reply_to.type === 'image') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Camera size={14} color="#027EB5" /> <span>Photo</span></span>;
-                                                                            if (msg.reply_to.type === 'file') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileText size={14} color="#027EB5" /> <span>File</span></span>;
-                                                                            if (msg.reply_to.type === 'poll') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 <span>{msg.reply_to.poll?.question || 'Poll'}</span></span>;
-                                                                            if (msg.reply_to.type === 'voice' || msg.reply_to.type === 'audio') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mic size={14} color="#027EB5" /> <span>Voice message</span></span>;
-                                                                            if (msg.reply_to.type === 'contact') {
-                                                                                try {
-                                                                                    const parsed = JSON.parse(msg.reply_to.content);
-                                                                                    const txt = Array.isArray(parsed) ? `${parsed.length} contacts` : (parsed.name || parsed.mobile || 'Contact');
-                                                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>{txt}</span></span>;
-                                                                                } catch (e) {
-                                                                                    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>Contact</span></span>;
+                                                                )}
+
+                                                                {msg.reply_to && (
+                                                                    <div className="wa-reply-context">
+                                                                        <div className="wa-reply-context-name">
+                                                                            {isMeMsg(msg.reply_to) ? 'You' : (msg.reply_to.sender_id?.name || 'User')}
+                                                                        </div>
+                                                                        <div className="wa-reply-context-text">
+                                                                            {(() => {
+                                                                                if (msg.reply_to.type === 'image') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Camera size={14} color="#027EB5" /> <span>Photo</span></span>;
+                                                                                if (msg.reply_to.type === 'file') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileText size={14} color="#027EB5" /> <span>File</span></span>;
+                                                                                if (msg.reply_to.type === 'poll') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 <span>{msg.reply_to.poll?.question || 'Poll'}</span></span>;
+                                                                                if (msg.reply_to.type === 'voice' || msg.reply_to.type === 'audio') return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mic size={14} color="#027EB5" /> <span>Voice message</span></span>;
+                                                                                if (msg.reply_to.type === 'contact') {
+                                                                                    try {
+                                                                                        const parsed = JSON.parse(msg.reply_to.content);
+                                                                                        const txt = Array.isArray(parsed) ? `${parsed.length} contacts` : (parsed.name || parsed.mobile || 'Contact');
+                                                                                        return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>{txt}</span></span>;
+                                                                                    } catch (e) {
+                                                                                        return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><UserIcon size={14} color="#027EB5" /> <span>Contact</span></span>;
+                                                                                    }
                                                                                 }
-                                                                            }
-                                                                            return msg.reply_to.content || '';
-                                                                        })()}
+                                                                                return msg.reply_to.content || '';
+                                                                            })()}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            )}
+                                                                )}
 
-                                                            {!isMe && <div style={{ fontSize: 12, fontWeight: 700, color: '#0EA5BE', marginBottom: 4 }}>{senderName}</div>}
+                                                                {!isMe && <div style={{ fontSize: 12, fontWeight: 700, color: '#0EA5BE', marginBottom: 4 }}>{senderName}</div>}
 
-                                                            {msg.is_deleted_by_admin ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <Trash2 size={16} /> {t('chat_window.deleted_admin')}
-                                                                </div>
-                                                            ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_me')}
-                                                                </div>
-                                                            ) : msg.is_deleted_by_user ? (
-                                                                <div className="wa-deleted-tag">
-                                                                    <XCircle size={16} /> {t('chat_window.deleted_user_other')}
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {msg.type === 'image' && msg.file_path && (
-                                                                        <div className="wa-msg-image-wrapper" onClick={() => setViewingImage(msg)}>
-                                                                            <img src={msg.file_path} alt="msg" className="wa-msg-image" />
-                                                                        </div>
-                                                                    )}
+                                                                {msg.is_deleted_by_admin ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <Trash2 size={16} /> {t('chat_window.deleted_admin')}
+                                                                    </div>
+                                                                ) : (msg.deleted_for && msg.deleted_for.includes(user.id || user._id)) ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <XCircle size={16} /> {t('chat_window.deleted_user_me')}
+                                                                    </div>
+                                                                ) : msg.is_deleted_by_user ? (
+                                                                    <div className="wa-deleted-tag">
+                                                                        <XCircle size={16} /> {t('chat_window.deleted_user_other')}
+                                                                    </div>
+                                                                ) : (
+                                                                    <>
+                                                                        {msg.type === 'image' && msg.file_path && (
+                                                                            <div className="wa-msg-image-wrapper" onClick={() => setViewingImage(msg)}>
+                                                                                <img src={msg.file_path} alt="msg" className="wa-msg-image" />
+                                                                            </div>
+                                                                        )}
 
-                                                                    {msg.type === 'video' && msg.file_path && (
-                                                                        <div className="wa-msg-video-wrapper" onClick={() => setViewingImage(msg)}>
-                                                                            <video src={msg.file_path} controls className="wa-msg-video" />
-                                                                        </div>
-                                                                    )}
+                                                                        {msg.type === 'video' && msg.file_path && (
+                                                                            <div className="wa-msg-video-wrapper" onClick={() => setViewingImage(msg)}>
+                                                                                <video src={msg.file_path} controls className="wa-msg-video" />
+                                                                            </div>
+                                                                        )}
 
-                                                                    {msg.type === 'file' && msg.file_path && (
-                                                                        isDocument(msg.fileName) ? (
-                                                                            <div className="wa-msg-document">
-                                                                                {msg.thumbnail_path && (
-                                                                                    <div className="wa-msg-document-preview">
-                                                                                        <img src={msg.thumbnail_path} alt="document preview" />
-                                                                                    </div>
-                                                                                )}
-                                                                                <div className="wa-msg-document-details">
-                                                                                    <div className="wa-msg-document-icon-wrapper">
-                                                                                        {getDocIcon(msg.fileName)}
-                                                                                    </div>
-                                                                                    <div className="wa-msg-document-info">
-                                                                                        <div className="wa-msg-document-name" title={msg.fileName}>{msg.fileName || 'document.pdf'}</div>
-                                                                                        <div className="wa-msg-document-meta">
-                                                                                            {(msg.pageCount > 0) ? `${msg.pageCount} ${msg.pageCount === 1 ? 'page' : 'pages'} • ` : ''}
-                                                                                            {msg.fileName?.split('.').pop().toUpperCase()} • {formatFileSize(msg.fileSize)}
+                                                                        {msg.type === 'file' && msg.file_path && (
+                                                                            isDocument(msg.fileName) ? (
+                                                                                <div className="wa-msg-document">
+                                                                                    {msg.thumbnail_path && (
+                                                                                        <div className="wa-msg-document-preview">
+                                                                                            <img src={msg.thumbnail_path} alt="document preview" />
                                                                                         </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="wa-msg-document-actions">
-                                                                                    <button className="wa-msg-document-action-btn" onClick={() => handleOpenFile(msg.file_path, msg.fileName)}>
-                                                                                        Open
-                                                                                    </button>
-                                                                                    <button className="wa-msg-document-action-btn" onClick={() => handleDownload(msg.file_path, msg.fileName)}>
-                                                                                        Save as...
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="wa-msg-file" onClick={() => handleDownload(msg.file_path, msg.fileName)}>
-                                                                                <FileText size={32} color="#8696a0" />
-                                                                                <div className="wa-msg-file-info">
-                                                                                    <div className="wa-msg-file-name">{msg.fileName || 'document.pdf'}</div>
-                                                                                    <div className="wa-msg-file-meta">{formatFileSize(msg.fileSize)} • {msg.fileName?.split('.').pop().toUpperCase()}</div>
-                                                                                </div>
-                                                                                <Download size={20} color="#8696a0" className="wa-file-download-icon" />
-                                                                            </div>
-                                                                        )
-                                                                    )}
-
-                                                                    {/* Audio Rendering */}
-                                                                    {msg.type === 'audio' && (
-                                                                        <div
-                                                                            id={`audio-${msg._id}`}
-                                                                            className={`wa-voice-bubble-content ${String(playingAudioId) === String(msg._id || msg.id) ? 'wa-glassy-playing' : ''} ${msg.is_view_once ? 'view-once' : ''}`}
-                                                                            onClick={(e) => {
-                                                                                if (isForwardingMode) return;
-                                                                                e.stopPropagation();
-                                                                                handlePlayAudio(msg);
-                                                                            }}
-                                                                            style={{
-                                                                                cursor: (msg.is_view_once && (msg.is_viewed || selfPlayedMsgs.has(String(msg._id)))) ? 'default' : 'pointer',
-                                                                                background: 'rgba(255, 255, 255, 0.82)',
-                                                                                backdropFilter: 'blur(20px)',
-                                                                                WebkitBackdropFilter: 'blur(20px)',
-                                                                                borderRadius: '16px',
-                                                                                border: '1px solid rgba(2, 126, 181, 0.18)',
-                                                                                boxShadow: '0 4px 20px rgba(2, 126, 181, 0.06)',
-                                                                                padding: '10px 14px',
-                                                                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                gap: isMobile ? '8px' : '12px',
-                                                                                minWidth: isMobile ? '200px' : '280px'
-                                                                            }}
-                                                                        >
-                                                                            {!msg.is_view_once ? (
-                                                                                <>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-                                                                                        <div className="wa-voice-bubble-avatar" style={{ position: 'relative', margin: 0 }}>
-                                                                                            {String(playingAudioId) === String(msg._id || msg.id) ? (
-                                                                                                <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
-                                                                                                    {msg.is_view_once ? viewOncePlaybackSpeed : playbackSpeed}x
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <>
-                                                                                                    {isMeMsg(msg) ? (
-                                                                                                        ((userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) ? (<img src={userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo} alt="me" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />) : (<div className="wa-avatar-letter" style={{ display: "flex", width: "100%", height: "100%", justifyContent: "center", alignItems: "center", fontSize: 13, background: "#dfe5e7", borderRadius: "50%", color: "#3b4a54", fontWeight: 600 }}>{(userData?.name || user?.name || "M")[0].toUpperCase()}</div>))
-                                                                                                    ) : (
-                                                                                                        ((msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar) ? (<img src={msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar} alt="user" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />) : (<div className="wa-avatar-letter" style={{ display: "flex", width: "100%", height: "100%", justifyContent: "center", alignItems: "center", fontSize: 13, background: "#dfe5e7", borderRadius: "50%", color: "#3b4a54", fontWeight: 600 }}>{(msg.sender_id?.name || "U")[0].toUpperCase()}</div>))
-                                                                                                    )}
-                                                                                                </>
-                                                                                            )}
-                                                                                            <div className="wa-voice-mic-badge">
-                                                                                                <Mic size={12} color={msg.is_read ? '#53bdeb' : '#8696a0'} />
+                                                                                    )}
+                                                                                    <div className="wa-msg-document-details">
+                                                                                        <div className="wa-msg-document-icon-wrapper">
+                                                                                            {getDocIcon(msg.fileName)}
+                                                                                        </div>
+                                                                                        <div className="wa-msg-document-info">
+                                                                                            <div className="wa-msg-document-name" title={msg.fileName}>{msg.fileName || 'document.pdf'}</div>
+                                                                                            <div className="wa-msg-document-meta">
+                                                                                                {(msg.pageCount > 0) ? `${msg.pageCount} ${msg.pageCount === 1 ? 'page' : 'pages'} • ` : ''}
+                                                                                                {msg.fileName?.split('.').pop().toUpperCase()} • {formatFileSize(msg.fileSize)}
                                                                                             </div>
                                                                                         </div>
-                                                                                        <span style={{
-                                                                                            color: (String(playingAudioId) === String(msg._id || msg.id)) ? '#0EA5BE' : '#8696a0',
-                                                                                            fontSize: '11px',
-                                                                                            fontWeight: 500,
-                                                                                            marginTop: '2px'
-                                                                                        }}>
-                                                                                            {String(playingAudioId) === String(msg._id || msg.id) ? formatVoiceTime(viewOnceElapsed) : formatVoiceTime(msg.duration || 0)}
-                                                                                        </span>
                                                                                     </div>
-                                                                                    <div className="wa-voice-bubble-player" style={{ flex: 1, minWidth: 0 }}>
-                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                                            <button className="wa-voice-play-btn" style={{ background: 'none', border: 'none', color: (String(playingAudioId) === String(msg._id || msg.id)) ? '#0EA5BE' : '#54656f', padding: 0, cursor: 'pointer', transition: 'transform 0.2s' }}>
-                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
-                                                                                            </button>
-                                                                                            <div
-                                                                                                className="wa-voice-waveform-static"
-                                                                                                style={{
-                                                                                                    display: 'flex',
-                                                                                                    alignItems: 'center',
-                                                                                                    height: '24px',
-                                                                                                    position: 'relative',
-                                                                                                    cursor: 'pointer',
-                                                                                                    outline: 'none',
-                                                                                                    width: '144px',
-                                                                                                    flexShrink: 0,
-                                                                                                    overflow: 'hidden',
-                                                                                                    padding: '0 2px'
-                                                                                                }}
-                                                                                                onMouseDown={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                                                    const updateSeek = (moveEvent) => {
-                                                                                                        const x = moveEvent.clientX - rect.left;
-                                                                                                        const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                                                                                                        if (String(playingAudioId) === String(msg._id || msg.id) && audioInstanceRef.current) {
-                                                                                                            audioInstanceRef.current.currentTime = (percent / 100) * (msg.duration || 1);
-                                                                                                        } else {
-                                                                                                            handlePlayAudio(msg, (percent / 100) * (msg.duration || 1));
-                                                                                                        }
-                                                                                                    };
-                                                                                                    const onMouseMove = (moveEvent) => updateSeek(moveEvent);
-                                                                                                    const onMouseUp = () => {
-                                                                                                        window.removeEventListener('mousemove', onMouseMove);
-                                                                                                        window.removeEventListener('mouseup', onMouseUp);
-                                                                                                    };
-                                                                                                    window.addEventListener('mousemove', onMouseMove);
-                                                                                                    window.addEventListener('mouseup', onMouseUp);
-                                                                                                    updateSeek(e);
-                                                                                                }}
-                                                                                            >
-                                                                                                {/* WAVEFORM BARS BASES (GRAY) */}
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%', justifyContent: 'space-between', opacity: 0.3 }}>
-                                                                                                    {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
-                                                                                                        <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#8696a0', borderRadius: '4px' }} />
-                                                                                                    ))}
-                                                                                                </div>
-
-                                                                                                {/* WAVEFORM PROGRESS (BLUE) - SMOOTH CLIPPING */}
-                                                                                                <div style={{
-                                                                                                    display: 'flex',
-                                                                                                    alignItems: 'center',
-                                                                                                    gap: '3px',
-                                                                                                    width: '100%',
-                                                                                                    justifyContent: 'space-between',
-                                                                                                    position: 'absolute',
-                                                                                                    left: 2,
-                                                                                                    right: 2,
-                                                                                                    clipPath: `inset(0 ${100 - ((String(playingAudioId) === String(msg._id || msg.id) ? viewOnceElapsed : 0) / (msg.duration || 1)) * 100}% 0 0)`,
-                                                                                                    transition: String(playingAudioId) === String(msg._id || msg.id) ? 'none' : 'clip-path 0.3s ease'
-                                                                                                }}>
-                                                                                                    {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
-                                                                                                        <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#0EA5BE', borderRadius: '4px' }} />
-                                                                                                    ))}
-                                                                                                </div>
-
-                                                                                                {/* PLAYHEAD CIRCULAR DOT (THUMB) */}
-                                                                                                {String(playingAudioId) === String(msg._id || msg.id) && (
-                                                                                                    <div style={{
-                                                                                                        position: 'absolute',
-                                                                                                        left: `${(viewOnceElapsed / (msg.duration || 1)) * 100}%`,
-                                                                                                        width: '10px',
-                                                                                                        height: '10px',
-                                                                                                        backgroundColor: '#0EA5BE',
-                                                                                                        borderRadius: '50%',
-                                                                                                        transform: 'translate(-50%, -50%)',
-                                                                                                        top: '50%',
-                                                                                                        zIndex: 11,
-                                                                                                        boxShadow: '0 0 4px rgba(2, 126, 181, 0.4)'
-                                                                                                    }} />
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                        <div className="wa-voice-meta-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
-                                                                                        </div>
+                                                                                    <div className="wa-msg-document-actions">
+                                                                                        <button className="wa-msg-document-action-btn" onClick={() => handleOpenFile(msg.file_path, msg.fileName)}>
+                                                                                            Open
+                                                                                        </button>
+                                                                                        <button className="wa-msg-document-action-btn" onClick={() => handleDownload(msg.file_path, msg.fileName)}>
+                                                                                            Save as...
+                                                                                        </button>
                                                                                     </div>
-                                                                                </>
+                                                                                </div>
                                                                             ) : (
-                                                                                <div style={{
+                                                                                <div className="wa-msg-file" onClick={() => handleDownload(msg.file_path, msg.fileName)}>
+                                                                                    <FileText size={32} color="#8696a0" />
+                                                                                    <div className="wa-msg-file-info">
+                                                                                        <div className="wa-msg-file-name">{msg.fileName || 'document.pdf'}</div>
+                                                                                        <div className="wa-msg-file-meta">{formatFileSize(msg.fileSize)} • {msg.fileName?.split('.').pop().toUpperCase()}</div>
+                                                                                    </div>
+                                                                                    <Download size={20} color="#8696a0" className="wa-file-download-icon" />
+                                                                                </div>
+                                                                            )
+                                                                        )}
+
+                                                                        {/* Audio Rendering */}
+                                                                        {msg.type === 'audio' && (
+                                                                            <div
+                                                                                id={`audio-${msg._id}`}
+                                                                                className={`wa-voice-bubble-content ${String(playingAudioId) === String(msg._id || msg.id) ? 'wa-glassy-playing' : ''} ${msg.is_view_once ? 'view-once' : ''}`}
+                                                                                onClick={(e) => {
+                                                                                    if (isForwardingMode) return;
+                                                                                    e.stopPropagation();
+                                                                                    handlePlayAudio(msg);
+                                                                                }}
+                                                                                style={{
+                                                                                    cursor: (msg.is_view_once && (msg.is_viewed || selfPlayedMsgs.has(String(msg._id)))) ? 'default' : 'pointer',
+                                                                                    background: 'rgba(255, 255, 255, 0.82)',
+                                                                                    backdropFilter: 'blur(20px)',
+                                                                                    WebkitBackdropFilter: 'blur(20px)',
+                                                                                    borderRadius: '16px',
+                                                                                    border: '1px solid rgba(2, 126, 181, 0.18)',
+                                                                                    boxShadow: '0 4px 20px rgba(2, 126, 181, 0.06)',
+                                                                                    padding: '10px 14px',
+                                                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                                                                     display: 'flex',
                                                                                     alignItems: 'center',
-                                                                                    gap: '12px',
-                                                                                    padding: '8px 12px',
-                                                                                    minWidth: '180px'
-                                                                                }}>
+                                                                                    gap: isMobile ? '8px' : '12px',
+                                                                                    minWidth: isMobile ? '200px' : '280px'
+                                                                                }}
+                                                                            >
+                                                                                {!msg.is_view_once ? (
+                                                                                    <>
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                                                                            <div className="wa-voice-bubble-avatar" style={{ position: 'relative', margin: 0 }}>
+                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? (
+                                                                                                    <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
+                                                                                                        {msg.is_view_once ? viewOncePlaybackSpeed : playbackSpeed}x
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <>
+                                                                                                        {isMeMsg(msg) ? (
+                                                                                                            ((userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo) ? (<img src={userData?.image || user?.profile_pic || user?.avatar || user?.profile_photo} alt="me" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />) : (<div className="wa-avatar-letter" style={{ display: "flex", width: "100%", height: "100%", justifyContent: "center", alignItems: "center", fontSize: 13, background: "#dfe5e7", borderRadius: "50%", color: "#3b4a54", fontWeight: 600 }}>{(userData?.name || user?.name || "M")[0].toUpperCase()}</div>))
+                                                                                                        ) : (
+                                                                                                            ((msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar) ? (<img src={msg.sender_id?.profile_photo || msg.sender_id?.image || msg.sender_id?.profile_pic || msg.sender_id?.avatar} alt="user" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />) : (<div className="wa-avatar-letter" style={{ display: "flex", width: "100%", height: "100%", justifyContent: "center", alignItems: "center", fontSize: 13, background: "#dfe5e7", borderRadius: "50%", color: "#3b4a54", fontWeight: 600 }}>{(msg.sender_id?.name || "U")[0].toUpperCase()}</div>))
+                                                                                                        )}
+                                                                                                    </>
+                                                                                                )}
+                                                                                                <div className="wa-voice-mic-badge">
+                                                                                                    <Mic size={12} color={msg.is_read ? '#53bdeb' : '#8696a0'} />
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <span style={{
+                                                                                                color: (String(playingAudioId) === String(msg._id || msg.id)) ? '#0EA5BE' : '#8696a0',
+                                                                                                fontSize: '11px',
+                                                                                                fontWeight: 500,
+                                                                                                marginTop: '2px'
+                                                                                            }}>
+                                                                                                {String(playingAudioId) === String(msg._id || msg.id) ? formatVoiceTime(viewOnceElapsed) : formatVoiceTime(msg.duration || 0)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="wa-voice-bubble-player" style={{ flex: 1, minWidth: 0 }}>
+                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                                <button className="wa-voice-play-btn" style={{ background: 'none', border: 'none', color: (String(playingAudioId) === String(msg._id || msg.id)) ? '#0EA5BE' : '#54656f', padding: 0, cursor: 'pointer', transition: 'transform 0.2s' }}>
+                                                                                                    {String(playingAudioId) === String(msg._id || msg.id) ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                                                                                                </button>
+                                                                                                <div
+                                                                                                    className="wa-voice-waveform-static"
+                                                                                                    style={{
+                                                                                                        display: 'flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        height: '24px',
+                                                                                                        position: 'relative',
+                                                                                                        cursor: 'pointer',
+                                                                                                        outline: 'none',
+                                                                                                        width: '144px',
+                                                                                                        flexShrink: 0,
+                                                                                                        overflow: 'hidden',
+                                                                                                        padding: '0 2px'
+                                                                                                    }}
+                                                                                                    onMouseDown={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                                                        const updateSeek = (moveEvent) => {
+                                                                                                            const x = moveEvent.clientX - rect.left;
+                                                                                                            const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                                                                                                            if (String(playingAudioId) === String(msg._id || msg.id) && audioInstanceRef.current) {
+                                                                                                                audioInstanceRef.current.currentTime = (percent / 100) * (msg.duration || 1);
+                                                                                                            } else {
+                                                                                                                handlePlayAudio(msg, (percent / 100) * (msg.duration || 1));
+                                                                                                            }
+                                                                                                        };
+                                                                                                        const onMouseMove = (moveEvent) => updateSeek(moveEvent);
+                                                                                                        const onMouseUp = () => {
+                                                                                                            window.removeEventListener('mousemove', onMouseMove);
+                                                                                                            window.removeEventListener('mouseup', onMouseUp);
+                                                                                                        };
+                                                                                                        window.addEventListener('mousemove', onMouseMove);
+                                                                                                        window.addEventListener('mouseup', onMouseUp);
+                                                                                                        updateSeek(e);
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {/* WAVEFORM BARS BASES (GRAY) */}
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', width: '100%', justifyContent: 'space-between', opacity: 0.3 }}>
+                                                                                                        {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
+                                                                                                            <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#8696a0', borderRadius: '4px' }} />
+                                                                                                        ))}
+                                                                                                    </div>
+
+                                                                                                    {/* WAVEFORM PROGRESS (BLUE) - SMOOTH CLIPPING */}
+                                                                                                    <div style={{
+                                                                                                        display: 'flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        gap: '3px',
+                                                                                                        width: '100%',
+                                                                                                        justifyContent: 'space-between',
+                                                                                                        position: 'absolute',
+                                                                                                        left: 2,
+                                                                                                        right: 2,
+                                                                                                        clipPath: `inset(0 ${100 - ((String(playingAudioId) === String(msg._id || msg.id) ? viewOnceElapsed : 0) / (msg.duration || 1)) * 100}% 0 0)`,
+                                                                                                        transition: String(playingAudioId) === String(msg._id || msg.id) ? 'none' : 'clip-path 0.3s ease'
+                                                                                                    }}>
+                                                                                                        {[8, 12, 6, 8, 14, 8, 12, 6, 8, 10, 6, 8, 12, 10, 8, 6, 8, 14, 12, 8, 6, 10, 8, 14, 6, 8, 10, 8, 6, 10].map((h, i) => (
+                                                                                                            <div key={i} style={{ width: '3px', height: `${h}px`, backgroundColor: '#0EA5BE', borderRadius: '4px' }} />
+                                                                                                        ))}
+                                                                                                    </div>
+
+                                                                                                    {/* PLAYHEAD CIRCULAR DOT (THUMB) */}
+                                                                                                    {String(playingAudioId) === String(msg._id || msg.id) && (
+                                                                                                        <div style={{
+                                                                                                            position: 'absolute',
+                                                                                                            left: `${(viewOnceElapsed / (msg.duration || 1)) * 100}%`,
+                                                                                                            width: '10px',
+                                                                                                            height: '10px',
+                                                                                                            backgroundColor: '#0EA5BE',
+                                                                                                            borderRadius: '50%',
+                                                                                                            transform: 'translate(-50%, -50%)',
+                                                                                                            top: '50%',
+                                                                                                            zIndex: 11,
+                                                                                                            boxShadow: '0 0 4px rgba(2, 126, 181, 0.4)'
+                                                                                                        }} />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="wa-voice-meta-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </>
+                                                                                ) : (
                                                                                     <div style={{
-                                                                                        width: '40px',
-                                                                                        height: '40px',
-                                                                                        borderRadius: '50%',
-                                                                                        background: '#f0f2f5',
                                                                                         display: 'flex',
                                                                                         alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        flexShrink: 0,
-                                                                                        position: 'relative'
+                                                                                        gap: '12px',
+                                                                                        padding: '8px 12px',
+                                                                                        minWidth: '180px'
                                                                                     }}>
-                                                                                        {String(playingAudioId) === String(msg._id || msg.id) ? (
-                                                                                            <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
-                                                                                                {viewOncePlaybackSpeed}x
-                                                                                            </div>
-                                                                                        ) : (
-                                                                                            <Mic size={20} color="#8696a0" />
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                                         <div style={{
-                                                                                            fontSize: '16px',
-                                                                                            color: '#8696a0',
-                                                                                            fontWeight: '400'
-                                                                                        }}>
-                                                                                            Voice message
-                                                                                        </div>
-                                                                                        <div style={{
+                                                                                            width: '40px',
+                                                                                            height: '40px',
+                                                                                            borderRadius: '50%',
+                                                                                            background: '#f0f2f5',
                                                                                             display: 'flex',
                                                                                             alignItems: 'center',
-                                                                                            gap: '6px',
-                                                                                            fontSize: '14px',
-                                                                                            color: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE'
+                                                                                            justifyContent: 'center',
+                                                                                            flexShrink: 0,
+                                                                                            position: 'relative'
                                                                                         }}>
-                                                                                            <span className="wa-view-once-circle" style={{
-                                                                                                borderColor: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE',
-                                                                                                color: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE',
-                                                                                                width: '18px',
-                                                                                                height: '18px',
-                                                                                                fontSize: '10px',
-                                                                                                display: 'inline-flex'
-                                                                                            }}>1</span>
-                                                                                            <span>{(msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? 'Opened' : 'Voice message'}</span>
+                                                                                            {String(playingAudioId) === String(msg._id || msg.id) ? (
+                                                                                                <div className="wa-playback-speed-badge" onClick={togglePlaybackSpeed}>
+                                                                                                    {viewOncePlaybackSpeed}x
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <Mic size={20} color="#8696a0" />
+                                                                                            )}
                                                                                         </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-
-
-                                                                    {(() => {
-                                                                        let lp = msg.link_preview;
-                                                                        const ytId = (msg.content && typeof msg.content === 'string') ? getYouTubeVideoId(msg.content) : null;
-                                                                        if ((!lp || !lp.title) && ytId) {
-                                                                            lp = { url: msg.content, title: 'YouTube Video', domain: 'youtube.com', image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` };
-                                                                        }
-                                                                        if (!lp || !lp.title) return null;
-                                                                        return (
-                                                                            <div
-                                                                                className={`wa-link-preview-card ${!lp.image ? 'no-image' : ''} ${((lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
-                                                                                onClick={(e) => { e.stopPropagation(); window.open(lp.url, '_blank'); }}
-                                                                                style={{ cursor: 'pointer', transition: 'none' }}
-                                                                            >
-                                                                                {lp.image && (
-                                                                                    <div className="wa-link-preview-image">
-                                                                                        <img src={lp.image} alt={lp.title} />
-                                                                                        {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) && (
-                                                                                            <div className="wa-link-preview-play-btn">
-                                                                                                <div className="wa-play-icon"><Play size={32} color="white" fill="white" /></div>
+                                                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                            <div style={{
+                                                                                                fontSize: '16px',
+                                                                                                color: '#8696a0',
+                                                                                                fontWeight: '400'
+                                                                                            }}>
+                                                                                                Voice message
                                                                                             </div>
-                                                                                        )}
+                                                                                            <div style={{
+                                                                                                display: 'flex',
+                                                                                                alignItems: 'center',
+                                                                                                gap: '6px',
+                                                                                                fontSize: '14px',
+                                                                                                color: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE'
+                                                                                            }}>
+                                                                                                <span className="wa-view-once-circle" style={{
+                                                                                                    borderColor: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE',
+                                                                                                    color: (msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? '#8696a0' : '#0EA5BE',
+                                                                                                    width: '18px',
+                                                                                                    height: '18px',
+                                                                                                    fontSize: '10px',
+                                                                                                    display: 'inline-flex'
+                                                                                                }}>1</span>
+                                                                                                <span>{(msg.is_viewed || (isMeMsg(msg) && selfPlayedMsgs.has(String(msg._id)))) ? 'Opened' : 'Voice message'}</span>
+                                                                                            </div>
+                                                                                        </div>
                                                                                     </div>
                                                                                 )}
-                                                                                <div className="wa-link-preview-content">
-                                                                                    <div className="wa-link-preview-title">{lp.title}</div>
-                                                                                    {lp.description && <div className="wa-link-preview-description">{lp.description}</div>}
-                                                                                    <div className="wa-link-preview-domain">
-                                                                                        {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) ? (
-                                                                                            <>
-                                                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
-                                                                                                </svg>
-                                                                                                <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{lp.domain}</span>
-                                                                                            </>
-                                                                                        ) : (
-                                                                                            <>
-                                                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                                                </svg>
-                                                                                                <span>{lp.domain}</span>
-                                                                                            </>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
                                                                             </div>
-                                                                        );
-                                                                    })()}
+                                                                        )}
 
-                                                                    {msg.type === 'contact' && (() => {
-                                                                        let cDataArray;
-                                                                        try {
-                                                                            const rawData = JSON.parse(msg.content);
-                                                                            cDataArray = Array.isArray(rawData) ? rawData : [rawData];
-                                                                        } catch (e) {
-                                                                            cDataArray = [{ name: 'Contact' }];
-                                                                        }
 
-                                                                        if (cDataArray.length > 1) {
+
+                                                                        {(() => {
+                                                                            let lp = msg.link_preview;
+                                                                            const ytId = (msg.content && typeof msg.content === 'string') ? getYouTubeVideoId(msg.content) : null;
+                                                                            if ((!lp || !lp.title) && ytId) {
+                                                                                lp = { url: msg.content, title: 'YouTube Video', domain: 'youtube.com', image: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` };
+                                                                            }
+                                                                            if (!lp || !lp.title) return null;
                                                                             return (
                                                                                 <div
-                                                                                    className="wa-contact-msg-card-multiple"
-                                                                                    onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }}
-                                                                                    style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+                                                                                    className={`wa-link-preview-card ${!lp.image ? 'no-image' : ''} ${((lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be'))) ? 'youtube' : ''}`}
+                                                                                    onClick={(e) => { e.stopPropagation(); window.open(lp.url, '_blank'); }}
+                                                                                    style={{ cursor: 'pointer', transition: 'none' }}
                                                                                 >
-                                                                                    <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                                                                                        <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
-                                                                                            <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                                                {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                    {lp.image && (
+                                                                                        <div className="wa-link-preview-image">
+                                                                                            <img src={lp.image} alt={lp.title} />
+                                                                                            {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) && (
+                                                                                                <div className="wa-link-preview-play-btn">
+                                                                                                    <div className="wa-play-icon"><Play size={32} color="white" fill="white" /></div>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <div className="wa-link-preview-content">
+                                                                                        <div className="wa-link-preview-title">{lp.title}</div>
+                                                                                        {lp.description && <div className="wa-link-preview-description">{lp.description}</div>}
+                                                                                        <div className="wa-link-preview-domain">
+                                                                                            {(lp.domain?.includes('youtube') || lp.domain?.includes('youtu.be')) ? (
+                                                                                                <>
+                                                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#ff0000" />
+                                                                                                    </svg>
+                                                                                                    <span style={{ color: '#ff0000', fontWeight: 'bold' }}>{lp.domain}</span>
+                                                                                                </>
+                                                                                            ) : (
+                                                                                                <>
+                                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                                    </svg>
+                                                                                                    <span>{lp.domain}</span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+
+                                                                        {msg.type === 'contact' && (() => {
+                                                                            let cDataArray;
+                                                                            try {
+                                                                                const rawData = JSON.parse(msg.content);
+                                                                                cDataArray = Array.isArray(rawData) ? rawData : [rawData];
+                                                                            } catch (e) {
+                                                                                cDataArray = [{ name: 'Contact' }];
+                                                                            }
+
+                                                                            if (cDataArray.length > 1) {
+                                                                                return (
+                                                                                    <div
+                                                                                        className="wa-contact-msg-card-multiple"
+                                                                                        onClick={(e) => { e.stopPropagation(); setViewingContact(cDataArray); }}
+                                                                                        style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '260px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+                                                                                    >
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                                                            <div style={{ position: 'relative', width: 66, height: 44, marginRight: 12, flexShrink: 0 }}>
+                                                                                                <div className="wa-avatar" style={{ position: 'absolute', right: 0, zIndex: 1, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
+                                                                                                    {cDataArray[1].image ? <img src={cDataArray[1].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                                </div>
+                                                                                                <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
+                                                                                                    {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                                </div>
                                                                                             </div>
-                                                                                            <div className="wa-avatar" style={{ position: 'absolute', left: 0, zIndex: 2, width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px solid #ffffff' }}>
-                                                                                                {cDataArray[0].image ? <img src={cDataArray[0].image} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                            <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
+                                                                                                {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
                                                                                             </div>
                                                                                         </div>
-                                                                                        <div style={{ color: '#111b21', fontSize: '15px', fontWeight: 600, lineHeight: '1.3' }}>
-                                                                                            {cDataArray[0].name || cDataArray[0].mobile} and {cDataArray.length - 1} other contact{cDataArray.length > 2 ? 's' : ''}
+                                                                                        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                                                                                            <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                                                                                                View all
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            const cData = cDataArray[0];
+                                                                            return (
+                                                                                <div
+                                                                                    className="wa-contact-msg-card"
+                                                                                    onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }}
+                                                                                    style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+                                                                                >
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                                                                                        <div className="wa-avatar" style={{ width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                            {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
+                                                                                        </div>
+                                                                                        <div style={{ color: '#111b21', fontSize: '16px', fontWeight: 600 }}>
+                                                                                            {cData.name || 'Contact'}
                                                                                         </div>
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-                                                                                        <button style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
-                                                                                            View all
+                                                                                        <button
+                                                                                            className="wa-contact-card-action"
+                                                                                            onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }}
+                                                                                            style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+                                                                                        >
+                                                                                            Message
                                                                                         </button>
                                                                                     </div>
                                                                                 </div>
                                                                             );
-                                                                        }
+                                                                        })()}
 
-                                                                        const cData = cDataArray[0];
-                                                                        return (
-                                                                            <div
-                                                                                className="wa-contact-msg-card"
-                                                                                onClick={(e) => { e.stopPropagation(); setViewingContact(cData); }}
-                                                                                style={{ background: '#ffffff', borderRadius: '12px', padding: '12px', minWidth: '240px', cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
-                                                                            >
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                                                                                    <div className="wa-avatar" style={{ width: 44, height: 44, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                        {cData.image ? <img src={cData.image} alt={cData.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <UserIcon size={24} color="#8696a0" />}
-                                                                                    </div>
-                                                                                    <div style={{ color: '#111b21', fontSize: '16px', fontWeight: 600 }}>
-                                                                                        {cData.name || 'Contact'}
-                                                                                    </div>
+                                                                        {msg.type === 'poll' && msg.poll && (
+                                                                            <div className="wa-poll-card" style={{ background: '#ffffff', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                                                                                <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#111b21', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <List size={20} color="#0EA5BE" />
+                                                                                    {msg.poll.question}
                                                                                 </div>
-                                                                                <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                                                                                <div style={{ color: '#8696a0', fontSize: '13px', marginBottom: '12px' }}>
+                                                                                    {msg.poll.allowMultipleAnswers ? 'Select one or more' : 'Select one'}
+                                                                                </div>
+                                                                                <div className="wa-poll-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                    {msg.poll.options.map((opt, idx) => {
+                                                                                        const totalVotes = msg.poll.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
+                                                                                        const votes = opt.voters?.length || 0;
+                                                                                        const percentage = totalVotes === 0 ? 0 : Math.round((votes / totalVotes) * 100);
+                                                                                        const myId = String(user.id || user._id);
+                                                                                        const hasVotedOpt = (opt.voters || []).some(v => String(v) === myId || String(v?._id || v) === myId);
+                                                                                        const hasAnyVote = totalVotes > 0;
+
+                                                                                        return (
+                                                                                            <div
+                                                                                                key={idx}
+                                                                                                onClick={(e) => { e.stopPropagation(); handleVotePoll(msg, idx); }}
+                                                                                                style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: hasVotedOpt ? '1px solid #0EA5BE' : '1px solid #e9edef', background: hasVotedOpt ? 'rgba(14, 165, 190, 0.05)' : '#ffffff', transition: 'all 0.2s' }}
+                                                                                            >
+                                                                                                {hasAnyVote && (
+                                                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percentage}%`, background: 'rgba(14, 165, 190, 0.15)', zIndex: 1, transition: 'width 0.3s ease' }} />
+                                                                                                )}
+                                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#111b21' }}>
+                                                                                                        <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: hasVotedOpt ? '2px solid #0EA5BE' : '2px solid #8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                            {hasVotedOpt && <div style={{ width: '10px', height: '10px', borderRadius: msg.poll.allowMultipleAnswers ? '2px' : '50%', background: '#0EA5BE' }} />}
+                                                                                                        </div>
+                                                                                                        {opt.text}
+                                                                                                    </div>
+                                                                                                    {votes > 0 && <span style={{ fontSize: '12px', color: '#54656f', fontWeight: '500' }}>{votes}</span>}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                                <div style={{ borderTop: '1px solid #e9edef', marginTop: '15px', paddingTop: '10px' }}>
                                                                                     <button
-                                                                                        className="wa-contact-card-action"
-                                                                                        onClick={(e) => { e.stopPropagation(); handleUserSelect({ ...cData, id: cData._id }); }}
-                                                                                        style={{ background: 'none', border: 'none', color: '#027EB5', padding: '10px 0', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+                                                                                        onClick={(e) => { e.stopPropagation(); setPollDetails(msg.poll); setIsPollDetailsOpen(true); }}
+                                                                                        disabled={msg.poll.options.every(o => !(o.voters?.length > 0))}
+                                                                                        style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#0EA5BE' : '#8696a0', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
                                                                                     >
-                                                                                        Message
+                                                                                        View votes
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
-                                                                        );
-                                                                    })()}
+                                                                        )}
 
-                                                                    {msg.type === 'poll' && msg.poll && (
-                                                                        <div className="wa-poll-card" style={{ background: '#ffffff', borderRadius: '12px', padding: '15px', minWidth: '280px', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                                            <div style={{ paddingBottom: '10px', fontWeight: 'bold', color: '#111b21', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                                <List size={20} color="#0EA5BE" />
-                                                                                {msg.poll.question}
-                                                                            </div>
-                                                                            <div style={{ color: '#8696a0', fontSize: '13px', marginBottom: '12px' }}>
-                                                                                {msg.poll.allowMultipleAnswers ? 'Select one or more' : 'Select one'}
-                                                                            </div>
-                                                                            <div className="wa-poll-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                                {msg.poll.options.map((opt, idx) => {
-                                                                                    const totalVotes = msg.poll.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
-                                                                                    const votes = opt.voters?.length || 0;
-                                                                                    const percentage = totalVotes === 0 ? 0 : Math.round((votes / totalVotes) * 100);
-                                                                                    const myId = String(user.id || user._id);
-                                                                                    const hasVotedOpt = (opt.voters || []).some(v => String(v) === myId || String(v?._id || v) === myId);
-                                                                                    const hasAnyVote = totalVotes > 0;
+                                                                        {msg.type === 'event' && msg.event && (() => {
+                                                                            const myId = String(user.id || user._id);
+                                                                            const myResponse = (msg.event.responses || []).find(r => String(r.user_id) === myId);
 
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={idx}
-                                                                                            onClick={(e) => { e.stopPropagation(); handleVotePoll(msg, idx); }}
-                                                                                            style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden', padding: '10px', borderRadius: '8px', border: hasVotedOpt ? '1px solid #0EA5BE' : '1px solid #e9edef', background: hasVotedOpt ? 'rgba(14, 165, 190, 0.05)' : '#ffffff', transition: 'all 0.2s' }}
-                                                                                        >
-                                                                                            {hasAnyVote && (
-                                                                                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${percentage}%`, background: 'rgba(14, 165, 190, 0.15)', zIndex: 1, transition: 'width 0.3s ease' }} />
-                                                                                            )}
-                                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#111b21' }}>
-                                                                                                    <div style={{ width: '18px', height: '18px', borderRadius: msg.poll.allowMultipleAnswers ? '4px' : '50%', border: hasVotedOpt ? '2px solid #0EA5BE' : '2px solid #8696a0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                                        {hasVotedOpt && <div style={{ width: '10px', height: '10px', borderRadius: msg.poll.allowMultipleAnswers ? '2px' : '50%', background: '#0EA5BE' }} />}
-                                                                                                    </div>
-                                                                                                    {opt.text}
-                                                                                                </div>
-                                                                                                {votes > 0 && <span style={{ fontSize: '12px', color: '#54656f', fontWeight: '500' }}>{votes}</span>}
+                                                                            return (
+                                                                                <div className="wa-event-card" onClick={(e) => { e.stopPropagation(); openEventDetails(msg); }} style={{ background: '#ffffff', borderRadius: '12px', overflow: 'visible', width: '280px', maxWidth: '100%', cursor: 'pointer', opacity: msg.event.cancelled ? 0.7 : 1, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                                                                                    <div style={{ background: 'rgba(14, 165, 190, 0.05)', padding: '14px 16px', color: '#111b21', position: 'relative', borderRadius: '12px' }}>
+                                                                                        <div style={{ display: 'flex', gap: '14px' }}>
+                                                                                            <div style={{ background: 'white', border: '1px solid #e9edef', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                                                <Calendar size={24} color="#0EA5BE" />
                                                                                             </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                            <div style={{ borderTop: '1px solid #e9edef', marginTop: '15px', paddingTop: '10px' }}>
-                                                                                <button
-                                                                                    onClick={(e) => { e.stopPropagation(); setPollDetails(msg.poll); setIsPollDetailsOpen(true); }}
-                                                                                    disabled={msg.poll.options.every(o => !(o.voters?.length > 0))}
-                                                                                    style={{ background: 'none', border: 'none', width: '100%', color: msg.poll.options.some(o => o.voters?.length > 0) ? '#0EA5BE' : '#8696a0', fontSize: '14px', fontWeight: 'bold', padding: '6px 0', cursor: msg.poll.options.some(o => o.voters?.length > 0) ? 'pointer' : 'default', transition: 'color 0.2s' }}
-                                                                                >
-                                                                                    View votes
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {msg.type === 'event' && msg.event && (() => {
-                                                                        const myId = String(user.id || user._id);
-                                                                        const myResponse = (msg.event.responses || []).find(r => String(r.user_id) === myId);
-
-                                                                        return (
-                                                                            <div className="wa-event-card" onClick={(e) => { e.stopPropagation(); openEventDetails(msg); }} style={{ background: '#ffffff', borderRadius: '12px', overflow: 'visible', width: '280px', maxWidth: '100%', cursor: 'pointer', opacity: msg.event.cancelled ? 0.7 : 1, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                                                                                <div style={{ background: 'rgba(14, 165, 190, 0.05)', padding: '14px 16px', color: '#111b21', position: 'relative', borderRadius: '12px' }}>
-                                                                                    <div style={{ display: 'flex', gap: '14px' }}>
-                                                                                        <div style={{ background: 'white', border: '1px solid #e9edef', width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                                            <Calendar size={24} color="#0EA5BE" />
-                                                                                        </div>
-                                                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                                                            <div style={{ fontSize: '17px', fontWeight: 'bold', marginBottom: '4px', textDecoration: msg.event.cancelled ? 'line-through' : 'none', wordBreak: 'break-word', color: '#111b21' }}>{msg.event.name}</div>
-                                                                                            <div style={{ fontSize: '14px', color: '#667781' }}>
-                                                                                                {formatEventTimeString(msg.event.startDate, msg.event.startTime, msg.event.endDate, msg.event.endTime)}
-                                                                                            </div>
-                                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-                                                                                                <div style={{ display: 'flex', position: 'relative', width: '20px', height: '20px' }}>
-                                                                                                    <div style={{ position: 'absolute', width: '20px', height: '20px', borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                                                                        {msg.event.participants?.length > 0 ? (
-                                                                                                            (() => {
-                                                                                                                const p = users.find(u => String(u._id || u.id) === String(msg.event.participants[0]));
-                                                                                                                return p && (p.avatar || p.image || p.profile_photo) ? <img src={p.avatar || p.image || p.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />;
-                                                                                                            })()
-                                                                                                        ) : (
-                                                                                                            <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />
-                                                                                                        )}
-                                                                                                    </div>
+                                                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                                <div style={{ fontSize: '17px', fontWeight: 'bold', marginBottom: '4px', textDecoration: msg.event.cancelled ? 'line-through' : 'none', wordBreak: 'break-word', color: '#111b21' }}>{msg.event.name}</div>
+                                                                                                <div style={{ fontSize: '14px', color: '#667781' }}>
+                                                                                                    {formatEventTimeString(msg.event.startDate, msg.event.startTime, msg.event.endDate, msg.event.endTime)}
                                                                                                 </div>
-                                                                                                <span 
-                                                                                                    onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }} 
-                                                                                                    style={{ fontSize: '14px', color: '#0EA5BE', fontWeight: 500, cursor: 'pointer' }}>{msg.event.responses?.length || 0} responded</span>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                                                                                                    <div style={{ display: 'flex', position: 'relative', width: '20px', height: '20px' }}>
+                                                                                                        <div style={{ position: 'absolute', width: '20px', height: '20px', borderRadius: '50%', background: '#dfe5e7', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                                                                            {msg.event.participants?.length > 0 ? (
+                                                                                                                (() => {
+                                                                                                                    const p = users.find(u => String(u._id || u.id) === String(msg.event.participants[0]));
+                                                                                                                    return p && (p.avatar || p.image || p.profile_photo) ? <img src={p.avatar || p.image || p.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />;
+                                                                                                                })()
+                                                                                                            ) : (
+                                                                                                                <UserIcon size={16} color="#8696a0" style={{ marginTop: '2px' }} />
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <span
+                                                                                                        onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }}
+                                                                                                        style={{ fontSize: '14px', color: '#0EA5BE', fontWeight: 500, cursor: 'pointer' }}>{msg.event.responses?.length || 0} responded</span>
+                                                                                                </div>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>
-                                                                                </div>
-                                                                                <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f2f5', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', gap: '8px' }}>
-                                                                                    {msg.event.cancelled ? (
-                                                                                        <span style={{ color: '#667781', fontWeight: '600', fontSize: '15px' }}>Event cancelled</span>
-                                                                                    ) : (() => {
-                                                                                        const dateValue = msg.event.endDate || msg.event.startDate;
-                                                                                        if (!dateValue || typeof dateValue !== 'string') return null;
-                                                                                        const dStr = dateValue.split('T')[0];
-                                                                                        const endStr = `${dStr}T${msg.event.endTime || '23:59'}:00`;
-                                                                                        const isEnded = new Date(endStr) <= new Date();
-                                                                                        const startDValue = msg.event.startDate || '';
-                                                                                        if (!startDValue || typeof startDValue !== 'string') return null;
-                                                                                        const startDStr = startDValue.split('T')[0];
-                                                                                        const startStr = `${startDStr}T${msg.event.startTime || '00:00'}:00`;
-                                                                                        const isStarted = new Date(startStr) <= new Date();
+                                                                                    <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f2f5', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', gap: '8px' }}>
+                                                                                        {msg.event.cancelled ? (
+                                                                                            <span style={{ color: '#667781', fontWeight: '600', fontSize: '15px' }}>Event cancelled</span>
+                                                                                        ) : (() => {
+                                                                                            const dateValue = msg.event.endDate || msg.event.startDate;
+                                                                                            if (!dateValue || typeof dateValue !== 'string') return null;
+                                                                                            const dStr = dateValue.split('T')[0];
+                                                                                            const endStr = `${dStr}T${msg.event.endTime || '23:59'}:00`;
+                                                                                            const isEnded = new Date(endStr) <= new Date();
+                                                                                            const startDValue = msg.event.startDate || '';
+                                                                                            if (!startDValue || typeof startDValue !== 'string') return null;
+                                                                                            const startDStr = startDValue.split('T')[0];
+                                                                                            const startStr = `${startDStr}T${msg.event.startTime || '00:00'}:00`;
+                                                                                            const isStarted = new Date(startStr) <= new Date();
 
-                                                                                        if (isStarted || isEnded) {
+                                                                                            if (isStarted || isEnded) {
+                                                                                                return (
+                                                                                                    <>
+                                                                                                        {isMe && !isEnded && (
+                                                                                                            <div
+                                                                                                                onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }}
+                                                                                                                style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
+                                                                                                            >
+                                                                                                                Edit event
+                                                                                                            </div>
+                                                                                                        )}
+                                                                                                        <div style={{ width: '100%', textAlign: 'center' }}>
+                                                                                                            <span key={`started-grp-${eventTick}`} style={{ color: isEnded ? '#667781' : '#0EA5BE', fontWeight: '600', fontSize: '15px' }}>
+                                                                                                                {isEnded ? 'Event ended' : 'Event started'}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    </>
+                                                                                                );
+                                                                                            }
+
                                                                                             return (
                                                                                                 <>
-                                                                                                    {isMe && !isEnded && (
-                                                                                                        <div 
-                                                                                                            onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }} 
+                                                                                                    {isMe && (
+                                                                                                        <div
+                                                                                                            onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }}
                                                                                                             style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
                                                                                                         >
                                                                                                             Edit event
                                                                                                         </div>
                                                                                                     )}
                                                                                                     <div style={{ width: '100%', textAlign: 'center' }}>
-                                                                                                        <span key={`started-grp-${eventTick}`} style={{ color: isEnded ? '#667781' : '#0EA5BE', fontWeight: '600', fontSize: '15px' }}>
-                                                                                                            {isEnded ? 'Event ended' : 'Event started'}
-                                                                                                        </span>
+                                                                                                        <div
+                                                                                                            onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }}
+                                                                                                            style={{ color: '#0EA5BE', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                                                                                                        >
+                                                                                                            {myResponse ? myResponse.status : 'Respond'}
+                                                                                                            <ChevronDown size={18} />
+                                                                                                        </div>
+                                                                                                        {openEventRespondId === msg._id && (
+                                                                                                            <div style={{
+                                                                                                                position: 'absolute',
+                                                                                                                bottom: '100%',
+                                                                                                                left: '50%',
+                                                                                                                transform: 'translateX(-50%)',
+                                                                                                                background: 'white',
+                                                                                                                borderRadius: '8px',
+                                                                                                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                                                                                                zIndex: 10,
+                                                                                                                minWidth: '120px',
+                                                                                                                marginBottom: '4px',
+                                                                                                                overflow: 'hidden',
+                                                                                                                border: '1px solid #e9edef'
+                                                                                                            }}>
+                                                                                                                {['Going', 'Maybe', 'Not going'].map(status => (
+                                                                                                                    <div
+                                                                                                                        key={status}
+                                                                                                                        onClick={(e) => { e.stopPropagation(); handleEventRespond(msg, status); setOpenEventRespondId(null); }}
+                                                                                                                        style={{ padding: '10px 16px', fontSize: '14px', color: '#111b21', textAlign: 'left', borderBottom: status !== 'Not going' ? '1px solid #f0f2f5' : 'none', background: myResponse?.status === status ? '#f0f2f5' : 'white' }}
+                                                                                                                    >
+                                                                                                                        {status}
+                                                                                                                    </div>
+                                                                                                                ))}
+                                                                                                            </div>
+                                                                                                        )}
                                                                                                     </div>
                                                                                                 </>
                                                                                             );
-                                                                                        }
-
-                                                                                        return (
-                                                                                            <>
-                                                                                                {isMe && (
-                                                                                                    <div 
-                                                                                                        onClick={(e) => { e.stopPropagation(); openEditEvent(msg); }} 
-                                                                                                        style={{ width: '100%', textAlign: 'center', color: '#0EA5BE', fontWeight: '600', fontSize: '15px', cursor: 'pointer', paddingBottom: '8px', borderBottom: '1px solid #f0f2f5', marginBottom: '4px' }}
-                                                                                                    >
-                                                                                                        Edit event
-                                                                                                    </div>
-                                                                                                )}
-                                                                                                <div style={{ width: '100%', textAlign: 'center' }}>
-                                                                                                    <div
-                                                                                                        onClick={(e) => { e.stopPropagation(); setOpenEventRespondId(openEventRespondId === msg._id ? null : msg._id); }}
-                                                                                                        style={{ color: '#0EA5BE', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
-                                                                                                    >
-                                                                                                        {myResponse ? myResponse.status : 'Respond'}
-                                                                                                        <ChevronDown size={18} />
-                                                                                                    </div>
-                                                                                                    {openEventRespondId === msg._id && (
-                                                                                                        <div style={{
-                                                                                                            position: 'absolute',
-                                                                                                            bottom: '100%',
-                                                                                                            left: '50%',
-                                                                                                            transform: 'translateX(-50%)',
-                                                                                                            background: 'white',
-                                                                                                            borderRadius: '8px',
-                                                                                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                                                                                            zIndex: 10,
-                                                                                                            minWidth: '120px',
-                                                                                                            marginBottom: '4px',
-                                                                                                            overflow: 'hidden',
-                                                                                                            border: '1px solid #e9edef'
-                                                                                                        }}>
-                                                                                                            {['Going', 'Maybe', 'Not going'].map(status => (
-                                                                                                                <div
-                                                                                                                    key={status}
-                                                                                                                    onClick={(e) => { e.stopPropagation(); handleEventRespond(msg, status); setOpenEventRespondId(null); }}
-                                                                                                                    style={{ padding: '10px 16px', fontSize: '14px', color: '#111b21', textAlign: 'left', borderBottom: status !== 'Not going' ? '1px solid #f0f2f5' : 'none', background: myResponse?.status === status ? '#f0f2f5' : 'white' }}
-                                                                                                                >
-                                                                                                                    {status}
-                                                                                                                </div>
-                                                                                                            ))}
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </>
-                                                                                        );
-                                                                                    })()}
+                                                                                        })()}
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        );
-                                                                    })()}
+                                                                            );
+                                                                        })()}
 
-                                                                    {msg.content && msg.type !== 'contact' && msg.type !== 'poll' && msg.type !== 'event' && <span>{renderContent(msg.content)}</span>}
-                                                                </>
-                                                            )}
-
-                                                            <div className="wa-msg-meta">
-                                                                {msg.is_edited && <span style={{ fontSize: '10px', color: '#667781', marginRight: '2px', opacity: 0.9 }}>Edited</span>}
-                                                                {msg.is_pinned && <Pin size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3, transform: 'rotate(45deg)' }} />}
-                                                                {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3 }} />}
-                                                                <span className="wa-timestamp">
-                                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                                </span>
-                                                                {isMe && (
-                                                                    <div className="wa-msg-status">
-                                                                        {msg.is_read
-                                                                            ? <CheckCheck size={14} color="#53bdeb" />
-                                                                            : <CheckCheck size={14} color="#8696a0" />}
-                                                                    </div>
+                                                                        {msg.content && msg.type !== 'contact' && msg.type !== 'poll' && msg.type !== 'event' && <span>{renderContent(msg.content)}</span>}
+                                                                    </>
                                                                 )}
-                                                            </div>
-                                                            {/* Reaction display badges - Group */}
-                                                            {msg.reactions && msg.reactions.length > 0 && (() => {
-                                                                const currentUserId = user.id || user._id;
-                                                                const grouped = msg.reactions.reduce((acc, r) => {
-                                                                    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reactedByMe: false, userNames: [] };
-                                                                    acc[r.emoji].count++;
-                                                                    const isMeReaction = String(r.user_id) === String(currentUserId);
-                                                                    if (isMeReaction) acc[r.emoji].reactedByMe = true;
 
-                                                                    const uName = isMeReaction ? 'You' : (users.find(u => String(u._id || u.id) === String(r.user_id))?.name || 'User');
-                                                                    if (!acc[r.emoji].userNames.includes(uName)) {
-                                                                        acc[r.emoji].userNames.push(uName);
-                                                                    }
-                                                                    return acc;
-                                                                }, {});
-                                                                return (
-                                                                    <div className={`wa-reaction-badges ${isMe ? 'wa-reaction-badges-sent' : 'wa-reaction-badges-recv'}`}>
-                                                                        {Object.entries(grouped).map(([emoji, { count, reactedByMe, userNames }]) => (
-                                                                            <span
-                                                                                key={emoji}
-                                                                                className={`wa-reaction-badge ${reactedByMe ? 'reacted' : ''}`}
-                                                                                onClick={(e) => { e.stopPropagation(); const bubble = e.currentTarget.closest('.wa-message-bubble') || e.currentTarget.closest('.wa-msg-sent') || e.currentTarget.closest('.wa-msg-recv'); setReactionDetails({ msg, isGroup: true, rect: (bubble || e.currentTarget).getBoundingClientRect() }); }}
-                                                                            >
-                                                                                {emoji}{count > 1 && <span className="wa-reaction-count">{count}</span>}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
+                                                                <div className="wa-msg-meta">
+                                                                    {msg.is_edited && <span style={{ fontSize: '10px', color: '#667781', marginRight: '2px', opacity: 0.9 }}>Edited</span>}
+                                                                    {msg.is_pinned && <Pin size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3, transform: 'rotate(45deg)' }} />}
+                                                                    {msg.is_starred && <Star size={12} fill="#8696a0" color="#8696a0" style={{ marginRight: 3 }} />}
+                                                                    <span className="wa-timestamp">
+                                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                                    </span>
+                                                                    {isMe && (
+                                                                        <div className="wa-msg-status">
+                                                                            {msg.is_read
+                                                                                ? <CheckCheck size={14} color="#53bdeb" />
+                                                                                : <CheckCheck size={14} color="#8696a0" />}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                {/* Reaction display badges - Group */}
+                                                                {msg.reactions && msg.reactions.length > 0 && (() => {
+                                                                    const currentUserId = user.id || user._id;
+                                                                    const grouped = msg.reactions.reduce((acc, r) => {
+                                                                        if (!acc[r.emoji]) acc[r.emoji] = { count: 0, reactedByMe: false, userNames: [] };
+                                                                        acc[r.emoji].count++;
+                                                                        const isMeReaction = String(r.user_id) === String(currentUserId);
+                                                                        if (isMeReaction) acc[r.emoji].reactedByMe = true;
+
+                                                                        const uName = isMeReaction ? 'You' : (users.find(u => String(u._id || u.id) === String(r.user_id))?.name || 'User');
+                                                                        if (!acc[r.emoji].userNames.includes(uName)) {
+                                                                            acc[r.emoji].userNames.push(uName);
+                                                                        }
+                                                                        return acc;
+                                                                    }, {});
+                                                                    return (
+                                                                        <div className={`wa-reaction-badges ${isMe ? 'wa-reaction-badges-sent' : 'wa-reaction-badges-recv'}`}>
+                                                                            {Object.entries(grouped).map(([emoji, { count, reactedByMe, userNames }]) => (
+                                                                                <span
+                                                                                    key={emoji}
+                                                                                    className={`wa-reaction-badge ${reactedByMe ? 'reacted' : ''}`}
+                                                                                    onClick={(e) => { e.stopPropagation(); const bubble = e.currentTarget.closest('.wa-message-bubble') || e.currentTarget.closest('.wa-msg-sent') || e.currentTarget.closest('.wa-msg-recv'); setReactionDetails({ msg, isGroup: true, rect: (bubble || e.currentTarget).getBoundingClientRect() }); }}
+                                                                                >
+                                                                                    {emoji}{count > 1 && <span className="wa-reaction-count">{count}</span>}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </React.Fragment>
                                                 );
@@ -17813,13 +18003,13 @@ export default function Chat() {
     const renderUnblockModal = () => {
         if (!showUnblockModal) return null;
         return (
-            <div 
-                className="wa-mute-modal-overlay" 
+            <div
+                className="wa-mute-modal-overlay"
                 onClick={() => setShowUnblockModal(false)}
                 style={{ zIndex: 5000, background: 'rgba(11, 20, 26, 0.85)', backdropFilter: 'blur(4px)' }}
             >
-                <div 
-                    className="wa-mute-modal" 
+                <div
+                    className="wa-mute-modal"
                     onClick={(e) => e.stopPropagation()}
                     style={{ maxWidth: '450px', background: '#ffffff', borderRadius: '24px', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
                 >
@@ -18237,11 +18427,11 @@ export default function Chat() {
                         if (!eventDetailsMsg?.event) return null;
                         const ev = eventDetailsMsg.event;
                         const isSender = String(eventDetailsMsg.user_id || eventDetailsMsg.sender_id?._id || eventDetailsMsg.sender_id) === String(myId);
-                        
+
                         const dStr = (ev.endDate || ev.startDate).split('T')[0];
                         const endStr = `${dStr}T${ev.endTime || '23:59'}:00`;
                         const isEnded = new Date(endStr) <= new Date();
-                        
+
                         const startDStr = (ev.startDate || '').split('T')[0];
                         const startStr = `${startDStr}T${ev.startTime || '00:00'}:00`;
                         const isStarted = new Date(startStr) <= new Date();
@@ -18430,14 +18620,14 @@ export default function Chat() {
                             />
                             <MapPin size={22} color="#8696a0" style={{ position: 'absolute', right: 0, top: '8px' }} />
                         </div>
-                        
+
                         {/* Reminder Timing Dropdown */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <div style={{ color: '#111b21', fontSize: '16px' }}>Reminder</div>
                             <div style={{ position: 'relative' }}>
-                                <select 
-                                    value={eventReminderTiming} 
-                                    onChange={(e) => setEventReminderTiming(e.target.value)} 
+                                <select
+                                    value={eventReminderTiming}
+                                    onChange={(e) => setEventReminderTiming(e.target.value)}
                                     style={{ background: '#f0f2f5', border: 'none', borderRadius: '18px', padding: '6px 16px', color: '#0EA5BE', cursor: 'pointer', outline: 'none' }}
                                 >
                                     <option value="default">Default auto</option>
@@ -18531,32 +18721,32 @@ export default function Chat() {
     const renderCommunitySettingsPanel = () => {
         const community = selectedCommunity || communities.find(c => c.name === (selectedGroup?.communityName || selectedGroup?.name));
         if (!community || !isCommunitySettingsOpen) return null;
-        const textColor = '#3b4a54';
-        const thickDivider = '12px solid #f0f2f5';
+        const textColor = '#f8fafc';
+        const thickDivider = '12px solid rgba(255, 255, 255, 0.06)';
 
         return (
-            <div className={`wa-contact-info-panel wa-community-settings-drawer ${isCommunitySettingsOpen ? 'active' : ''}`} style={{ background: '#f0f2f5', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'white', borderBottom: '1px solid #e9edef' }}>
-                    <button onClick={() => setIsCommunitySettingsOpen(false)} style={{ background: 'none', border: 'none', color: '#54656f', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
+            <div className={`wa-contact-info-panel wa-community-settings-drawer ${isCommunitySettingsOpen ? 'active' : ''}`} style={{ background: 'rgba(15, 23, 42, 0.95)', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                <div className="wa-drawer-header" style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 12px', background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <button onClick={() => setIsCommunitySettingsOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', marginRight: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
                         <ArrowLeft size={24} />
                     </button>
                     <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingRight: '40px' }}>
-                        <span style={{ fontSize: 19, fontWeight: 500, color: '#3b4a54', whiteSpace: 'nowrap' }}>Community settings</span>
+                        <span style={{ fontSize: 19, fontWeight: 500, color: '#f8fafc', whiteSpace: 'nowrap' }}>Community settings</span>
                     </div>
                 </div>
 
-                <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
-                    <div style={{ padding: '30px 20px 10px', color: '#0EA5BE', fontSize: '14px', fontWeight: '500', background: 'white' }}>Community permissions</div>
+                <div className="wa-drawer-content" style={{ padding: 0, display: 'flex', flexDirection: 'column', background: 'rgba(15, 23, 42, 0.95)' }}>
+                    <div style={{ padding: '30px 20px 10px', color: '#0EA5BE', fontSize: '14px', fontWeight: '500', background: 'rgba(15, 23, 42, 0.9)' }}>Community permissions</div>
 
                     <div
-                        style={{ background: 'white', padding: '15px 20px', cursor: 'pointer', borderBottom: thickDivider }}
+                        style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '15px 20px', cursor: 'pointer', borderBottom: thickDivider }}
                         onClick={() => {
                             setPendingWhoCanAddGroups(community.whoCanAddGroups || 'everyone');
                             setIsWhoCanAddGroupsModalOpen(true);
                         }}
                     >
-                        <div style={{ fontSize: 16, color: '#111b21', marginBottom: 4 }}>Who can add new groups</div>
-                        <div style={{ fontSize: 14, color: '#667781' }}>
+                        <div style={{ fontSize: 16, color: textColor, marginBottom: 4 }}>Who can add new groups</div>
+                        <div style={{ fontSize: 14, color: '#94a3b8' }}>
                             {community.whoCanAddGroups === 'admins' ? 'Only community admins' : 'Everyone'}
                         </div>
                     </div>
@@ -19855,7 +20045,13 @@ export default function Chat() {
                 .wa-main-chat { background: transparent !important; }
                 .wa-left-panel, .wa-left-sidebar { background: white; z-index: 2; position: relative; }
                 .wa-chat-header { background: transparent !important; }
-                .wa-pinned-messages-banner { background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(8px) !important; }
+                .wa-pinned-messages-banner {
+                    background: rgba(15, 23, 42, 0.92) !important;
+                    border-bottom: 1px solid rgba(56, 189, 248, 0.25) !important;
+                    backdrop-filter: blur(8px) !important;
+                    -webkit-backdrop-filter: blur(8px) !important;
+                }
+                .wa-pinned-messages-banner span { color: #f8fafc !important; }
             `}</style>
 
             <div className={`wa-app-container ${(selectedUser || selectedGroup) ? 'chat-active' : 'list-active'}`} style={{ position: 'relative', background: 'transparent' }}>
@@ -19873,7 +20069,7 @@ export default function Chat() {
 
                             {/* Sleep Mode Overlay - Restricted strictly to the Chat Area */}
                             {isAppAsleep && (selectedUser || selectedGroup) && (
-                                <div 
+                                <div
                                     className="wa-sleep-overlay"
                                     onClick={() => setIsAppAsleep(false)}
                                     style={{
@@ -19896,8 +20092,8 @@ export default function Chat() {
                                     {(selectedUser || selectedGroup) && (
                                         <div style={{ marginBottom: '24px', textAlign: 'center' }}>
                                             {selectedUser ? (
-                                                <img 
-                                                    src={selectedUser.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'} 
+                                                <img
+                                                    src={selectedUser.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'}
                                                     alt="User"
                                                     style={{ width: '100px', height: '100px', borderRadius: '50%', border: '4px solid rgba(255,255,255,0.35)', boxShadow: '0 12px 30px rgba(2, 126, 181, 0.18)' }}
                                                 />
@@ -19927,7 +20123,7 @@ export default function Chat() {
                                         <div style={{ color: '#0EA5BE', fontSize: '19px', fontWeight: '700', marginBottom: '10px', lineHeight: '1.4' }}>
                                             You are diverted out of focus from the screen.
                                         </div>
-                                        <div style={{ fontSize: '15px', color: '#475569' }}>
+                                        <div style={{ fontSize: '15px', color: '#e2e8f0' }}>
                                             Please return to the screen to start the conversation
                                         </div>
                                     </div>
@@ -19987,7 +20183,10 @@ export default function Chat() {
                                     </div>
                                 ) : (
                                     messageRequests.map(req => (
-                                        <div key={req._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderBottom: '1px solid #f0f2f5', transition: 'background 0.2s', cursor: 'default' }}
+                                        <div
+                                            key={req._id}
+                                            onClick={() => openRequestConversation(req)}
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderBottom: '1px solid #f0f2f5', transition: 'background 0.2s', cursor: 'pointer' }}
                                             onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
                                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
@@ -20004,11 +20203,11 @@ export default function Chat() {
                                             </div>
                                             <div style={{ display: 'flex', gap: 8, marginLeft: 10 }}>
                                                 <button
-                                                    onClick={() => { handleAcceptRequest(req._id); setIsRequestsModalOpen(false); }}
+                                                    onClick={(e) => { e.stopPropagation(); handleAcceptRequest(req._id); setIsRequestsModalOpen(false); }}
                                                     style={{ padding: '8px 16px', borderRadius: '20px', border: 'none', background: '#0EA5BE', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                                 >Accept</button>
                                                 <button
-                                                    onClick={() => { handleRejectRequest(req._id); setIsRequestsModalOpen(false); }}
+                                                    onClick={(e) => { e.stopPropagation(); handleRejectRequest(req._id); setIsRequestsModalOpen(false); }}
                                                     style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid #f15c6d', background: 'transparent', color: '#f15c6d', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                                 >Reject</button>
                                             </div>
@@ -20374,16 +20573,16 @@ export default function Chat() {
 
             {isExitCommunityModalOpen && exitCommunityTarget && (
                 <div className="wa-mute-modal-overlay" onClick={() => setIsExitCommunityModalOpen(false)} style={{ zIndex: 11000 }}>
-                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', borderRadius: '16px', padding: 0 }}>
+                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', borderRadius: '16px', padding: 0, background: 'rgba(15, 23, 42, 0.94)', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
                         <div className="wa-mute-modal-content" style={{ padding: '24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                                <h3 style={{ fontSize: '20px', color: '#111b21', margin: 0 }}>Exit community: "{exitCommunityTarget.name}"?</h3>
-                                <button onClick={() => setIsExitCommunityModalOpen(false)} style={{ background: '#f0f2f5', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                                    <X size={18} color="#54656f" />
+                                <h3 style={{ fontSize: '20px', color: '#f8fafc', margin: 0 }}>Exit community: "{exitCommunityTarget.name}"?</h3>
+                                <button onClick={() => setIsExitCommunityModalOpen(false)} style={{ background: 'rgba(148, 163, 184, 0.2)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                    <X size={18} color="#cbd5e1" />
                                 </button>
                             </div>
-                            <div style={{ background: '#F0F2F5', padding: '16px', borderRadius: '12px', marginBottom: 24 }}>
-                                <p style={{ margin: 0, fontSize: '14px', color: '#667781', textAlign: 'center', lineHeight: '1.5' }}>
+                            <div style={{ background: 'rgba(30, 41, 59, 0.85)', padding: '16px', borderRadius: '12px', marginBottom: 24, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <p style={{ margin: 0, fontSize: '14px', color: '#cbd5e1', textAlign: 'center', lineHeight: '1.5' }}>
                                     You will also leave all groups in this community. Only admins are notified when you leave a community.
                                 </p>
                             </div>
@@ -20393,10 +20592,10 @@ export default function Chat() {
                                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderRadius: '12px', cursor: 'pointer', background: 'transparent', transition: 'background 0.2s' }}
                                     className="wa-exit-option"
                                 >
-                                    <span style={{ fontSize: '16px', color: '#111b21' }}>Exit community</span>
-                                    <LogOut size={20} color="#111b21" style={{ transform: 'rotate(180deg)' }} />
+                                    <span style={{ fontSize: '16px', color: '#f8fafc' }}>Exit community</span>
+                                    <LogOut size={20} color="#f8fafc" style={{ transform: 'rotate(180deg)' }} />
                                 </div>
-                                <div style={{ height: '1px', background: '#f0f2f5', margin: '0 20px' }}></div>
+                                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.12)', margin: '0 20px' }}></div>
                                 <div
                                     onClick={() => handleExitCommunityAction('delete')}
                                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderRadius: '12px', cursor: 'pointer', background: 'transparent', transition: 'background 0.2s' }}
@@ -20413,8 +20612,8 @@ export default function Chat() {
 
             {isOwnerExitCommunityModalOpen && exitCommunityTarget && (
                 <div className="wa-mute-modal-overlay" onClick={() => setIsOwnerExitCommunityModalOpen(false)} style={{ zIndex: 11000 }}>
-                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%', borderRadius: '16px', background: 'white', padding: '24px 32px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                        <p style={{ color: '#111b21', fontSize: '18px', margin: '0 0 32px 0', lineHeight: 1.4, fontWeight: 500 }}>
+                    <div className="wa-mute-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.94)', border: '1px solid rgba(255, 255, 255, 0.12)', padding: '24px 32px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                        <p style={{ color: '#f8fafc', fontSize: '18px', margin: '0 0 32px 0', lineHeight: 1.4, fontWeight: 500 }}>
                             As the owner, you'll need to assign a new owner to exit the community.
                         </p>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '20px', alignItems: 'center' }}>
@@ -20427,7 +20626,7 @@ export default function Chat() {
                             </button>
                             <button
                                 onClick={() => setIsOwnerExitCommunityModalOpen(false)}
-                                style={{ background: '#0EA5BE', color: 'white', border: 'none', borderRadius: '24px', padding: '10px 24px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                                style={{ background: 'rgba(148, 163, 184, 0.25)', color: '#e2e8f0', border: 'none', borderRadius: '24px', padding: '10px 24px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
                             >
                                 Cancel
                             </button>
@@ -20734,9 +20933,9 @@ export default function Chat() {
                                     <input type="date" value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} style={{ padding: '10px', borderRadius: 8, border: '1px solid #e9edef', flex: 1 }} />
                                     <input type="time" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} style={{ padding: '10px', borderRadius: 8, border: '1px solid #e9edef', width: 140 }} />
                                 </div>
-                                <select 
-                                    value={eventReminderTiming} 
-                                    onChange={(e) => setEventReminderTiming(e.target.value)} 
+                                <select
+                                    value={eventReminderTiming}
+                                    onChange={(e) => setEventReminderTiming(e.target.value)}
                                     style={{ padding: '10px', borderRadius: 8, border: '1px solid #e9edef', width: '100%' }}
                                 >
                                     <option value="default">Default auto reminder</option>
